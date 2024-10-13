@@ -4,7 +4,7 @@ import { Box, ChakraProvider } from "@chakra-ui/react";
 import theme from "../theme";
 import LoginModal from "../components/LoginModal";
 import RegisterModal from "../components/RegisterModal";
-import Acquisition from "./Acquisition"; // Updated to use Acquisition
+import Acquisition from "./Acquisition"; 
 
 export default function Page() {
   const [isLoginOpen, setLoginOpen] = useState(false);
