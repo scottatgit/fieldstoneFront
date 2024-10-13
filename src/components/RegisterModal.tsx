@@ -32,7 +32,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isOpen, onClose }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [registerError, setRegisterError] = useState('');
+  const [registerError] = useState('');
 
   const dispatch = useAppDispatch();
   const router = useRouter();

@@ -65,11 +65,19 @@ export default function FirstSteps() {
         </VStack>
 
         {/* CTA Section */}
-        <Box textAlign="center" py={10}>
-          <Button colorScheme="blue" size="lg" className="cta-button">
-            Schedule Your First Meeting
-          </Button>
-        </Box>
+        {/* Schedule Button */}
+          <Box textAlign="center" py={10}>
+            <Button
+              colorScheme="blue"
+              size="lg"
+              as="a"
+              href="https://meetings.hubspot.com/scott-tam-0000"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Schedule Your First Meeting
+            </Button>
+          </Box>
       </Box>
     </ChakraProvider>
   );
