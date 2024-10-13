@@ -10,8 +10,8 @@ export default function Page() {
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
 
-  const handleLoginOpen = () => setLoginOpen(true);
-  const handleRegisterOpen = () => setRegisterOpen(true);
+  //const handleLoginOpen = () => setLoginOpen(true);
+  //const handleRegisterOpen = () => setRegisterOpen(true);
 
   return (
     <ChakraProvider theme={theme}>
