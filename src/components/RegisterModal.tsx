@@ -66,9 +66,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isOpen, onClose }) => {
 
       // Redirect to First Steps page
       router.push('/first-steps');
-    } catch (error: any) {
-      setRegisterError(error.response?.data?.message || 'Registration failed. Please try again.');
-    }
+    } catch (error: unknown) {
+      console.error('Error during registration:', error);    }
   };
 
   if (!isOpen) return null;

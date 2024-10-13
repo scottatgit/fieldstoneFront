@@ -19,7 +19,7 @@ import RegisterModal from './RegisterModal';
 import LoginModal from './LoginModal';
 import { ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons'; // Icon for the dropdown
 import NextLink from 'next/link';
-import { FaBell, FaGamepad } from 'react-icons/fa'; // Import Font Awesome icons
+import { FaBell } from 'react-icons/fa'; // Import Font Awesome icons
 
 const Navbar = () => {
   const dispatch = useAppDispatch();

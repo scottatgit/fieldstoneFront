@@ -29,7 +29,7 @@ export default function FirstSteps() {
               <ListItem>Identify key business challenges AI could address.</ListItem>
               <ListItem>Review current data assets: ensure data availability and quality.</ListItem>
               <ListItem>Assess your current technological infrastructure for AI compatibility.</ListItem>
-              <ListItem>Evaluate your team's skills and identify AI expertise gaps.</ListItem>
+              <ListItem>Evaluate your team skills and identify AI expertise gaps.</ListItem>
             </UnorderedList>
           </Box>
 
