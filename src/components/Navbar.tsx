@@ -65,37 +65,10 @@ const Navbar = () => {
         <Flex align="center" gap="4">
           {/* Logo */}
           <NextLink href="/" passHref>
-            <ChakraLink
-              cursor="pointer"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                src="/home.png" // Updated path to use the public fold
-                alt="Kreation Nation"
-                height="40px"
-                width="auto"
-              />
-            </ChakraLink>
-          </NextLink>
-
-          {/* Show the beta testers image only when not authenticated */}
-          {!isAuthenticated && (
-            <NextLink href="https://www.linkedin.com/in/scott-e-7140a839/" passHref>
-              <ChakraLink
-                cursor="pointer"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Image
-                  src="/betatesters.png"
-                  alt="Beta Testers"
-                  height="40px"
-                  width="auto"
-                />
-              </ChakraLink>
-            </NextLink>
-          )}
+          <ChakraLink cursor="pointer" rel="noopener noreferrer">
+            Fieldstone
+          </ChakraLink>
+        </NextLink>
 
           {/* Conditional Links for authenticated users */}
           {isAuthenticated && (

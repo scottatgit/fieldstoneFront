@@ -36,7 +36,7 @@ export default function Acquisition() {
             Helping businesses harness the transformative power of AI with customized frameworks and trusted expertise.
           </Text>
           <Button colorScheme="blue" size="lg" rightIcon={<ArrowForwardIcon />} onClick={handleGetStarted}>
-            Get Started
+            Get The Checklist
           </Button>
         </Box>
 
@@ -101,7 +101,7 @@ export default function Acquisition() {
             Ready to Scale Your Business with AI?
           </Text>
           <Button colorScheme="blue" size="lg" rightIcon={<ArrowForwardIcon />} onClick={handleGetStarted}>
-            Get Started
+            Get The Checklist
           </Button>
         </Box>
 
