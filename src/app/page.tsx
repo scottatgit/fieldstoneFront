@@ -34,13 +34,13 @@ export default function Page() {
           <Acquisition /> {/* Use Acquisition component here */}
         </Suspense>
 
-        {/* Welcome Modal */}
+        {/* Welcome Modal 
         <WelcomeModal
           isOpen={isWelcomeOpen}
           onClose={handleCloseWelcome}
           onLoginOpen={handleLoginOpen}
           onRegisterOpen={handleRegisterOpen}
-        />
+        />*/}
 
         {/* Login and Register Modals */}
         <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} />
