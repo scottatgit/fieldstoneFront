@@ -43,41 +43,41 @@ export default function RootLayout({ children }: LayoutProps) {
   return (
     <html lang="en">
       <head>
-        <title>Kreation Nation</title>
+        <title>Fieldstone | AI Solutions for Your Business Growth</title>
         {/* Primary Meta Tags for SEO */}
-        <meta name="title" content="Kreation Nation | Find - Celebrate - Create!" />
+        <meta name="title" content="Fieldstone | AI Solutions for Your Business Growth" />
         <meta
           name="description"
-          content="Kreation Nation: Review - Contain - Commune - Create! Discover creator-based content like books, services, newsletters, tutorials, reviews, and more."
+          content="Fieldstone provides tailored AI frameworks, integration, and data analytics to empower your business for a digital future. Join us to elevate your operations with cutting-edge technology."
         />
         <meta
           name="keywords"
-          content="creators, tutorials, services, newsletters, books, Kreation Nation, reviews"
+          content="AI solutions, AI frameworks, data analytics, business growth, Fieldstone, AI integration"
         />
         <meta name="robots" content="index, follow" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta charSet="UTF-8" />
-        <link rel="canonical" href="https://www.kreationation.com" />
+        <link rel="canonical" href="https://www.fieldstone.pro" />
 
         {/* Open Graph Meta Tags for Social Media Sharing */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.kreationation.com" />
-        <meta property="og:title" content="Kreation Nation | Find - Celebrate - Create!" />
+        <meta property="og:url" content="https://www.fieldstone.pro" />
+        <meta property="og:title" content="Fieldstone | AI Solutions for Your Business Growth" />
         <meta
           property="og:description"
-          content="Review - Contain - Commune - Create! Explore books, newsletters, services, tutorials, reviews, and everything creator-based."
+          content="Empowering businesses with AI frameworks, data-driven analytics, and seamless integration. Discover how Fieldstone can transform your operations."
         />
-        <meta property="og:image" content="https://www.kreationation.com/preview.png" />
+        <meta property="og:image" content="https://www.fieldstone.pro/preview.png" />
 
         {/* Twitter Meta Tags for Sharing */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://www.kreationation.com" />
-        <meta name="twitter:title" content="Kreation Nation | Find - Celebrate - Create!" />
+        <meta name="twitter:url" content="https://www.fieldstone.pro" />
+        <meta name="twitter:title" content="Fieldstone | AI Solutions for Your Business Growth" />
         <meta
           name="twitter:description"
-          content="Review - Contain - Commune - Create! Discover creator-based content."
+          content="Fieldstone helps businesses grow through AI frameworks, data insights, and advanced technology integration."
         />
-        <meta name="twitter:image" content="https://www.kreationation.com/preview.png" />
+        <meta name="twitter:image" content="https://www.fieldstone.pro/preview.png" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ChakraProvider theme={theme}>
