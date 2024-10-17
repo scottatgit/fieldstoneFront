@@ -21,7 +21,7 @@ export default function Landing() {
             We empower businesses with tailored AI solutions and access to top resources to drive growth and innovation.
           </Text>
           <Button colorScheme="blue" size="lg" onClick={handleRegisterOpen}>
-            Get Started
+            Free Checklist
           </Button>
         </Box>
 
