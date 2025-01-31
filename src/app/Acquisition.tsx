@@ -4,12 +4,12 @@ import theme from "../theme";
 import { ArrowForwardIcon } from "@chakra-ui/icons";
 import { useState } from "react";
 import RegisterModal from "../components/RegisterModal";
-import { useAppSelector } from "../redux/hooks"; // Assumes you have a selector to check auth status
+import { useAppSelector } from "../redux/hooks";
 import { useRouter } from "next/navigation";
 
 export default function Acquisition() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const { isAuthenticated } = useAppSelector((state) => state.auth); // Checking if user is authenticated
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
   const router = useRouter();
 
   const handleRegisterOpen = () => setIsRegisterOpen(true);
@@ -17,9 +17,9 @@ export default function Acquisition() {
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      router.push('/first-steps'); // Redirect to First Steps page if authenticated
+      router.push('/first-steps');
     } else {
-      handleRegisterOpen(); // Open Register Modal if not authenticated
+      handleRegisterOpen();
     }
   };
 
@@ -30,10 +30,10 @@ export default function Acquisition() {
         {/* Hero Section */}
         <Box textAlign="center" py={20}>
           <Text fontSize="4xl" fontWeight="bold" mb={4}>
-            Scaling AI Solutions for Maximum Impact
+            AI-Powered Solutions for Business Growth
           </Text>
           <Text fontSize="xl" color="gray.600" mb={8}>
-            Helping businesses harness the transformative power of AI with customized frameworks and trusted expertise.
+            Unlock the power of AI with solutions in **networking, software, SaaS, and social media marketing**.
           </Text>
           <Button colorScheme="blue" size="lg" rightIcon={<ArrowForwardIcon />} onClick={handleGetStarted}>
             Get The Checklist
@@ -44,21 +44,21 @@ export default function Acquisition() {
         <Box py={10}>
           <Flex direction={{ base: "column", md: "row" }} textAlign="center" gap={6}>
             <VStack>
-              <Text fontSize="2xl" fontWeight="bold">Comprehensive AI Frameworks</Text>
+              <Text fontSize="2xl" fontWeight="bold">AI-Driven Networking</Text>
               <Text fontSize="md" color="gray.600">
-                Structured implementation for sustained AI growth and scalability, tailored to meet your unique goals.
+                Enhance **connectivity, security, and automation** with AI-powered network management.
               </Text>
             </VStack>
             <VStack>
-              <Text fontSize="2xl" fontWeight="bold">Exclusive Access to Resources</Text>
+              <Text fontSize="2xl" fontWeight="bold">SaaS-Powered Efficiency</Text>
               <Text fontSize="md" color="gray.600">
-                Gain priority access to AI resources and top freelancers to ensure your AI solutions are expertly executed.
+                Leverage AI-driven **SaaS tools** to streamline business operations and **automate workflows**.
               </Text>
             </VStack>
             <VStack>
-              <Text fontSize="2xl" fontWeight="bold">Proven Track Record</Text>
+              <Text fontSize="2xl" fontWeight="bold">AI in Social Media Marketing</Text>
               <Text fontSize="md" color="gray.600">
-                Results-backed methodologies that empower businesses to thrive in an AI-driven landscape.
+                Optimize content strategy and engagement with AI-driven **social media analytics and automation**.
               </Text>
             </VStack>
           </Flex>
@@ -73,21 +73,21 @@ export default function Acquisition() {
           </Text>
           <Flex direction={{ base: "column", md: "row" }} gap={6}>
             <Box textAlign="left" flex="1">
-              <Text fontSize="2xl" fontWeight="bold">Text-to-Video</Text>
+              <Text fontSize="2xl" fontWeight="bold">AI Network Solutions</Text>
               <Text fontSize="md" color="gray.600" mt={2}>
-                Convert content into video with AI-driven visuals, engaging your audience in an innovative way.
+                Automate **network security, monitoring, and performance optimization** using AI.
               </Text>
             </Box>
             <Box textAlign="left" flex="1">
-              <Text fontSize="2xl" fontWeight="bold">Website Integrations</Text>
+              <Text fontSize="2xl" fontWeight="bold">SaaS & AI Software</Text>
               <Text fontSize="md" color="gray.600" mt={2}>
-                Seamless chatbot and AI analytics integrations to improve user experience and drive conversions.
+                Develop and integrate **custom AI-powered SaaS applications** for your business.
               </Text>
             </Box>
             <Box textAlign="left" flex="1">
-              <Text fontSize="2xl" fontWeight="bold">Data Analytics</Text>
+              <Text fontSize="2xl" fontWeight="bold">Social Media AI Automation</Text>
               <Text fontSize="md" color="gray.600" mt={2}>
-                Advanced data solutions to extract insights and support smarter, data-driven decision-making.
+                Use AI to schedule posts, analyze audience insights, and optimize marketing campaigns.
               </Text>
             </Box>
           </Flex>
@@ -95,10 +95,10 @@ export default function Acquisition() {
 
         <Divider my={12} />
 
-        {/* Call to Action*/} 
+        {/* Call to Action */} 
         <Box textAlign="center" py={16}>
           <Text fontSize="3xl" fontWeight="bold" mb={6}>
-            Ready to Scale Your Business with AI?
+            Ready to Transform Your Business with AI?
           </Text>
           <Button colorScheme="blue" size="lg" rightIcon={<ArrowForwardIcon />} onClick={handleGetStarted}>
             Get The Checklist
