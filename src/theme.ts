@@ -1,38 +1,53 @@
-// src/theme.ts
 import { extendTheme } from '@chakra-ui/react';
 
 const theme = extendTheme({
-  colors: {
-    amazonBlue: {
-      500: '#0073e6',  // Primary blue for nav and buttons
-      600: '#005bb5',  // Hover effect for buttons
-    },
-    amazonYellow: {
-      500: '#ffb700',  // Primary yellow for call-to-action
-      600: '#cc9200',  // Hover yellow for call-to-action
+  styles: {
+    global: {
+      body: {
+        bg: 'var(--background)',
+        color: 'var(--foreground)',
+        fontFamily: 'Arial, sans-serif',
+      },
     },
   },
-  fonts: {
-    heading: `'amazonSans', sans-serif`,
-    body: `'amazonSans', sans-serif`,
+  colors: {
+    background: '#1a1a1a',
+    foreground: '#ffffff',
+    buttonBg: '#333333', // Dark button background
+    buttonHover: '#444444', // Slightly lighter button on hover
   },
   components: {
     Button: {
+      baseStyle: {
+        fontWeight: '500', // Semi-bold text for buttons
+        borderRadius: 'md', // Medium border radius for a modern look
+      },
       variants: {
         solid: {
-          bg: 'amazonBlue.500',
-          color: 'white',
+          bg: 'var(--button-bg)', // Using CSS variable for button background
+          color: 'var(--foreground)', // Light text color for readability
           _hover: {
-            bg: 'amazonBlue.600',
+            bg: 'var(--button-hover)', // Hover effect
+          },
+          _active: {
+            bg: 'var(--button-hover)', // Active state
           },
         },
-        cta: {
-          bg: 'amazonYellow.500',
-          color: 'black',
+        outline: {
+          borderColor: 'var(--foreground)', // Light border for outline buttons
+          color: 'var(--foreground)',
           _hover: {
-            bg: 'amazonYellow.600',
+            bg: 'var(--button-hover)',
+            borderColor: 'var(--foreground)',
+          },
+          _active: {
+            bg: 'var(--button-hover)',
+            borderColor: 'var(--foreground)',
           },
         },
+      },
+      defaultProps: {
+        variant: 'solid', // Set the default variant to solid
       },
     },
   },

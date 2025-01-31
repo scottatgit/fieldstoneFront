@@ -58,7 +58,7 @@ const Navbar = () => {
   }
 
   return (
-    <Box as="nav" bg="gray.100" p="4" borderBottom="1px solid #ccc">
+    <Box as="nav" bg="white.100" p="4" borderBottom="1px solid #ccc">
       <Flex justify="space-between" align="center" className="max-w-7xl mx-auto">
         {/* Logo and Links */}
         <Flex align="center" gap="4">
