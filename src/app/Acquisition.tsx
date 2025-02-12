@@ -17,7 +17,7 @@ export default function Acquisition() {
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      router.push('/first-steps');
+      router.push("/first-steps");
     } else {
       handleRegisterOpen();
     }
@@ -27,7 +27,7 @@ export default function Acquisition() {
     <ChakraProvider theme={theme}>
       <Box as="main" className="max-w-5xl mx-auto py-12 px-6">
         
-        {/* Hero Section */}
+        {/* 1: Hero Section */}
         <Box textAlign="center" py={20}>
           <Text fontSize="4xl" fontWeight="bold" mb={4}>
             AI-Powered Solutions for Business Growth
@@ -40,8 +40,13 @@ export default function Acquisition() {
           </Button>
         </Box>
 
-        {/* Value Propositions */}
+        <Divider borderColor="black.200"mx={10} my={12} />
+
+        {/* 2: AI-Driven Networking */}
         <Box py={10}>
+          <Text fontSize="3xl" fontWeight="bold" textAlign="center" mb={8}>
+            AI-Driven Networking
+          </Text>
           <Flex direction={{ base: "column", md: "row" }} textAlign="center" gap={6}>
             <VStack>
               <Text fontSize="2xl" fontWeight="bold">AI-Driven Networking</Text>
@@ -64,9 +69,9 @@ export default function Acquisition() {
           </Flex>
         </Box>
 
-        <Divider my={12} />
+        <Divider borderColor="black.200"mx={10} my={12} />
 
-        {/* Core Services Section */}
+        {/* 3: Our Services */}
         <Box py={10}>
           <Text fontSize="3xl" fontWeight="bold" textAlign="center" mb={8}>
             Our Services
@@ -93,9 +98,9 @@ export default function Acquisition() {
           </Flex>
         </Box>
 
-        <Divider my={12} />
+        <Divider borderColor="black.200"mx={10} my={12} />
 
-        {/* Call to Action */} 
+        {/* 4: Call to Action */}
         <Box textAlign="center" py={16}>
           <Text fontSize="3xl" fontWeight="bold" mb={6}>
             Ready to Transform Your Business with AI?
