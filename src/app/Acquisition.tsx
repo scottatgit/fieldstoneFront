@@ -33,7 +33,7 @@ export default function Acquisition() {
             AI-Powered Solutions for Business Growth
           </Text>
           <Text fontSize="xl" color="gray.600" mb={8}>
-            Unlock the power of AI with solutions in **networking, software, SaaS, and social media marketing**.
+            Unlock the power of AI with solutions in <strong>networking, software, SaaS, and social media marketing</strong>.
           </Text>
           <Button colorScheme="blue" size="lg" rightIcon={<ArrowForwardIcon />} onClick={handleGetStarted}>
             Get The Checklist
@@ -46,19 +46,19 @@ export default function Acquisition() {
             <VStack>
               <Text fontSize="2xl" fontWeight="bold">AI-Driven Networking</Text>
               <Text fontSize="md" color="gray.600">
-                Enhance **connectivity, security, and automation** with AI-powered network management.
+                Enhance <strong>connectivity, security, and automation</strong> with AI-powered network management.
               </Text>
             </VStack>
             <VStack>
               <Text fontSize="2xl" fontWeight="bold">SaaS-Powered Efficiency</Text>
               <Text fontSize="md" color="gray.600">
-                Leverage AI-driven **SaaS tools** to streamline business operations and **automate workflows**.
+                Leverage AI-driven <strong>SaaS tools</strong> to streamline business operations and <strong>automate workflows</strong>.
               </Text>
             </VStack>
             <VStack>
               <Text fontSize="2xl" fontWeight="bold">AI in Social Media Marketing</Text>
               <Text fontSize="md" color="gray.600">
-                Optimize content strategy and engagement with AI-driven **social media analytics and automation**.
+                Optimize content strategy and engagement with AI-driven <strong>social media analytics and automation</strong>.
               </Text>
             </VStack>
           </Flex>
@@ -75,13 +75,13 @@ export default function Acquisition() {
             <Box textAlign="left" flex="1">
               <Text fontSize="2xl" fontWeight="bold">AI Network Solutions</Text>
               <Text fontSize="md" color="gray.600" mt={2}>
-                Automate **network security, monitoring, and performance optimization** using AI.
+                Automate <strong>network security, monitoring, and performance optimization</strong> using AI.
               </Text>
             </Box>
             <Box textAlign="left" flex="1">
               <Text fontSize="2xl" fontWeight="bold">SaaS & AI Software</Text>
               <Text fontSize="md" color="gray.600" mt={2}>
-                Develop and integrate **custom AI-powered SaaS applications** for your business.
+                Develop and integrate <strong>custom AI-powered SaaS applications</strong> for your business.
               </Text>
             </Box>
             <Box textAlign="left" flex="1">
