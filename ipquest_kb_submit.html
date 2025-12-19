@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>IPQuest KB Submit</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+    }
+    button {
+      font-size: 16px;
+      padding: 12px 20px;
+      cursor: pointer;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>IPQuest KB Submission</h2>
+
+<button onclick="submitKB()">Submit KB Entry</button>
+
+<pre id="result"></pre>
+
+<script>
+async function submitKB() {
+  const output = document.getElementById("result");
+  output.textContent = "Submitting...";
+
+  try {
+    const jsonText = await navigator.clipboard.readText();
+    const response = await fetch(
+      "https://script.google.com/macros/u/1/s/AKfycbybJFtkWvlZgqE80eGFV6oG-UtaUWga6Ry5whXEQGmV7x5oVr_AgopTny08a3xsocHJ0A/exec",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: jsonText
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    output.textContent = "✅ KB entry submitted successfully.";
+
+  } catch (err) {
+    output.textContent = "❌ Submission failed:\n" + err.message;
+  }
+}
+</script>
+
+</body>
+</html>
