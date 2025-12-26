@@ -1,59 +1,125 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>IPQuest KB Submit</title>
+  <meta charset="UTF-8" />
+  <title>IPQuest – Submit Ticket</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
+      background: #f4f6f8;
       padding: 40px;
     }
-    button {
-      font-size: 16px;
-      padding: 12px 20px;
-      cursor: pointer;
+    .container {
+      max-width: 800px;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
     }
     pre {
-      background: #f4f4f4;
-      padding: 10px;
+      background: #f0f0f0;
+      padding: 15px;
+      overflow-x: auto;
+      border-radius: 4px;
+    }
+    button {
+      padding: 12px 18px;
+      font-size: 16px;
       margin-top: 20px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .error {
+      color: #b00020;
+    }
+    .success {
+      color: #006400;
     }
   </style>
 </head>
+
 <body>
+  <div class="container">
+    <h2>IPQuest Ticket Submission</h2>
 
-<h2>IPQuest KB Submission</h2>
+    <p>Review the ticket details below, then click <strong>Submit Ticket</strong>.</p>
 
-<button onclick="submitKB()">Submit KB Entry</button>
+    <pre id="preview">Loading...</pre>
 
-<pre id="result"></pre>
+    <button onclick="sendWebhook()">Submit Ticket</button>
 
-<script>
-async function submitKB() {
-  const output = document.getElementById("result");
-  output.textContent = "Submitting...";
+    <div id="status" class="status"></div>
+  </div>
 
-  try {
-    const jsonText = await navigator.clipboard.readText();
-    const response = await fetch(
-      "https://script.google.com/macros/u/1/s/AKfycbybJFtkWvlZgqE80eGFV6oG-UtaUWga6Ry5whXEQGmV7x5oVr_AgopTny08a3xsocHJ0A/exec",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: jsonText
+  <script>
+    const webhookUrl =
+      "https://hook.us2.make.com/f8bd2nrlmfyhwcfk2brxrovop83syqo2";
+
+    let payload = null;
+
+    function loadPayloadFromLink() {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("data");
+
+      if (!encoded) {
+        throw new Error("No data parameter found in the link.");
       }
-    );
 
-    if (!response.ok) {
-      throw new Error("HTTP " + response.status);
+      const decoded = atob(encoded);
+      const json = JSON.parse(decoded);
+
+      json.timestamp = new Date().toISOString();
+      return json;
     }
 
-    output.textContent = "✅ KB entry submitted successfully.";
+    function init() {
+      try {
+        payload = loadPayloadFromLink();
+        document.getElementById("preview").textContent =
+          JSON.stringify(payload, null, 2);
+      } catch (err) {
+        document.getElementById("preview").textContent = "";
+        document.getElementById("status").textContent = err.message;
+        document.getElementById("status").className = "status error";
+      }
+    }
 
-  } catch (err) {
-    output.textContent = "❌ Submission failed:\n" + err.message;
-  }
-}
-</script>
+    async function sendWebhook() {
+      if (!payload) return;
 
+      document.getElementById("status").textContent = "Submitting ticket...";
+      document.getElementById("status").className = "status";
+
+      try {
+        const response = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP error " + response.status);
+        }
+
+        document.getElementById("status").textContent =
+          "Ticket submitted successfully!";
+        document.getElementById("status").className = "status success";
+
+      } catch (err) {
+        document.getElementById("status").textContent =
+          "Submission failed: " + err.message;
+        document.getElementById("status").className = "status error";
+      }
+    }
+
+    init();
+  </script>
 </body>
 </html>
