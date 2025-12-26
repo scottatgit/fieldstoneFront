@@ -1,1 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>IPQuest – Submit Ticket</title>
 
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 40px;
+    }
+    .container {
+      max-width: 800px;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+    }
+    pre {
+      background: #f0f0f0;
+      padding: 15px;
+      overflow-x: auto;
+      border-radius: 4px;
+    }
+    button {
+      padding: 12px 18px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .error {
+      color: #b00020;
+    }
+    .success {
+      color: #006400;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>IPQuest Ticket Submission</h2>
+
+    <p>Review the ticket details below, then click <strong>Submit Ticket</strong>.</p>
+
+    <pre id="preview">Loading...</pre>
+
+    <button onclick="sendWebhook()">Submit Ticket</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    const webhookUrl =
+      "https://hook.us2.make.com/f8bd2nrlmfyhwcfk2brxrovop83syqo2";
+
+    let payload = null;
+
+    function loadPayloadFromLink() {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("data");
+
+      if (!encoded) {
+        throw new Error("No data parameter found in the link.");
+      }
+
+      const decoded = atob(encoded);
+      const json = JSON.parse(decoded);
+
+      json.timestamp = new Date().toISOString();
+      return json;
+    }
+
+    function init() {
+      try {
+        payload = loadPayloadFromLink();
+        document.getElementById("preview").textContent =
+          JSON.stringify(payload, null, 2);
+      } catch (err) {
+        document.getElementById("preview").textContent = "";
+        document.getElementById("status").textContent = err.message;
+        document.getElementById("status").className = "status error";
+      }
+    }
+
+    async function sendWebhook() {
+      if (!payload) return;
+
+      document.getElementById("status").textContent = "Submitting ticket...";
+      document.getElementById("status").className = "status";
+
+      try {
+        const response = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP error " + response.status);
+        }
+
+        document.getElementById("status").textContent =
+          "Ticket submitted successfully!";
+        document.getElementById("status").className = "status success";
+
+      } catch (err) {
+        document.getElementById("status").textContent =
+          "Submission failed: " + err.message;
+        document.getElementById("status").className = "status error";
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
