@@ -214,6 +214,18 @@
         try {
           data = JSON.parse(text);
         } catch {
+          // Handle Make.com responses like { "results": TEXT }
+          const match = text.match(/"results"\s*:\s*([\s\S]*)/);
+        
+          if (match) {
+            const cleaned = match[1]
+              .replace(/^[\s{"]+/, "")
+              .replace(/[}\s"]+$/, "");
+        
+            document.getElementById("searchResults").textContent = cleaned;
+            return;
+          }
+        
           document.getElementById("searchResults").textContent =
             text || "No records returned from Airtable. Please confirm the connection or filters.";
           return;
