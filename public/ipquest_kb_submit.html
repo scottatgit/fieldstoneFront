@@ -65,6 +65,13 @@
       <button onclick="searchIssue()">Search Issue</button>
       <button onclick="searchSolution()">Search Solution</button>
 
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Edit search text"
+        style="padding:8px; width:300px; margin-top:10px;"
+      />
+
       <pre id="searchResults" class="search-results">No search performed.</pre>
     </div>
 
@@ -106,11 +113,27 @@
       return json;
     }
 
+    function getSearchText(fallback) {
+      const manual = document.getElementById("searchInput").value.trim();
+      return manual || fallback;
+    }
+
     function init() {
       try {
         payload = loadPayloadFromLink();
         document.getElementById("preview").textContent =
           JSON.stringify(payload, null, 2);
+
+        if (payload?.Company) {
+          document.getElementById("searchInput").value = payload.Company;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get("mode");
+        if (mode === "search" && payload?.Company) {
+          performSearch("company", payload.Company);
+        }
+
       } catch (err) {
         document.getElementById("preview").textContent = "";
         document.getElementById("status").textContent = err.message;
@@ -164,9 +187,24 @@
           throw new Error("HTTP error " + response.status);
         }
 
-        const data = await response.json();
+        const text = await response.text();
 
-        if (!data || data.length === 0) {
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          document.getElementById("searchResults").textContent =
+            text || "No records returned from Airtable. Please confirm the connection or filters.";
+          return;
+        }
+
+        if (Array.isArray(data) && data.length === 0) {
+          document.getElementById("searchResults").textContent =
+            "No records returned from Airtable. Please confirm the connection or filters.";
+          return;
+        }
+
+        if (!data || (typeof data === "object" && !Array.isArray(data) && Object.keys(data).length === 0)) {
           document.getElementById("searchResults").textContent =
             "No records returned from Airtable. Please confirm the connection or filters.";
           return;
@@ -182,16 +220,18 @@
     }
 
     function searchCompany() {
-      if (!payload?.Company) {
+      const text = getSearchText(payload?.Company);
+      if (!text) {
         document.getElementById("searchResults").textContent =
-          "No company name available in payload.";
+          "No company name available for search.";
         return;
       }
-      performSearch("company", payload.Company);
+      performSearch("company", text);
     }
 
     function searchIssue() {
-      const text = payload?.Problem_Description || payload?.Problem_Title;
+      const fallback = payload?.Problem_Description || payload?.Problem_Title;
+      const text = getSearchText(fallback);
       if (!text) {
         document.getElementById("searchResults").textContent =
           "No issue text available for search.";
@@ -201,7 +241,8 @@
     }
 
     function searchSolution() {
-      const text = payload?.Root_Cause || payload?.Solution_Steps;
+      const fallback = payload?.Root_Cause || payload?.Solution_Steps;
+      const text = getSearchText(fallback);
       if (!text) {
         document.getElementById("searchResults").textContent =
           "No solution text available for search.";
@@ -214,4 +255,5 @@
   </script>
 </body>
 </html>
+
 
