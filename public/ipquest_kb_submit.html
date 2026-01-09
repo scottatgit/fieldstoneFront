@@ -169,6 +169,27 @@
       }
     }
 
+    function renderResultsPretty(data) {
+      if (!Array.isArray(data)) {
+        return data;
+      }
+    
+      return data.map(item => {
+        return `
+    ------------------------------
+    Ticket: ${item.Ticket || "N/A"}
+    Title: ${item.Title || item.Problem_Title || "N/A"}
+    Company: ${item.Company || "N/A"}
+    Category: ${item.Category || "N/A"}
+    Time: ${item.Time || item.timestamp || "N/A"}
+    
+    Description:
+    ${item.Description || item.Problem_Description || "N/A"}
+    ------------------------------
+    `.trim();
+      }).join("\n\n");
+    }
+
     async function performSearch(type, keywords) {
       document.getElementById("searchResults").textContent =
         "Searching...";
@@ -211,7 +232,8 @@
         }
 
         document.getElementById("searchResults").textContent =
-          JSON.stringify(data, null, 2);
+        renderResultsPretty(data);
+
 
       } catch (err) {
         document.getElementById("searchResults").textContent =
