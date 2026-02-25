@@ -1,6 +1,9 @@
 const path = require('path');
+const isStaticExport = process.env.STATIC_EXPORT === '1';
 
 module.exports = {
+  output: isStaticExport ? 'export' : undefined,
+  distDir: isStaticExport ? 'out' : '.next',
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -8,16 +11,18 @@ module.exports = {
     };
     return config;
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'https://api.kreationation.com/api/:path*',
-      },
-      {
-        source: '/uploads/:path*',
-        destination: 'https://api.kreationation.com/uploads/:path*',
-      },
-    ];
-  },
+  ...(isStaticExport ? {} : {
+    async rewrites() {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'https://api.kreationation.com/api/:path*',
+        },
+        {
+          source: '/uploads/:path*',
+          destination: 'https://api.kreationation.com/uploads/:path*',
+        },
+      ];
+    },
+  }),
 };
