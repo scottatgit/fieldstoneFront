@@ -69,6 +69,19 @@ const SECTIONS: { title: string; icon: string; fields: FieldDef[] }[] = [
       { key: 'AI_FALLBACK_URL',     label: 'Fallback URL',       placeholder: 'https://api.openai.com/v1', helper: 'Optional backup provider' },
       { key: 'AI_FALLBACK_KEY',     label: 'Fallback API Key',   secret: true },
       { key: 'AI_FALLBACK_MODEL',   label: 'Fallback Model',     placeholder: 'gpt-4o-mini' },
+      // ── AI OAuth 2.0 ──
+      { key: '_ai_oauth_heading', label: 'AI OAuth 2.0 (Provider-Agnostic)', type: 'heading', helper: 'Use OAuth instead of API keys — works with Google Vertex AI, Azure OpenAI, OpenAI Platform, and custom providers' },
+      {
+        key: 'AI_OAUTH_PROVIDER', label: 'OAuth Provider',
+        type: 'select', options: ['', 'google', 'azure', 'openai', 'custom'],
+        helper: 'google=Vertex AI/Gemini · azure=Azure OpenAI · openai=OpenAI Platform · custom=any OAuth2 endpoint',
+      },
+      { key: 'AI_OAUTH_CLIENT_ID',     label: 'OAuth Client ID',     placeholder: 'client id from your provider' },
+      { key: 'AI_OAUTH_CLIENT_SECRET', label: 'OAuth Client Secret', secret: true, placeholder: 'client secret' },
+      { key: 'AI_OAUTH_REFRESH_TOKEN', label: 'OAuth Refresh Token', secret: true, placeholder: 'refresh token from OAuth flow' },
+      { key: 'AI_OAUTH_TOKEN_URL',     label: 'Token Endpoint URL',  placeholder: 'https://oauth2.googleapis.com/token', helper: 'Required for custom provider; auto-set for google/azure/openai' },
+      { key: 'AI_OAUTH_SCOPE',         label: 'OAuth Scope(s)',       placeholder: 'https://www.googleapis.com/auth/cloud-platform', helper: 'Space-separated scopes' },
+      { key: 'AZURE_TENANT_ID',        label: 'Azure Tenant ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', helper: 'Azure AD only — leave blank for other providers' },
     ],
   },
   {
