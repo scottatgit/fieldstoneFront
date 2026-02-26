@@ -161,7 +161,8 @@ export function ChatPanel() {
               dangerouslySetInnerHTML={{ __html: renderMd(m.content) }}
             />
             <Text fontSize="2xs" color="gray.700" mt={0.5}
-              textAlign={m.role === 'user' ? 'right' : 'left'}>
+              textAlign={m.role === 'user' ? 'right' : 'left'}
+              suppressHydrationWarning>
               {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </Box>

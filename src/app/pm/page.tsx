@@ -46,7 +46,7 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
           IPQUEST PM
         </Text>
         <Text fontSize="xs" color="gray.600" fontFamily="mono">
-          {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          {typeof window !== "undefined" ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ""}
         </Text>
       </HStack>
 
