@@ -21,7 +21,7 @@ type FieldDef = {
   label: string;
   helper?: string;
   secret?: boolean;
-  type?: 'text' | 'select' | 'toggle';
+  type?: 'text' | 'select' | 'toggle' | 'heading';
   options?: string[];
   placeholder?: string;
 };
@@ -40,6 +40,11 @@ const SECTIONS: { title: string; icon: string; fields: FieldDef[] }[] = [
       { key: 'IMAP_HOST',          label: 'IMAP Host',           placeholder: 'imap.gmail.com' },
       { key: 'IMAP_USER',          label: 'IMAP Username',       placeholder: 'you@gmail.com' },
       { key: 'IMAP_PASS',          label: 'IMAP Password',       secret: true },
+      // ── Google OAuth 2.0 ──
+      { key: '_oauth_heading',       label: 'Google OAuth 2.0',    type: 'heading', helper: 'Alternative to App Password — use if 2FA blocks SMTP/IMAP' },
+      { key: 'GOOGLE_CLIENT_ID',     label: 'OAuth Client ID',     placeholder: '123456789.apps.googleusercontent.com' },
+      { key: 'GOOGLE_CLIENT_SECRET', label: 'OAuth Client Secret', secret: true, placeholder: 'GOCSPX-...' },
+      { key: 'GOOGLE_REFRESH_TOKEN', label: 'OAuth Refresh Token', secret: true, placeholder: '1//0g...' },
     ],
   },
   {
@@ -101,6 +106,21 @@ function SettingField({
   const [show, setShow] = useState(false);
   const isSecret = field.secret;
   const isMasked = value.includes('••');
+
+  if (field.type === 'heading') {
+    return (
+      <FormControl>
+        <Divider borderColor="blue.700" mt={2} mb={1} />
+        <Text fontSize="xs" fontFamily="mono" color="blue.300"
+          textTransform="uppercase" letterSpacing="wider" fontWeight="bold" mb={1}>
+          {field.label}
+        </Text>
+        {field.helper && (
+          <FormHelperText fontSize="xs" color="gray.500" mt={0} mb={2}>{field.helper}</FormHelperText>
+        )}
+      </FormControl>
+    );
+  }
 
   return (
     <FormControl>
