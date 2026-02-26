@@ -7,7 +7,7 @@ import {
   Divider, Spinner, Flex, Select, Switch,
   useToast,
 } from '@chakra-ui/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -206,6 +206,94 @@ function TestBadge({ result }: { result: TestResult }) {
   );
 }
 
+// ─── OAuth Connect Button ─────────────────────────────────────────────────────
+function OAuthConnectButton({ provider, onSuccess }: { provider: string; onSuccess: () => void }) {
+  const [status, setStatus] = useState<'idle' | 'waiting' | 'success' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const handleConnect = () => {
+    if (!provider) { setMsg('Select a provider first'); setStatus('error'); return; }
+    setStatus('waiting');
+    setMsg('Waiting for authorization...');
+
+    // Open OAuth popup
+    const popup = window.open(
+      `http://localhost:8100/api/oauth/initiate?provider=${provider}`,
+      'oauth_popup',
+      'width=520,height=680,scrollbars=yes,resizable=yes'
+    );
+
+    // Poll for completion every 2s
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`http://localhost:8100/api/oauth/status?provider=${provider}`);
+        const data = await res.json();
+        if (data.completed) {
+          stopPolling();
+          popup?.close();
+          setStatus('success');
+          setMsg(data.has_refresh
+            ? '✅ Connected! Refresh token saved.'
+            : '⚠️ Connected but no refresh token — check scope includes offline_access');
+          setTimeout(onSuccess, 1000);
+        }
+      } catch { /* ignore poll errors */ }
+    }, 2000);
+
+    // Cleanup after 5 minutes
+    setTimeout(() => {
+      stopPolling();
+      if (status !== 'success') {
+        setStatus('error');
+        setMsg('Timed out — authorization not completed within 5 minutes');
+      }
+    }, 300000);
+  };
+
+  useEffect(() => () => stopPolling(), []);
+
+  const providerLabels: Record<string, string> = {
+    google: 'Google (Vertex AI)',
+    azure:  'Azure OpenAI',
+    openai: 'OpenAI Platform',
+    custom: 'Custom Provider',
+  };
+  const label = (providerLabels[provider] || provider || 'PROVIDER').toUpperCase();
+
+  return (
+    <Box mt={2}>
+      <HStack spacing={3} align="center" flexWrap="wrap">
+        <Button
+          size="sm" colorScheme="purple" variant="outline"
+          onClick={handleConnect}
+          isLoading={status === 'waiting'}
+          loadingText="Waiting..."
+          isDisabled={!provider || status === 'waiting'}
+          fontFamily="mono" fontSize="xs" letterSpacing="wider"
+        >
+          🔗 CONNECT WITH {label}
+        </Button>
+        {status === 'success' && (
+          <Text fontSize="xs" color="green.400" fontFamily="mono">{msg}</Text>
+        )}
+        {status === 'error' && (
+          <Text fontSize="xs" color="red.400" fontFamily="mono">{msg}</Text>
+        )}
+      </HStack>
+      {status === 'waiting' && (
+        <Text fontSize="xs" color="gray.500" mt={1} fontFamily="mono">
+          Complete the authorization in the popup window...
+        </Text>
+      )}
+    </Box>
+  );
+}
+
 // ─── Main SetupPanel ──────────────────────────────────────────────────────────
 export function SetupPanel() {
   const toast   = useToast();
@@ -393,6 +481,22 @@ export function SetupPanel() {
                         </Text>
                       </HStack>
                       <TestBadge result={aiTest} />
+                      {settings['AI_OAUTH_PROVIDER'] && (
+                        <Box mt={3}>
+                          <Divider borderColor="purple.800" mb={3} />
+                          <Text fontSize="xs" fontFamily="mono" color="purple.300"
+                            textTransform="uppercase" letterSpacing="wider" mb={2}>
+                            🔗 OAuth Authorization Flow
+                          </Text>
+                          <Text fontSize="xs" color="gray.500" mb={2}>
+                            Make sure Client ID and Client Secret are saved first, then click Connect to authorize.
+                          </Text>
+                          <OAuthConnectButton
+                            provider={settings['AI_OAUTH_PROVIDER'] || ''}
+                            onSuccess={loadSettings}
+                          />
+                        </Box>
+                      )}
                     </Box>
                   )}
 
