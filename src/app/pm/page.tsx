@@ -11,6 +11,7 @@ import { Ticket, CalendarEvent, Summary } from '../../components/pm/types';
 import { TicketCard } from '../../components/pm/TicketCard';
 import { PrepBriefDrawer } from '../../components/pm/PrepBriefDrawer';
 import { ChatPanel } from '../../components/pm/ChatPanel';
+import Link from 'next/link';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -48,6 +49,14 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
         <Text fontSize="xs" color="gray.600" fontFamily="mono">
           {typeof window !== "undefined" ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ""}
         </Text>
+        <Link href="/pm/setup">
+          <Text
+            fontSize="xs" color="gray.500" fontFamily="mono"
+            _hover={{ color: 'blue.400' }} cursor="pointer" title="Setup"
+          >
+            ⚙️ Setup
+          </Text>
+        </Link>
       </HStack>
 
       {/* Center: stats */}
