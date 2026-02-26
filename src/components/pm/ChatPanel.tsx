@@ -38,6 +38,15 @@ function renderMd(text: string): string {
     .replace(/\n/g, '<br/>');
 }
 
+
+/** Client-only time display — prevents SSR hydration mismatch */
+function TimeDisplay({ ts }: { ts: Date }) {
+  const [display, setDisplay] = useState('');
+  useEffect(() => {
+    setDisplay(ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  }, [ts]);
+  return <span>{display}</span>;
+}
 export function ChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]     = useState('');
@@ -164,9 +173,8 @@ export function ChatPanel() {
               dangerouslySetInnerHTML={{ __html: renderMd(m.content) }}
             />
             <Text fontSize="2xs" color="gray.700" mt={0.5}
-              textAlign={m.role === 'user' ? 'right' : 'left'}
-              suppressHydrationWarning>
-              {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              textAlign={m.role === 'user' ? 'right' : 'left'}>
+              <TimeDisplay ts={m.timestamp} />
             </Text>
           </Box>
         ))}
