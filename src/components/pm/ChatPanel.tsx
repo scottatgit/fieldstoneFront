@@ -39,18 +39,21 @@ function renderMd(text: string): string {
 }
 
 export function ChatPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef             = useRef<HTMLDivElement>(null);
+
+  // Add initial Tank message client-side only (avoids SSR hydration mismatch)
+  useEffect(() => {
+    setMessages([{
       id: uid(),
       role: 'assistant',
       content: '## 🤖 Tank Online\n\nIPQuest PM Intelligence ready. Try `!digest`, `!signals`, or `!brief <ticket_key>`.\n\nType `help` for all commands.',
       type: 'text',
       timestamp: new Date(),
-    }
-  ]);
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
-  const bottomRef             = useRef<HTMLDivElement>(null);
+    }]);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
