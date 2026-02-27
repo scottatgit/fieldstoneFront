@@ -67,6 +67,16 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
             🧠 Intel
           </Text>
         </Link>
+        <Link href="/pm/docs">
+          <Text
+            fontSize="xs" fontWeight="medium"
+            color="cyan.400" opacity={0.8}
+            _hover={{ opacity: 1 }} cursor="pointer" title="Docs"
+            ml={2}
+          >
+            📖 Docs
+          </Text>
+        </Link>
       </HStack>
 
       {/* Center: stats */}
