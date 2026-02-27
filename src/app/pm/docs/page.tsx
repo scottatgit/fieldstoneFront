@@ -277,11 +277,11 @@ function S4() {
       <DT
         headers={['Classification', 'Trigger', 'Action']}
         rows={[
-          [<Badge colorScheme="red">active_outbreak</Badge>,     '2+ clients, same tool, 4hr window',     'Immediate Tank alert'],
-          [<Badge colorScheme="yellow">update_related</Badge>,   'Monday morning pattern',                'Check vendor release notes'],
-          [<Badge colorScheme="orange">recurring</Badge>,        'Same tool, 3rd+ occurrence in 90 days', 'Create permanent SOP'],
-          [<Badge colorScheme="blue">regional_outage</Badge>,    'Multiple clients, same ISP',            'Check ISP status'],
-          [<Badge colorScheme="purple">vendor_triggered</Badge>, 'Matches vendor update day',             'Contact vendor support'],
+          [<Badge key="active" colorScheme="red">active_outbreak</Badge>,     '2+ clients, same tool, 4hr window',     'Immediate Tank alert'],
+          [<Badge key="update" colorScheme="yellow">update_related</Badge>,   'Monday morning pattern',                'Check vendor release notes'],
+          [<Badge key="recurring" colorScheme="orange">recurring</Badge>,        'Same tool, 3rd+ occurrence in 90 days', 'Create permanent SOP'],
+          [<Badge key="regional" colorScheme="blue">regional_outage</Badge>,    'Multiple clients, same ISP',            'Check ISP status'],
+          [<Badge key="vendor" colorScheme="purple">vendor_triggered</Badge>, 'Matches vendor update day',             'Contact vendor support'],
         ]}
       />
       <SubHeading>Tool Risk Score</SubHeading>
@@ -425,11 +425,11 @@ function S7() {
       <DT
         headers={['Signal', 'Values', 'Meaning']}
         rows={[
-          [<Code fontSize="xs">readiness_signal</Code>,   '🟢 HIGH / 🟡 MEDIUM / 🔴 LOW',           "Client's operational urgency"],
-          [<Code fontSize="xs">trust_signal</Code>,       '📈 RISING / ➡️ NEUTRAL / 📉 DECLINING',  'Relationship health trajectory'],
-          [<Code fontSize="xs">expectation_signal</Code>, 'Free text (captured)',                    "Client's stated expectation"],
-          [<Code fontSize="xs">constraint_signal</Code>,  'Free text (captured)',                    'Time / resource constraints'],
-          [<Code fontSize="xs">decision_signal</Code>,    'Free text (captured)',                    'Pending decisions required'],
+          [<Code key="readiness" fontSize="xs">readiness_signal</Code>,   '🟢 HIGH / 🟡 MEDIUM / 🔴 LOW',           "Client's operational urgency"],
+          [<Code key="trust" fontSize="xs">trust_signal</Code>,       '📈 RISING / ➡️ NEUTRAL / 📉 DECLINING',  'Relationship health trajectory'],
+          [<Code key="expectation" fontSize="xs">expectation_signal</Code>, 'Free text (captured)',                    "Client's stated expectation"],
+          [<Code key="constraint" fontSize="xs">constraint_signal</Code>,  'Free text (captured)',                    'Time / resource constraints'],
+          [<Code key="decision" fontSize="xs">decision_signal</Code>,    'Free text (captured)',                    'Pending decisions required'],
         ]}
       />
       <SubHeading>Numeric Scores</SubHeading>
