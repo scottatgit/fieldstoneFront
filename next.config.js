@@ -15,6 +15,11 @@ module.exports = {
     async rewrites() {
       return [
         {
+          // PM dashboard API — proxied server-side to local SecondBrain API
+          source: '/pm-api/:path*',
+          destination: 'http://localhost:8100/:path*',
+        },
+        {
           source: '/api/:path*',
           destination: 'https://api.kreationation.com/api/:path*',
         },
