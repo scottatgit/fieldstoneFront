@@ -9,6 +9,7 @@ import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+import { isDemoMode, demoFetch } from '@/lib/demoApi';
 
 function renderMarkdown(md: string): string {
   const NL = '\n';
@@ -73,13 +74,23 @@ export function PrepBriefDrawer({ ticket, isOpen, onClose }: PrepBriefDrawerProp
     if (!ticket || !isOpen) return;
     setLoading(true);
     setBrief('');
-    fetch(`${PM_API}/api/brief/${ticket.ticket_key}`, { method: 'POST' })
-      .then(r => r.json())
-      .then(d => { setBrief(d.brief || ''); setLoading(false); })
-      .catch(() => {
+    const loadBrief = async () => {
+      try {
+        let data: { brief?: string };
+        if (isDemoMode()) {
+          data = await demoFetch(`/api/brief/${ticket.ticket_key}`) as { brief?: string };
+        } else {
+          const res = await fetch(`${PM_API}/api/brief/${ticket.ticket_key}`, { method: 'POST' });
+          data = await res.json();
+        }
+        setBrief(data.brief || '');
+        setLoading(false);
+      } catch {
         toast({ title: 'Failed to load brief', status: 'error', duration: 3000 });
         setLoading(false);
-      });
+      }
+    };
+    loadBrief();
   }, [ticket?.ticket_key, isOpen]);
 
   if (!ticket) return null;

@@ -5,6 +5,7 @@ import {
   DEMO_OUTBREAKS,
   DEMO_TOOL_SCORES,
   DEMO_STATS,
+  DEMO_BRIEFS,
 } from './demoData';
 
 /**
@@ -70,17 +71,19 @@ export async function demoFetch(endpoint: string): Promise<unknown> {
     return DEMO_STATS;
   }
 
-  // ── Prep brief (drawer) ───────────────────────────────────────────────────
+  // ── Prep brief (drawer) — ticket-specific ────────────────────────────────
   if (endpoint.includes('/api/prep-brief') || endpoint.includes('/api/brief')) {
-    return {
-      brief:
-        '**Situation**: Active Eaglesoft outbreak affecting 3 practices. Root cause: KB5034441 ' +
-        'conflicts with Patterson SQL Server 2019.\n\n' +
-        '**Immediate Action**: Rollback KB5034441 on affected workstations. Restart Patterson SQL service.\n\n' +
-        '**At-Risk**: Westside Pediatric + Coastal Kids — same environment. Proactive call recommended today.\n\n' +
-        '**Client Mood**: Heritage Smiles trust declining — 2nd incident this month. Prioritize comms.\n\n' +
-        '**Wins Today**: Resolved ransomware scare at Pinnacle Dental (false positive). Renewed Malwarebytes. Client relieved.',
-    };
+    // Extract ticket key from endpoint e.g. /api/brief/TKT-2891
+    const keyMatch = endpoint.match(/\/(TKT-\d+)/);
+    const ticketKey = keyMatch ? keyMatch[1] : '';
+    const brief = (DEMO_BRIEFS as Record<string, string>)[ticketKey] ||
+      `# Prep Brief — ${ticketKey}\n\n` +
+      `## SITUATION\nThis ticket is in the demo system. In the live SecondBrain, ` +
+      `an AI-generated prep brief would appear here with full client history, ` +
+      `signal analysis, resolution steps, and risk flags.\n\n` +
+      `## DEMO NOTE\n> 🎭 This is example data. The live system generates briefs ` +
+      `automatically from your ticket queue and client knowledge base.`;
+    return { brief };
   }
 
   // ── Chat / AI (no-op in demo) ─────────────────────────────────────────────

@@ -698,3 +698,332 @@ export const DEMO_STATS = {
   avg_resolution_hours: 3.2,
   sla_compliance_pct: 94,
 };
+
+
+// ---------------------------------------------------------------------------
+// DEMO PREP BRIEFS — keyed by ticket_key
+// ---------------------------------------------------------------------------
+export const DEMO_BRIEFS: Record<string, string> = {
+
+'TKT-2891': `# Onsite Prep Brief — Ticket #TKT-2891
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Sunrise Family Dentistry |
+| Contact | Dr. Amanda Chen — (205) 334-8821 |
+| SLA Tier | Managed IT — Priority Response |
+| Readiness | 🟢 HIGH (score: 84) |
+| Trust | 📈 RISING (score: 78) |
+
+---
+
+## SITUATION
+**Eaglesoft fails to launch on all 6 workstations** following Windows Update KB5034441 (released 2026-02-25). Patterson SQL Server 2019 service is not starting automatically on the server. Staff cannot access patient records. Hygienists are documenting on paper.
+
+> Dr. Chen called at 7:12 AM. Front desk is managing 8 morning appointments manually. She was calm but firm — expects resolution before 9 AM.
+
+---
+
+## ROOT CAUSE (CONFIRMED)
+Windows Update **KB5034441** modifies SQL Server startup dependencies. Patterson SQL service startup type remains Automatic but the service dependency on Windows Firewall is broken by the update. **This is a known cross-client issue — 3 practices affected this morning.**
+
+---
+
+## RESOLUTION STEPS
+**Step 1 — Remote (2 min)**
+- RDP to server: \`\\SUNRISE-SERVER\`
+- Open Services (services.msc)
+- Find **Patterson Technology SQL Server** → Right-click → Start
+- If fails: check Event Viewer → Windows Logs → Application for SQL error code
+
+**Step 2 — If SQL won't start**
+- Run as Admin: \`net start MSSQL$PATTERSON\`
+- If error 1053: restart Windows Firewall service first, then retry
+
+**Step 3 — Verify**
+- Launch Eaglesoft on any workstation
+- Confirm patient records load
+- Check backup job status in EagleBackup
+
+**Step 4 — Prevent recurrence**
+- Pause Windows Update via Group Policy for 7 days
+- Add to Eaglesoft node KB: "KB5034441 breaks Patterson SQL startup — restart SQL first"
+
+---
+
+## CLIENT HISTORY
+- **2025-11-14** — Same issue after Patch Tuesday. Resolved by SQL restart in 12 min.
+- **2025-09-02** — Server migration to new Dell PowerEdge. Clean install.
+- **2025-07-18** — Eaglesoft license renewal — upgraded to v21.2.
+- Trust has been **rising** since the fast September server migration.
+
+---
+
+## DECISION REQUIRED
+> [RESOLVE] Restore Eaglesoft access before 9 AM patient appointments. Document KB5034441 workaround. Assess whether to roll back update or apply permanent fix.
+
+---
+
+## RISK FLAGS
+- ⚠️ 3 other practices affected by same update — coordinate parallel resolution
+- ⚠️ Paper charting creates HIPAA documentation gap if not resolved quickly
+- ✅ Client trust is rising — a fast resolution reinforces that trajectory
+`,
+
+'TKT-2889': `# Onsite Prep Brief — Ticket #TKT-2889
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Lakefront Oral Surgery |
+| Contact | Dr. Patricia Novak — (205) 778-4401 |
+| SLA Tier | Managed IT — Standard |
+| Readiness | 🟡 MEDIUM (score: 61) |
+| Trust | ➡️ NEUTRAL (score: 55) |
+
+---
+
+## SITUATION
+**DEXIS sensor (intraoral X-ray) not recognized** after a Windows driver update pushed Tuesday night. Sensor shows as "Unknown Device" in Device Manager. Practice is running without digital X-ray capability — using fallback film for urgent cases.
+
+> Dr. Novak's office manager Sandra emailed at 8:44 AM. No phone call yet — they are managing but frustrated. Two crown prep appointments this afternoon depend on digital imaging.
+
+---
+
+## ROOT CAUSE (LIKELY)
+Windows pushed **Intel USB driver update (v5.1.7)** which conflicts with the DEXIS Platinum sensor USB 3.0 handshake. Known issue with DEXIS firmware < v7.2 on Windows 11.
+
+---
+
+## RESOLUTION STEPS
+**Step 1 — Roll back USB driver**
+- Device Manager → Universal Serial Bus controllers
+- Find Intel USB 3.x Host Controller → Properties → Driver → Roll Back Driver
+- Unplug/replug DEXIS sensor
+
+**Step 2 — If rollback unavailable**
+- Uninstall USB controller driver → reboot → let Windows reinstall generic driver
+- Reinstall DEXIS Platinum software: \`C:\Program Files\DEXIS\Setup.exe\`
+- Reboot and test sensor on each operatory workstation
+
+**Step 3 — Verify**
+- Open DEXIS → Acquire → sensor should show green LED
+- Take test exposure on calibration block
+- Confirm image appears in DEXIS within 3 seconds
+
+**Step 4 — Update group policy**
+- Block automatic driver updates for USB controllers via WSUS/Group Policy
+
+---
+
+## CLIENT HISTORY
+- **2025-12-01** — DEXIS sensor replacement under warranty (previous sensor crack).
+- **2025-08-15** — Workstation upgrade — DEXIS reinstalled cleanly.
+- **2025-03-10** — Similar USB issue — resolved by driver rollback (18 min).
+- Trust is **neutral** — practice is satisfied but not enthusiastic. A fast resolution on the afternoon appointment deadline will matter.
+
+---
+
+## DECISION REQUIRED
+> [RESOLVE] Restore DEXIS imaging before 1 PM crown prep appointments. If driver rollback fails, bring USB 2.0 extension cable as workaround (forces USB 2.0 enumeration).
+
+---
+
+## RISK FLAGS
+- ⚠️ Crown prep appointments at 1 PM and 2:30 PM depend on working sensor
+- ⚠️ Film fallback creates workflow delay and additional cost
+- 🔧 Bring USB 2.0 hub as backup — has resolved this pattern before
+`,
+
+'TKT-2883': `# Onsite Prep Brief — Ticket #TKT-2883
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Summit Implant Center |
+| Contact | Dr. David Okafor — (205) 512-9934 |
+| SLA Tier | Managed IT — Priority Response |
+| Readiness | 🔴 LOW (score: 28) |
+| Trust | 📉 DECLINING (score: 34) |
+
+---
+
+## SITUATION
+**Ransomware warning popup appeared on front desk workstation** at 6:47 AM. Office manager Marcus called immediately. Workstation has been isolated. Network shares still accessible from other machines — likely a scare/adware, not active encryption.
+
+> **This is the highest priority ticket this morning.** Trust score is declining — this practice has had 3 incidents in 4 months. Dr. Okafor mentioned "considering other IT options" in last month's call.
+
+---
+
+## ASSESSMENT
+Initial indicators suggest **Malwarebytes detected a PUP (potentially unwanted program)** misidentified as ransomware. No encrypted files detected on network shares. However — **treat as real until confirmed otherwise.**
+
+---
+
+## RESOLUTION STEPS
+**Step 1 — Immediate containment (remote)**
+- Confirm workstation is network-isolated (unplug ethernet or disable WiFi)
+- RDP to a clean machine on same network
+- Check shared drives: \`\\SUMMIT-SERVER\patients\` — verify no .encrypted extensions
+- Check Event Viewer on server for mass file access events in last 2 hours
+
+**Step 2 — Scan isolated workstation**
+- Boot from USB with Malwarebytes Rescue Scanner
+- Run full scan — quarantine all findings
+- Check %AppData%, %Temp%, Startup folder for suspicious executables
+
+**Step 3 — Determine scope**
+- If PUP/adware only: clean, document, reconnect, reset browser extensions
+- If active ransomware: invoke backup recovery protocol — call Dr. Okafor directly
+
+**Step 4 — Remediation**
+- Deploy updated endpoint policy via Sophos/Bitdefender
+- Review how PUP entered: browser download, email attachment, USB?
+- Send staff phishing awareness reminder
+
+---
+
+## CLIENT HISTORY
+- **2025-11-30** — Slow workstations — resolved (aging RAM, upgraded).
+- **2025-10-14** — Email phishing click — password reset, no breach.
+- **2025-09-08** — Server backup failure — 3 days of backups missing.
+- **Trust is declining.** Three incidents in 4 months. Dr. Okafor is watching.
+
+---
+
+## DECISION REQUIRED
+> [RESOLVE + RELATIONSHIP] Resolve the immediate threat AND schedule a 15-minute call with Dr. Okafor after resolution to walk him through what happened, what was done, and what's being put in place. This is a retention moment.
+
+---
+
+## RISK FLAGS
+- 🔴 CRITICAL — Declining trust, practice considering alternatives
+- 🔴 HIPAA exposure if patient data was accessed
+- ⚠️ Third incident in 4 months — root cause analysis required
+- 💼 Prepare written incident summary for Dr. Okafor
+`,
+
+'TKT-2893': `# Onsite Prep Brief — Ticket #TKT-2893
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Heritage Smiles Dental |
+| Contact | Dr. James Thornton — (205) 445-7723 |
+| SLA Tier | Managed IT — Standard |
+| Readiness | 🟢 HIGH (score: 79) |
+| Trust | 📉 DECLINING (score: 41) |
+
+---
+
+## SITUATION
+**Server backup job failed** — backup drive at 98% capacity. Last successful backup was 4 days ago. Veeam backup log shows error: \`VSS_E_INSUFFICIENT_STORAGE\`.
+
+---
+
+## RESOLUTION STEPS
+**Step 1 — Immediate**
+- RDP to \`\\HERITAGE-SERVER\`
+- Open Veeam → Jobs → check last run details
+- Clear old restore points: Veeam → Backups → Disk → delete restore points older than 60 days
+
+**Step 2 — Free space**
+- Check D:\ backup drive — remove temp/staging files
+- Compress or archive Q1 2025 backup sets to cold storage
+- Target: get backup drive below 70% before running job
+
+**Step 3 — Run emergency backup**
+- Veeam → Jobs → Heritage-Full → Start
+- Monitor to completion — do not leave until first backup succeeds
+
+**Step 4 — Long-term fix**
+- Recommend backup drive upgrade: current 2TB → 4TB (~$180)
+- Present to Dr. Thornton as a proposal
+
+---
+
+## RISK FLAGS
+- ⚠️ 4 days without backup — any data loss event in this window is unrecoverable
+- ⚠️ Trust declining — third issue this quarter
+- 📋 Bring upgrade proposal — frame it proactively
+`,
+
+'TKT-2887': `# Onsite Prep Brief — Ticket #TKT-2887
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Pinnacle Dental Group |
+| Contact | Dr. Robert Hayes — (205) 881-3390 |
+| SLA Tier | Managed IT — Priority Response |
+| Readiness | 🟢 HIGH (score: 88) |
+| Trust | 📈 RISING (score: 82) |
+
+---
+
+## SITUATION
+**Eaglesoft slow since Monday** — whole office affected. 12-20 second load times on patient records. Server CPU is spiking to 95% during Eaglesoft queries. SQL query optimization needed.
+
+---
+
+## RESOLUTION STEPS
+**Step 1 — SQL diagnostics**
+- RDP to server → SQL Server Management Studio
+- Run: \`sp_who2\` — identify blocking processes
+- Check: \`sys.dm_exec_query_stats\` — find expensive queries
+
+**Step 2 — Quick wins**
+- Restart Patterson SQL service (clears plan cache)
+- Check for runaway Eaglesoft reporting jobs running in background
+- Disable scheduled Eaglesoft reports during business hours
+
+**Step 3 — Index maintenance**
+- Run: \`EXEC sp_updatestats\`
+- Schedule index rebuild for tonight after hours
+
+---
+
+## RISK FLAGS
+- ✅ Trust is rising — strong relationship, practice is receptive
+- ℹ️ This is the second performance issue in 6 months — SQL server may be underpowered for 8-chair practice
+`,
+
+'TKT-2885': `# Onsite Prep Brief — Ticket #TKT-2885
+
+## CLIENT SNAPSHOT
+| Field | Detail |
+|---|---|
+| Practice | Westside Pediatric Dental |
+| Contact | Office Manager: Lisa Park |
+| SLA Tier | Managed IT — Standard |
+| Readiness | 🟡 MEDIUM (score: 66) |
+| Trust | ➡️ NEUTRAL (score: 59) |
+
+---
+
+## SITUATION
+**New hire workstation setup needed by Friday.** Front desk position filled — workstation needs Eaglesoft access, email, printer mapping, and HIPAA training module installation.
+
+---
+
+## SETUP CHECKLIST
+- [ ] Join domain: \`WESTSIDE-DOMAIN\`
+- [ ] Create AD account: firstname.lastname@westsidepediatric.com
+- [ ] Install Eaglesoft client, map to \`\\WESTSIDE-SERVER\eaglesoft\`
+- [ ] Configure Outlook → Exchange server
+- [ ] Map printers: Front-Desk-HP, Receipt-Star
+- [ ] Install HIPAA training: \`\\WESTSIDE-SERVER\Training\HIPAA2025.exe\`
+- [ ] Set up MFA via Microsoft Authenticator
+- [ ] Test Eaglesoft login with new credentials
+- [ ] Confirm with Lisa Park before leaving
+
+---
+
+## NOTES
+- Previous new hire setup (Nov 2024) took 2.5 hours — parts are on server share
+- Lisa prefers a quick walkthrough at the end — factor in 15 min
+`,
+
+};
+
