@@ -132,9 +132,9 @@ export default function IntelDashboard() {
         fetch(`${API}/api/intel/outbreaks`).then(r => r.json()),
         fetch(`${API}/api/nodes/tools`).then(r => r.json()),
       ]);
-      if (evRes.status === 'fulfilled') setEvents(evRes.value ?? []);
+      if (evRes.status === 'fulfilled') setEvents(evRes.value?.events ?? []);
       if (trRes.status === 'fulfilled') {
-        const sorted = [...(trRes.value ?? [])].sort(
+        const sorted = [...(trRes.value?.tools ?? [])].sort(
           (a: ToolRow, b: ToolRow) => (b.risk_score ?? 0) - (a.risk_score ?? 0)
         );
         setTools(sorted);
