@@ -14,6 +14,8 @@ import { ChatPanel } from '../../components/pm/ChatPanel';
 import Link from 'next/link';
 
 import IntelPanel from '@/components/pm/IntelPanel';
+import { isDemoMode, pmFetch } from '@/lib/demoApi';
+import { DemoBanner } from '@/components/pm/DemoBanner';
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 function cleanTitle(raw: string | null | undefined): string {
@@ -313,11 +315,11 @@ export default function PMPage() {
   const fetchAll = useCallback(async () => {
     setLoadingT(true); setLoadingE(true); setLoadingS(true);
     try {
-      const [td, cd, sd] = await Promise.all([
-        fetch(`${PM_API}/api/tickets`).then(r => r.json()),
-        fetch(`${PM_API}/api/calendar`).then(r => r.json()),
-        fetch(`${PM_API}/api/summary`).then(r => r.json()),
-      ]);
+      const [td, cd, sd] = (await Promise.all([
+        pmFetch('/api/tickets',  PM_API),
+        pmFetch('/api/calendar', PM_API),
+        pmFetch('/api/summary',  PM_API),
+      ])) as [any, any, any];
       setTickets(td.tickets || []);
       setEvents(cd.events   || []);
       setSummary(sd);
@@ -338,6 +340,7 @@ export default function PMPage() {
   // ── Mobile Layout ──
   const mobileLayout = (
     <Box h="100dvh" bg="gray.950" display={{ base: 'flex', lg: 'none' }} flexDirection="column">
+      <DemoBanner />
       <SummaryBar summary={summary} loading={loadingS} />
       <IntelPanel />
 
@@ -388,6 +391,7 @@ export default function PMPage() {
       h="100dvh" bg="gray.950" direction="column"
       display={{ base: 'none', lg: 'flex' }}
     >
+      <DemoBanner />
       <SummaryBar summary={summary} loading={loadingS} />
 
       <Grid

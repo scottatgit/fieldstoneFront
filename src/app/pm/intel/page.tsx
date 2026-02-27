@@ -9,6 +9,8 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { pmFetch } from '@/lib/demoApi';
+import { DemoBanner } from '@/components/pm/DemoBanner';
 
 const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -129,12 +131,12 @@ export default function IntelDashboard() {
   const fetchAll = useCallback(async () => {
     try {
       const [evRes, trRes] = await Promise.allSettled([
-        fetch(`${API}/api/intel/outbreaks`).then(r => r.json()),
-        fetch(`${API}/api/nodes/tools`).then(r => r.json()),
+        pmFetch('/api/intel/outbreaks', API),
+        pmFetch('/api/nodes/tools',     API),
       ]);
-      if (evRes.status === 'fulfilled') setEvents(evRes.value?.events ?? []);
+      if (evRes.status === 'fulfilled') setEvents((evRes.value as any)?.events ?? []);
       if (trRes.status === 'fulfilled') {
-        const sorted = [...(trRes.value?.tools ?? [])].sort(
+        const sorted = [...((trRes.value as any)?.tools ?? [])].sort(
           (a: ToolRow, b: ToolRow) => (b.risk_score ?? 0) - (a.risk_score ?? 0)
         );
         setTools(sorted);
@@ -152,7 +154,7 @@ export default function IntelDashboard() {
 
   const runNow = async () => {
     setRunning(true);
-    try { await fetch(`${API}/api/intel/run`, { method: 'POST' }); await fetchAll(); }
+    try { await pmFetch('/api/intel/run', API); await fetchAll(); }
     catch (_) {/* silent */} finally { setRunning(false); }
   };
 
@@ -170,7 +172,9 @@ export default function IntelDashboard() {
   );
 
   return (
-    <Box p={6} maxW="1200px" mx="auto" bg="gray.900" minH="100vh">
+    <Box bg="gray.900" minH="100vh">
+      <DemoBanner />
+      <Box p={6} maxW="1200px" mx="auto">
       {/* Header */}
       <Flex justify="space-between" align="center" mb={6} flexWrap="wrap" gap={3}>
         <VStack align="start" spacing={0}>
@@ -330,6 +334,7 @@ export default function IntelDashboard() {
           </TabPanel>
         </TabPanels>
       </Tabs>
+    </Box>
     </Box>
   );
 }
