@@ -240,9 +240,9 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
             <Text fontSize="sm" color="gray.200" mb={3} lineHeight="tall">
               {expSignal.effective_value || expSignal.auto_value || 'No expectation detected'}
             </Text>
-            {expSignal.human_inputs.length > 0 && (
+            {expSignal.human_inputs?.length > 0 && (
               <VStack align="stretch" spacing={1} mb={3}>
-                {expSignal.human_inputs.map((inp, i) => (
+                {expSignal.human_inputs?.map((inp, i) => (
                   <HStack key={i} spacing={2}>
                     <Badge colorScheme={inp.type === 'escalate' ? 'red' : inp.type === 'weaken' ? 'orange' : 'green'} fontSize="2xs">{inp.type}</Badge>
                     <Text fontSize="xs" color="gray.400">{inp.author}</Text>
