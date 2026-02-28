@@ -96,6 +96,57 @@ export async function demoFetch(endpoint: string): Promise<unknown> {
     };
   }
 
+
+  // -- Phase 6.5: Expectation signal GET -----------------------------------
+  if (endpoint.match(/\/signals\/expectation$/) && !endpoint.includes('/input')) {
+    const keyMatch = endpoint.match(/tickets\/([^/]+)/);
+    const key = keyMatch ? keyMatch[1] : '';
+    return {
+      ticket_key: key,
+      auto_value: 'Client expects full system restoration during this visit.',
+      effective_value: 'Client expects full system restoration during this visit.',
+      confidence_state: 'medium',
+      human_inputs: [],
+    };
+  }
+
+  // -- Phase 6.5: Expectation signal POST (confirm/escalate/weaken) ----------
+  if (endpoint.includes('/signals/expectation/input')) {
+    return { status: 'ok', message: 'Demo mode — expectation input recorded.' };
+  }
+
+  // -- Phase 6.5: Close draft GET -------------------------------------------
+  if (endpoint.includes('/close-draft')) {
+    const keyMatch = endpoint.match(/tickets\/([^/]+)/);
+    const key = keyMatch ? keyMatch[1] : '';
+    return {
+      ticket_key: key,
+      close_draft: {
+        work_performed: 'Our technician completed the on-site assessment and performed the necessary remediation steps during this visit. All affected systems were reviewed and primary issues were addressed.',
+        outcome: 'The reported issue has been resolved and systems were verified operational before departure. Client was briefed on findings and any remaining items have been documented for follow-up.',
+        recommendations: [
+          'Schedule a follow-up check-in within 5 business days to confirm continued stability.',
+          'We recommend a proactive review of related systems to prevent recurrence.',
+        ],
+      },
+    };
+  }
+
+  // -- Phase 6.5: Checklist POST --------------------------------------------
+  if (endpoint.includes('/checklist')) {
+    return { status: 'ok', message: 'Demo mode — checklist saved.' };
+  }
+
+  // -- Phase 6.5: Visit datetime PATCH ---------------------------------------
+  if (endpoint.includes('/visit-datetime')) {
+    return { status: 'ok', message: 'Demo mode — visit datetime saved.' };
+  }
+
+  // -- Phase 6.5: Notes POST ------------------------------------------------
+  if (endpoint.includes('/notes')) {
+    return { status: 'ok', message: 'Demo mode — note saved.' };
+  }
+
   // ── Fallback ──────────────────────────────────────────────────────────────
   console.warn('[demoApi] Unmatched endpoint:', endpoint);
   return {};

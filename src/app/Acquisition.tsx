@@ -399,6 +399,26 @@ export default function Acquisition() {
               >
                 See How It Works
               </Button>
+              <Button
+                as="a"
+                href="/pm"
+                size="lg"
+                bg="#10B981"
+                color="white"
+                px={8}
+                py={6}
+                fontSize="md"
+                fontWeight="bold"
+                borderRadius="xl"
+                _hover={{
+                  bg: '#059669',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 30px rgba(16,185,129,0.4)',
+                }}
+                transition="all 0.2s"
+              >
+                ▶ Try Live Demo
+              </Button>
             </Stack>
           </MotionBox>
 
@@ -964,6 +984,27 @@ export default function Acquisition() {
               mb={12}
             >
               Book a Demo →
+            </Button>
+            <Button
+              as="a"
+              href="/pm"
+              size="lg"
+              bg="#10B981"
+              color="white"
+              px={12}
+              py={7}
+              fontSize="lg"
+              fontWeight="bold"
+              borderRadius="2xl"
+              _hover={{
+                bg: '#059669',
+                transform: 'translateY(-3px)',
+                boxShadow: '0 16px 50px rgba(16,185,129,0.4)',
+              }}
+              transition="all 0.25s"
+              mb={6}
+            >
+              ▶ Try Live Demo
             </Button>
 
             <Divider borderColor="rgba(255,255,255,0.06)" mb={8} />

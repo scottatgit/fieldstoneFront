@@ -33,7 +33,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T07:12:00',
     last_updated: '2026-02-27T07:45:00',
     notes_count: 3,
-  visit_datetime: null,
+  visit_datetime: '2026-02-28T09:00:00',
   },
   {
     id: 1002,
@@ -91,7 +91,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T08:05:00',
     last_updated: '2026-02-27T09:10:00',
     notes_count: 4,
-  visit_datetime: null,
+  visit_datetime: '2026-02-28T11:30:00',
   },
   {
     id: 1004,
@@ -120,7 +120,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T16:44:00',
     last_updated: '2026-02-27T08:30:00',
     notes_count: 2,
-  visit_datetime: null,
+  visit_datetime: '2026-02-28T14:00:00',
   },
   // ── MEDIUM PRIORITY ──────────────────────────────────────────────────────
   {
@@ -150,7 +150,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T08:15:00',
     last_updated: '2026-02-27T06:00:00',
     notes_count: 3,
-  visit_datetime: null,
+  visit_datetime: '2026-03-01T10:00:00',
   },
   {
     id: 1006,
@@ -179,7 +179,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T11:30:00',
     last_updated: '2026-02-26T14:20:00',
     notes_count: 2,
-  visit_datetime: null,
+  visit_datetime: '2026-03-01T13:00:00',
   },
   {
     id: 1007,
@@ -208,7 +208,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-24T10:00:00',
     last_updated: '2026-02-25T09:30:00',
     notes_count: 5,
-  visit_datetime: null,
+  visit_datetime: '2026-02-28T16:00:00',
   },
   {
     id: 1008,
@@ -1040,5 +1040,174 @@ Initial indicators suggest **Malwarebytes detected a PUP (potentially unwanted p
 - Lisa prefers a quick walkthrough at the end — factor in 15 min
 `,
 
+
+
+'TKT-2890': `## SITUATION
+Mango Voice calls are dropping every 20-40 minutes across all 6 handsets at Clearwater Orthodontics. Staff are missing patient calls during active appointment slots. The issue began after a Meraki firmware update three days ago. ISP bandwidth tests are normal.
+
+## EXPECTATION
+Dr. Clearwater expects stable phone service restored before the afternoon rush. This is a recurring complaint — the last VoIP issue took two visits to resolve and eroded confidence.
+
+## CONSTRAINTS
+Front desk is the only area affected — clinical ops continue. Meraki dashboard access requires admin credentials (stored in Bitwarden). QoS rules must not be changed during patient hours.
+
+## DECISION
+Audit QoS configuration on Meraki MX. Reprioritize Mango Voice traffic (DSCP EF). If firmware is the root cause, schedule rollback after 5 PM.
+
+## RISK FLAGS
+This client had a similar VoIP issue in October. A second miss will likely trigger an escalation.
+
+## TECHNICAL NOTES
+Mango Voice uses SIP over UDP port 5060. Meraki firmware v18.1.x changed default QoS behavior. Check if voice VLAN is tagged correctly on all downstream switches.
+
+## CLIENT HISTORY
+Trust: NEUTRAL. Previous VoIP issue resolved Oct 2025 — took two visits. Client was understanding but noted it in their last QBR. Relationship is stable but watching.
+`,
+
+'TKT-2886': `## SITUATION
+CEREC Ortho software license expired on 02/24 at Pinnacle Dental Group. The chairside milling unit is offline. Dr. Hayes cannot fabricate same-day crowns. Renewal invoice was sent — awaiting purchase order approval.
+
+## EXPECTATION
+Dr. Hayes expects the license renewed and activated same day once PO is approved. She has two same-day crown cases scheduled this week and cannot postpone them.
+
+## CONSTRAINTS
+License cannot be activated until Dentsply Sirona receives payment confirmation. PO is with the business office — ETA unknown. On-site presence is not required until activation is ready.
+
+## DECISION
+Waiting on client PO. Once received, activate license remotely via Dentsply Sirona portal. Verify CEREC Connect cloud sync after activation.
+
+## TECHNICAL NOTES
+CEREC Ortho SW v5.3.1 — license tied to dongle serial DTS-4421-X. Activation key delivered via email to admin account. If dongle is not detected post-renewal, USB re-seat or driver reinstall may be needed.
+
+## CLIENT HISTORY
+Trust: RISING. Pinnacle is a high-value account with 3 active tickets this week. Previous license issue in 2024 was resolved same day. Dr. Hayes is direct — she prefers text updates over email.
+`,
+
+'TKT-2892': `## SITUATION
+HP LaserJet Pro M404n in Operatory 3 shows offline on all workstations at Heritage Smiles Dental. The printer was working Friday. A router replacement was performed last Tuesday which likely caused an IP conflict.
+
+## EXPECTATION
+Staff expects the printer back online today. Operatory 3 is fully booked and treatment plans cannot be printed from that room.
+
+## CONSTRAINTS
+Router change was performed by a third party — admin credentials for the new router are unknown. Printer does not have a static IP assigned.
+
+## DECISION
+Assign static IP to printer via HP EWS. Update print queue on all affected workstations. Confirm new gateway credentials with office manager before proceeding.
+
+## RISK FLAGS
+Heritage Smiles trust is DECLINING — two open tickets this week. Keep visit efficient and communication clear.
+
+## TECHNICAL NOTES
+HP EWS accessible at current DHCP address (check router DHCP table). Recommend assigning 192.168.1.250 outside DHCP range. Update port 9100 TCP on all 4 operatory workstations.
+`,
+
+'TKT-2894': `## SITUATION
+Imaging workstation WS-04 at Pinnacle Dental Group is throwing a SQL connection error in Eaglesoft following the KB5034441 Windows update. This is the same root cause affecting Sunrise Family Dentistry and Heritage Smiles — a known cross-client outbreak.
+
+## EXPECTATION
+Dr. Hayes expects this resolved during today's remote session. The imaging workstation is used for all digital X-ray capture — it cannot remain down.
+
+## CONSTRAINTS
+RDP access to WS-04 is available. SQL fix must be applied without rebooting the Patterson server during patient hours.
+
+## DECISION
+Apply KB5034441 SQL dependency fix remotely. Restart Patterson SQL service. Verify Eaglesoft and DEXIS imaging launch cleanly on WS-04.
+
+## TECHNICAL NOTES
+Same fix as TKT-2891: net start MSSQL$PATTERSON after restarting Windows Firewall. WS-04 hostname: PINNACLE-IMG-04. DEXIS sensor also connected to this workstation — verify after fix.
+
+## CLIENT HISTORY
+Pinnacle has 3 active tickets this week. Bryant is primary contact for technical issues. Coordinate with TKT-2886 (CEREC license) visit if possible to consolidate.
+`,
+
+'TKT-2880': `## SITUATION
+This ticket is resolved. Fortinet SSL-VPN certificate expired on 02/21 at Summit Implant Center, preventing Dr. Okafor from accessing patient records remotely. Certificate was renewed and remote access was restored.
+
+## EXPECTATION
+Expectation was met — Dr. Okafor confirmed remote access is working. No follow-up required.
+
+## CONSTRAINTS
+None active. Resolved remotely in one session.
+
+## DECISION
+Mark complete. Set calendar reminder for SSL-VPN cert renewal 30 days before expiry (next: 02/21/2027).
+
+## TECHNICAL NOTES
+FortiGate 60F. SSL-VPN portal: vpn.summitimplant.net. New cert issued via Let's Encrypt. Auto-renewal script deployed at /etc/cron.d/certbot-renew. Verified with Dr. Okafor direct login test.
+
+## CLIENT HISTORY
+Trust: RISING. Summit is a growth account — added DR backup service in January. Dr. Okafor is detail-oriented and appreciates written confirmation of resolutions.
+`,
+
+'TKT-2877': `## SITUATION
+This ticket is resolved. DEXIS imaging system was freezing during X-ray capture at Coastal Kids Dentistry. Root cause was insufficient RAM (4GB) causing memory pressure during concurrent DEXIS and Eaglesoft operation.
+
+## EXPECTATION
+Expectation was met — imaging is stable post-upgrade. Hygienists confirmed no freezing during morning X-ray sessions.
+
+## CONSTRAINTS
+None active. RAM upgrade required brief workstation downtime (15 min) during lunch.
+
+## DECISION
+Complete. RAM upgraded from 4GB to 16GB. DEXIS drivers updated to v4.1.1 stable. Monitor for one week.
+
+## TECHNICAL NOTES
+HP EliteDesk 800 G4 — upgraded to 2x8GB DDR4-2666. DEXIS Platinum sensor on USB 3.0 port. DEXIS v4.1.1 driver installed. Previous v4.1.2 had known Win11 conflict — avoid updating until vendor releases patch.
+`,
+
+'TKT-2878': `## SITUATION
+This ticket is resolved. Server room at Lakefront Oral Surgery overheated over the weekend when the HVAC unit failed. UPS units were beeping due to high ambient temperature. A portable AC unit was deployed immediately and HVAC repair was scheduled.
+
+## EXPECTATION
+Expectation was met — server room temperature stabilized. HVAC repair completed 02/26. No data loss occurred.
+
+## CONSTRAINTS
+None active. Permanent HVAC repair is complete.
+
+## DECISION
+Complete. Recommend quarterly server room temperature checks. Document HVAC vendor contact in client profile.
+
+## TECHNICAL NOTES
+Server room target: 68-72°F. UPS batteries tested healthy during incident. Portable AC (8000 BTU) maintained 74°F until permanent repair. HVAC vendor: Lakefront Cooling & Heating, (251) 445-9900.
+`,
+
+'TKT-2881': `## SITUATION
+This ticket is resolved. Front desk iPad at Clearwater Orthodontics stopped syncing Microsoft 365 email after an MDM profile expired. The device was re-enrolled via Intune and email sync was restored.
+
+## EXPECTATION
+Expectation was met — front desk confirmed email and calendar are syncing normally.
+
+## CONSTRAINTS
+None active. Re-enrollment required device passcode reset (coordinated with office manager).
+
+## DECISION
+Complete. Set MDM profile expiry alert for 30 days before next renewal. Update Intune device record with correct enrollment date.
+
+## TECHNICAL NOTES
+Apple iPad Air (M1). M365 MDM profile re-enrolled via Intune Company Portal. Exchange ActiveSync account re-authenticated. Calendar and Outlook verified syncing. Next profile renewal: 02/28/2027.
+`,
+
+'TKT-2884': `## SITUATION
+Veeam Backup & Replication v12 at Westside Pediatric Dental is failing to connect to the NAS repository after an Active Directory password rotation last week. Three nights of backup jobs have failed. Patient data is currently unprotected.
+
+## EXPECTATION
+The office manager expects backup jobs to be confirmed running tonight. They are aware of the risk and are understandably concerned.
+
+## CONSTRAINTS
+NAS credentials must be rotated across all backup jobs — there are 4 scheduled jobs total. No access to the NAS admin panel remotely; requires on-site or owner-provided credentials.
+
+## DECISION
+Update NAS repository credentials in Veeam B&R console. Re-run all 4 backup jobs manually to confirm success before leaving. Send written confirmation to office manager.
+
+## RISK FLAGS
+Three consecutive backup failures. If a fourth failure occurs tonight, this becomes a critical incident. Do not leave until at least one successful backup job is confirmed.
+
+## TECHNICAL NOTES
+Veeam B&R v12. NAS: Synology DS923+. Repository path: \\WPD-NAS\VeeamBackup. Service account: veeam-svc@wpd.local — password updated in AD, not yet in Veeam. Also check scheduled job credentials for jobs: Full-Daily, Incremental-Nightly, SQL-Backup, Exchange-Backup.
+
+## CLIENT HISTORY
+Trust: NEUTRAL. Westside Pediatric has a second open ticket (TKT-2885) for drive capacity. Both issues stem from the same server. Consider combining visits.
+`,
 };
 
