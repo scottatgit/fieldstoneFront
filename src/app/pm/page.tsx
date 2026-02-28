@@ -73,6 +73,7 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
 type VisitFilter = 'today' | 'tomorrow' | 'unscheduled' | 'all';
 
 function filterTickets(tickets: Ticket[], vf: VisitFilter): Ticket[] {
+  if (!Array.isArray(tickets)) return [];
   const today    = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   return tickets.filter(t => {
@@ -280,7 +281,8 @@ export default function PMPage() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      const tData = (await pmFetch('/api/tickets?status=open&limit=200', PM_API)) as Ticket[];
+      const tResp = (await pmFetch('/api/tickets?status=open&limit=200', PM_API)) as any;
+      const tData: Ticket[] = Array.isArray(tResp) ? tResp : (tResp?.tickets || []);
       setTickets(tData);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }

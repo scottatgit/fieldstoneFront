@@ -1,5 +1,5 @@
-import React from 'react';
 'use client';
+import React from 'react';
 import {
   Box, Flex, HStack, VStack, Text, Badge, Spinner,
   Textarea, Select, Collapse, useToast, Divider,
