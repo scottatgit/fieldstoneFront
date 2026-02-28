@@ -190,8 +190,12 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   );
 
   const contactName    = ticket.sender_name || null;
+  const contactPhone   = ticket.contact_phone || null;
   const visitFormatted = formatVisitDatetime(ticket.visit_datetime);
   const clientName     = ticket.client_display_name || ticket.client_key || '';
+
+  // Format phone for tel: link (strip non-digits)
+  const telHref = contactPhone ? `tel:${contactPhone.replace(/\D/g, '')}` : null;
 
   return (
     <Box flex={1} overflowY='auto' px={8} py={6}
@@ -203,6 +207,18 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
         <Text fontSize='lg' fontWeight='bold' color='white' mb={1}>{clientName}</Text>
         {contactName && (
           <Text fontSize='sm' color='gray.400'>Contact: {contactName}</Text>
+        )}
+        {contactPhone && telHref && (
+          <Text fontSize='sm' color='gray.400'>
+            Office:{' '}
+            <Box as='a' href={telHref}
+              color='teal.300'
+              _hover={{ color: 'teal.200', textDecoration: 'underline' }}
+              cursor='pointer'
+            >
+              {contactPhone}
+            </Box>
+          </Text>
         )}
         {visitFormatted && (
           <Text fontSize='sm' color='blue.300' mt={1}>Visit: {visitFormatted}</Text>
