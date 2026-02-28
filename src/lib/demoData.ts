@@ -33,6 +33,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T07:12:00',
     last_updated: '2026-02-27T07:45:00',
     notes_count: 3,
+  visit_datetime: null,
   },
   {
     id: 1002,
@@ -61,6 +62,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-25T14:22:00',
     last_updated: '2026-02-25T16:55:00',
     notes_count: 7,
+  visit_datetime: null,
   },
   {
     id: 1003,
@@ -89,6 +91,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T08:05:00',
     last_updated: '2026-02-27T09:10:00',
     notes_count: 4,
+  visit_datetime: null,
   },
   {
     id: 1004,
@@ -117,6 +120,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T16:44:00',
     last_updated: '2026-02-27T08:30:00',
     notes_count: 2,
+  visit_datetime: null,
   },
   // ── MEDIUM PRIORITY ──────────────────────────────────────────────────────
   {
@@ -146,6 +150,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T08:15:00',
     last_updated: '2026-02-27T06:00:00',
     notes_count: 3,
+  visit_datetime: null,
   },
   {
     id: 1006,
@@ -174,6 +179,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-26T11:30:00',
     last_updated: '2026-02-26T14:20:00',
     notes_count: 2,
+  visit_datetime: null,
   },
   {
     id: 1007,
@@ -202,6 +208,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-24T10:00:00',
     last_updated: '2026-02-25T09:30:00',
     notes_count: 5,
+  visit_datetime: null,
   },
   {
     id: 1008,
@@ -230,6 +237,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-25T09:00:00',
     last_updated: '2026-02-25T15:00:00',
     notes_count: 4,
+  visit_datetime: null,
   },
   {
     id: 1009,
@@ -258,6 +266,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T09:30:00',
     last_updated: '2026-02-27T09:30:00',
     notes_count: 1,
+  visit_datetime: null,
   },
   {
     id: 1010,
@@ -286,6 +295,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-27T08:55:00',
     last_updated: '2026-02-27T09:15:00',
     notes_count: 2,
+  visit_datetime: null,
   },
   {
     id: 1011,
@@ -314,6 +324,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-21T18:30:00',
     last_updated: '2026-02-22T11:45:00',
     notes_count: 6,
+  visit_datetime: null,
   },
   {
     id: 1012,
@@ -342,6 +353,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-19T11:00:00',
     last_updated: '2026-02-20T14:30:00',
     notes_count: 8,
+  visit_datetime: null,
   },
   {
     id: 1013,
@@ -370,6 +382,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-22T09:00:00',
     last_updated: '2026-02-24T16:00:00',
     notes_count: 9,
+  visit_datetime: null,
   },
   {
     id: 1014,
@@ -398,6 +411,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-23T08:00:00',
     last_updated: '2026-02-23T10:30:00',
     notes_count: 3,
+  visit_datetime: null,
   },
   {
     id: 1015,
@@ -426,6 +440,7 @@ export const DEMO_TICKETS: Ticket[] = [
     created_at: '2026-02-25T19:30:00',
     last_updated: '2026-02-26T22:00:00',
     notes_count: 4,
+  visit_datetime: null,
   },
 ];
 

@@ -47,7 +47,7 @@ function TimeDisplay({ ts }: { ts: Date }) {
   }, [ts]);
   return <span>{display}</span>;
 }
-export function ChatPanel() {
+export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);

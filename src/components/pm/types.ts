@@ -27,6 +27,7 @@ export interface Ticket {
   created_at: string | null;
   last_updated: string | null;
   notes_count: number;
+  visit_datetime: string | null;
 }
 
 export interface CalendarEvent {

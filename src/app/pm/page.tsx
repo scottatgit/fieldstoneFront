@@ -1,21 +1,20 @@
 'use client';
 import {
   Box, Flex, Grid, GridItem, HStack, VStack, Text, Badge,
-  Input, Select, Spinner,
+  Input, Spinner,
   Tabs, TabList, Tab, TabPanels, TabPanel,
-  useDisclosure,
-} from '@chakra-ui/react';
-import { useEffect, useState, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { Ticket, CalendarEvent, Summary } from '../../components/pm/types';
-import { TicketCard } from '../../components/pm/TicketCard';
-import { PrepBriefDrawer } from '../../components/pm/PrepBriefDrawer';
-import { ChatPanel } from '../../components/pm/ChatPanel';
-import Link from 'next/link';
+}  from '@chakra-ui/react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
+import { Ticket, Summary } from '../../components/pm/types';
+import { TicketCard } from '../../components/pm/TicketCard';
+import { ChatPanel } from '../../components/pm/ChatPanel';
+import { ExecutionView } from '../../components/pm/ExecutionView';
+import Link from 'next/link';
 import IntelPanel from '@/components/pm/IntelPanel';
 import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
+
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 function cleanTitle(raw: string | null | undefined): string {
@@ -27,7 +26,7 @@ function cleanTitle(raw: string | null | undefined): string {
   return t || raw.trim();
 }
 
-// ─── Header / Summary Bar ────────────────────────────────────────────────────
+// ─── Summary Bar ──────────────────────────────────────────────────────────────
 function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
   if (loading) return (
     <Flex px={4} py={2} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
@@ -36,70 +35,23 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
     </Flex>
   );
   if (!summary) return null;
-
-  const topSignals = Object.entries(summary.signals).slice(0, 3);
-
   return (
-    <Flex
-      px={4} py={2} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
-      align="center" justify="space-between" flexWrap="wrap" gap={2} flexShrink={0}
-    >
-      {/* Left: brand */}
+    <Flex px={4} py={2} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
+      align="center" justify="space-between" flexWrap="wrap" gap={2} flexShrink={0}>
       <HStack spacing={3}>
-        <Text fontSize="sm" fontWeight="black" color="white" fontFamily="mono" letterSpacing="wider">
-          IPQUEST PM
-        </Text>
+        <Text fontSize="sm" fontWeight="black" color="white" fontFamily="mono" letterSpacing="wider">IPQUEST PM</Text>
         <Text fontSize="xs" color="gray.600" fontFamily="mono">
-          {typeof window !== "undefined" ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ""}
+          {typeof window !== 'undefined' ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
         </Text>
-        <Link href="/pm/setup">
-          <Text
-            fontSize="xs" color="gray.500" fontFamily="mono"
-            _hover={{ color: 'blue.400' }} cursor="pointer" title="Setup"
-          >
-            ⚙️ Setup
-          </Text>
-        </Link>
-        <Link href="/pm/intel">
-          <Text fontSize="xs" fontWeight="medium"
-            color="purple.400" opacity={0.8}
-            _hover={{ opacity: 1 }} cursor="pointer" title="Intel"
-            ml={2}
-          >
-            🧠 Intel
-          </Text>
-        </Link>
-        <Link href="/pm/docs">
-          <Text
-            fontSize="xs" fontWeight="medium"
-            color="cyan.400" opacity={0.8}
-            _hover={{ opacity: 1 }} cursor="pointer" title="Docs"
-            ml={2}
-          >
-            📖 Docs
-          </Text>
-        </Link>
+        <Link href="/pm/setup"><Text fontSize="xs" color="gray.500" fontFamily="mono" _hover={{ color: 'blue.400' }} cursor="pointer">Setup</Text></Link>
+        <Link href="/pm/intel"><Text fontSize="xs" fontWeight="medium" color="purple.400" opacity={0.8} _hover={{ opacity: 1 }} cursor="pointer" ml={2}>Intel</Text></Link>
+        <Link href="/pm/docs"><Text fontSize="xs" fontWeight="medium" color="cyan.400" opacity={0.8} _hover={{ opacity: 1 }} cursor="pointer" ml={2}>Docs</Text></Link>
       </HStack>
-
-      {/* Center: stats */}
       <HStack spacing={4} flexWrap="wrap">
+        <VStack spacing={0}><Text fontSize="lg" fontWeight="black" color="white" lineHeight={1}>{summary.total_open}</Text><Text fontSize="2xs" color="gray.500" fontFamily="mono">OPEN</Text></VStack>
+        <VStack spacing={0}><Text fontSize="lg" fontWeight="black" color="blue.300" lineHeight={1}>{summary.today_count}</Text><Text fontSize="2xs" color="gray.500" fontFamily="mono">TODAY</Text></VStack>
         <VStack spacing={0}>
-          <Text fontSize="lg" fontWeight="black" color="white" lineHeight={1}>
-            {summary.total_open}
-          </Text>
-          <Text fontSize="2xs" color="gray.500" fontFamily="mono">OPEN</Text>
-        </VStack>
-        <VStack spacing={0}>
-          <Text fontSize="lg" fontWeight="black" color="blue.300" lineHeight={1}>
-            {summary.today_count}
-          </Text>
-          <Text fontSize="2xs" color="gray.500" fontFamily="mono">TODAY</Text>
-        </VStack>
-        <VStack spacing={0}>
-          <Text fontSize="lg" fontWeight="black"
-            color={summary.declining_trust_count > 0 ? 'red.400' : 'green.400'} lineHeight={1}>
-            {summary.declining_trust_count}
-          </Text>
+          <Text fontSize="lg" fontWeight="black" color={summary.declining_trust_count > 0 ? 'red.400' : 'green.400'} lineHeight={1}>{summary.declining_trust_count}</Text>
           <Text fontSize="2xs" color="gray.500" fontFamily="mono">DECLINING</Text>
         </VStack>
         <VStack spacing={0}>
@@ -113,323 +65,358 @@ function SummaryBar({ summary, loading }: { summary: Summary | null; loading: bo
           <Text fontSize="2xs" color="gray.500" fontFamily="mono">HI/MED/LO</Text>
         </VStack>
       </HStack>
-
-      {/* Right: top signals */}
-      <HStack spacing={1.5} flexWrap="wrap">
-        {topSignals.map(([sig, cnt]) => (
-          <Badge key={sig} colorScheme="gray" variant="outline" fontSize="2xs" fontFamily="mono">
-            {sig} ({cnt})
-          </Badge>
-        ))}
-      </HStack>
     </Flex>
   );
 }
 
-// ─── Calendar Sidebar ────────────────────────────────────────────────────────
-function CalendarSidebar({ events, loading }: { events: CalendarEvent[]; loading: boolean }) {
+// ─── Visit Filter Sidebar ─────────────────────────────────────────────────────
+type VisitFilter = 'today' | 'tomorrow' | 'unscheduled' | 'all';
+
+function filterTickets(tickets: Ticket[], vf: VisitFilter): Ticket[] {
+  const today    = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  return tickets.filter(t => {
+    if (t.status === 'closed') return false;
+    const vd = (t.visit_datetime || '').slice(0, 10);
+    if (vf === 'today')       return vd === today;
+    if (vf === 'tomorrow')    return vd === tomorrow;
+    if (vf === 'unscheduled') return !t.visit_datetime;
+    return true; // 'all'
+  });
+}
+
+function VisitFilterSidebar({
+  tickets, activeFilter, onFilter
+}: {
+  tickets: Ticket[];
+  activeFilter: VisitFilter;
+  onFilter: (f: VisitFilter) => void;
+}) {
+  const today    = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const open     = tickets.filter(t => t.status !== 'closed');
+
+  const counts = {
+    today:       open.filter(t => (t.visit_datetime || '').slice(0, 10) === today).length,
+    tomorrow:    open.filter(t => (t.visit_datetime || '').slice(0, 10) === tomorrow).length,
+    unscheduled: open.filter(t => !t.visit_datetime).length,
+    all:         open.length,
+  };
+
+  const FILTERS: { key: VisitFilter; label: string; color: string }[] = [
+    { key: 'today',       label: 'Today',       color: 'blue'   },
+    { key: 'tomorrow',    label: 'Tomorrow',    color: 'purple' },
+    { key: 'unscheduled', label: 'Unscheduled', color: 'orange' },
+    { key: 'all',         label: 'All Open',    color: 'gray'   },
+  ];
+
   return (
     <VStack align="stretch" spacing={0} h="full">
       <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}>
-        <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
-          📅 SCHEDULE
-        </Text>
-        <Badge colorScheme="blue" fontSize="2xs" ml="auto">{events.length}</Badge>
+        <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">VISITS</Text>
       </HStack>
-      {loading ? (
-        <Flex p={4} justify="center"><Spinner size="sm" color="blue.400" /></Flex>
-      ) : events.length === 0 ? (
-        <Text p={3} fontSize="xs" color="gray.600" fontFamily="mono">No events</Text>
-      ) : (
-        <VStack
-          align="stretch" spacing={0} overflowY="auto" flex={1}
-          css={{ '&::-webkit-scrollbar': { width: '3px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748' } }}
-        >
-          {events.map(e => {
-            const dateStr = e.starts_at_raw
-              ? e.starts_at_raw.replace(/(\w+ \d+\/\d+)\/\d{4}\s+(\d+:\d+):\d+\s+(\w+)/i, '$1 $2$3')
-              : (e.starts_at_iso_utc || '').slice(0, 10);
-            const isPast = e.starts_at_iso_utc
-              ? e.starts_at_iso_utc.slice(0, 10) < new Date().toISOString().slice(0, 10)
-              : false;
-            return (
-              <Box
-                key={e.id}
-                px={3} py={2}
-                borderBottom="1px solid" borderColor="gray.800"
-                opacity={isPast ? 0.5 : 1}
-                _hover={{ bg: 'gray.800' }}
-              >
-                <Text fontSize="2xs" fontFamily="mono" color={isPast ? 'gray.600' : 'blue.300'} mb={0.5}>
-                  {dateStr}
-                </Text>
-                <Text fontSize="xs" color="white" noOfLines={2} fontWeight="medium">
-                  {e.client_name || cleanTitle(e.title)}
-                </Text>
-                {e.client_name && (
-                  <Text fontSize="2xs" color="gray.500" noOfLines={1}>
-                    {cleanTitle(e.title)}
-                  </Text>
-                )}
-                {e.assigned_to && (
-                  <Text fontSize="2xs" color="gray.600" mt={0.5}>→ {e.assigned_to}</Text>
-                )}
-              </Box>
-            );
-          })}
-        </VStack>
-      )}
+      <VStack align="stretch" spacing={1} p={2} flex={1}>
+        {FILTERS.map(({ key, label, color }) => (
+          <Box
+            key={key}
+            as="button"
+            onClick={() => onFilter(key)}
+            px={3} py={2.5}
+            borderRadius="md"
+            border="1px solid"
+            borderColor={activeFilter === key ? `${color}.600` : 'gray.800'}
+            bg={activeFilter === key ? `${color}.900` : 'transparent'}
+            cursor="pointer"
+            _hover={{ bg: activeFilter === key ? `${color}.900` : 'gray.800', borderColor: `${color}.600` }}
+            transition="all 0.1s"
+            textAlign="left"
+          >
+            <Flex justify="space-between" align="center">
+              <Text fontSize="xs" fontFamily="mono"
+                color={activeFilter === key ? `${color}.200` : 'gray.400'}
+                fontWeight={activeFilter === key ? 'bold' : 'normal'}>
+                {label}
+              </Text>
+              <Badge
+                colorScheme={activeFilter === key ? color : 'gray'}
+                fontSize="2xs" variant={activeFilter === key ? 'solid' : 'subtle'}>
+                {counts[key]}
+              </Badge>
+            </Flex>
+          </Box>
+        ))}
+      </VStack>
     </VStack>
   );
 }
 
-// ─── Ticket Queue ─────────────────────────────────────────────────────────────
-const SIGNAL_FILTERS = ['ALL', 'VERIFY/SIGN-OFF', 'GO/NO-GO', 'RESOLVE/VERIFY', 'PROCEED/HALT', 'ASSESS/RECOMMEND'];
+// ─── Inline DateTime Picker ───────────────────────────────────────────────────
+function VisitDatePicker({ ticket, onSaved }: { ticket: Ticket; onSaved?: () => void }) {
+  const [editing, setEditing]   = useState(false);
+  const [value, setValue]       = useState(ticket.visit_datetime || '');
+  const [saving, setSaving]     = useState(false);
+  const debounceRef             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const dtLocal = value
+    ? new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : 'Unscheduled';
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setValue(v);
+    setSaving(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/visit-datetime`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visit_datetime: v || null }),
+        });
+        setSaving(false);
+        onSaved?.();
+      } catch { setSaving(false); }
+    }, 600);
+  }
+
+  if (editing) return (
+    <HStack spacing={1}>
+      <Input
+        type="datetime-local"
+        value={value}
+        onChange={handleChange}
+        onBlur={() => setEditing(false)}
+        autoFocus
+        size="xs"
+        bg="gray.800"
+        borderColor="blue.600"
+        color="blue.200"
+        fontSize="2xs"
+        fontFamily="mono"
+        w="auto"
+        _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
+      />
+      {saving && <Spinner size="xs" color="blue.400" />}
+    </HStack>
+  );
+
+  return (
+    <Box
+      as="button"
+      onClick={e => { e.stopPropagation(); setEditing(true); }}
+      fontSize="2xs"
+      fontFamily="mono"
+      color={value ? 'blue.300' : 'gray.600'}
+      _hover={{ color: 'blue.200' }}
+      cursor="pointer"
+      title="Click to schedule"
+    >
+      {dtLocal}
+    </Box>
+  );
+}
+
+// ─── Ticket Queue ─────────────────────────────────────────────────────────────
 function TicketQueue({
-  tickets, loading, onSelect, selectedKey
+  tickets, loading, selectedKey, onSelect, onDateSaved
 }: {
   tickets: Ticket[];
   loading: boolean;
-  onSelect: (t: Ticket) => void;
   selectedKey: string | null;
+  onSelect: (t: Ticket) => void;
+  onDateSaved: () => void;
 }) {
-  const [search,  setSearch]  = useState('');
-  const [signal,  setSignal]  = useState('ALL');
-  const [status,  setStatus]  = useState('open');
+  if (loading) return (
+    <Flex flex={1} align="center" justify="center" direction="column" gap={3}>
+      <Spinner color="blue.400" size="lg" thickness="3px" />
+      <Text color="gray.600" fontSize="xs" fontFamily="mono">Loading tickets...</Text>
+    </Flex>
+  );
 
-  const filtered = tickets.filter(t => {
-    const matchStatus = status === 'all' || t.status === status;
-    const matchSignal = signal === 'ALL' || (t.decision_label || '').includes(signal);
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      (t.title_clean || t.title || '').toLowerCase().includes(q) ||
-      (t.client_display_name || '').toLowerCase().includes(q) ||
-      t.ticket_key.includes(q);
-    return matchStatus && matchSignal && matchSearch;
-  });
+  if (!tickets.length) return (
+    <Flex flex={1} align="center" justify="center" direction="column" gap={2}>
+      <Text color="gray.600" fontSize="sm">No tickets in this view</Text>
+      <Text color="gray.700" fontSize="xs" fontFamily="mono">Try a different filter</Text>
+    </Flex>
+  );
 
   return (
-    <Flex direction="column" h="full">
-      {/* Filters */}
-      <VStack px={3} pt={3} pb={2} spacing={2} flexShrink={0} borderBottom="1px solid" borderColor="gray.700">
-        <HStack w="full" spacing={2}>
-          <Input
-            placeholder="Search tickets…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            size="sm" bg="gray.800" border="1px solid" borderColor="gray.600"
-            color="white" fontSize="xs" _placeholder={{ color: 'gray.600' }}
-            _focus={{ borderColor: 'blue.500', boxShadow: 'none' }}
-            borderRadius="md" flex={1}
-          />
-          <Select
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-            size="sm" bg="gray.800" borderColor="gray.600" color="gray.300"
-            fontSize="xs" w="auto" flexShrink={0} borderRadius="md"
-            _focus={{ borderColor: 'blue.500', boxShadow: 'none' }}
+    <Box flex={1} overflowY="auto"
+      css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
+    >
+      <VStack align="stretch" spacing={0} p={2}>
+        {tickets.map(t => (
+          <Box key={t.ticket_key}
+            onClick={() => onSelect(t)}
+            cursor="pointer"
+            borderRadius="md"
+            border="1px solid"
+            borderColor={selectedKey === t.ticket_key ? 'blue.600' : 'gray.800'}
+            bg={selectedKey === t.ticket_key ? 'blue.950' : 'transparent'}
+            _hover={{ borderColor: 'gray.600', bg: 'gray.900' }}
+            transition="all 0.1s"
+            mb={1}
           >
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-            <option value="all">All</option>
-          </Select>
-        </HStack>
-        {/* Signal filter pills */}
-        <HStack spacing={1} w="full" flexWrap="wrap">
-          {['ALL', 'VERIFY', 'GO/NO-GO', 'RESOLVE', 'PROCEED', 'ASSESS'].map((s, i) => (
-            <Box
-              key={s}
-              as="button"
-              onClick={() => setSignal(SIGNAL_FILTERS[i])}
-              px={2} py={0.5} fontSize="2xs" fontFamily="mono" borderRadius="sm"
-              border="1px solid"
-              borderColor={signal === SIGNAL_FILTERS[i] ? 'blue.500' : 'gray.700'}
-              bg={signal === SIGNAL_FILTERS[i] ? 'blue.900' : 'gray.800'}
-              color={signal === SIGNAL_FILTERS[i] ? 'blue.200' : 'gray.500'}
-              _hover={{ borderColor: 'gray.500', color: 'white' }}
-              cursor="pointer"
-              transition="all 0.1s"
-            >
-              {s}
+            <Box px={2} pt={1.5} pb={0.5} onClick={e => e.stopPropagation()}>
+              <VisitDatePicker ticket={t} onSaved={onDateSaved} />
             </Box>
-          ))}
-        </HStack>
+            <TicketCard ticket={t} isSelected={selectedKey === t.ticket_key} onClick={onSelect} />
+          </Box>
+        ))}
       </VStack>
-
-      {/* Count bar */}
-      <HStack px={3} py={1.5} flexShrink={0}>
-        <Text fontSize="2xs" color="gray.600" fontFamily="mono">
-          {filtered.length} tickets
-          {search && ` matching "${search}"`}
-        </Text>
-      </HStack>
-
-      {/* Cards */}
-      {loading ? (
-        <Flex flex={1} align="center" justify="center">
-          <VStack spacing={3}>
-            <Spinner color="blue.400" size="lg" thickness="3px" />
-            <Text color="gray.500" fontSize="xs" fontFamily="mono">Loading tickets…</Text>
-          </VStack>
-        </Flex>
-      ) : (
-        <VStack
-          align="stretch" spacing={2} p={3}
-          overflowY="auto" flex={1}
-          css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#4A5568', borderRadius: '2px' } }}
-        >
-          <AnimatePresence>
-            {filtered.map(t => (
-              <TicketCard
-                key={t.ticket_key}
-                ticket={t}
-                onClick={onSelect}
-                isSelected={t.ticket_key === selectedKey}
-              />
-            ))}
-          </AnimatePresence>
-          {filtered.length === 0 && (
-            <Text color="gray.600" fontSize="xs" fontFamily="mono" textAlign="center" pt={8}>
-              No tickets match filters
-            </Text>
-          )}
-        </VStack>
-      )}
-    </Flex>
+    </Box>
   );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PMPage() {
-  const [tickets,  setTickets]  = useState<Ticket[]>([]);
-  const [events,   setEvents]   = useState<CalendarEvent[]>([]);
-  const [summary,  setSummary]  = useState<Summary | null>(null);
-  const [loadingT, setLoadingT] = useState(true);
-  const [loadingE, setLoadingE] = useState(true);
-  const [loadingS, setLoadingS] = useState(true);
-  const [selected, setSelected] = useState<Ticket | null>(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [mobileTab, setMobileTab] = useState(0);
+  const [tickets, setTickets]           = useState<Ticket[]>([]);
+  const [summary, setSummary]           = useState<Summary | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [summaryLoading, setSummaryL]   = useState(true);
+  const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
+  const [visitFilter, setVisitFilter]   = useState<VisitFilter>('today');
+  const [activeTab, setActiveTab]       = useState(0);
 
-  const fetchAll = useCallback(async () => {
-    setLoadingT(true); setLoadingE(true); setLoadingS(true);
+  const fetchTickets = useCallback(async () => {
     try {
-      const [td, cd, sd] = (await Promise.all([
-        pmFetch('/api/tickets',  PM_API),
-        pmFetch('/api/calendar', PM_API),
-        pmFetch('/api/summary',  PM_API),
-      ])) as [any, any, any];
-      setTickets(td.tickets || []);
-      setEvents(cd.events   || []);
-      setSummary(sd);
-    } catch (e) {
-      console.error('PM API error:', e);
-    } finally {
-      setLoadingT(false); setLoadingE(false); setLoadingS(false);
-    }
+      const tData = (await pmFetch('/api/tickets?status=open&limit=200', PM_API)) as Ticket[];
+      setTickets(tData);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const fetchSummary = useCallback(async () => {
+    try {
+      const sData = (await pmFetch('/api/summary', PM_API)) as Summary;
+      setSummary(sData);
+    } catch (e) { console.error(e); }
+    finally { setSummaryL(false); }
+  }, []);
 
-  function handleSelect(t: Ticket) {
-    setSelected(t);
-    onOpen();
+  useEffect(() => {
+    fetchTickets();
+    fetchSummary();
+    const iv = setInterval(() => { fetchTickets(); fetchSummary(); }, 60000);
+    return () => clearInterval(iv);
+  }, [fetchTickets, fetchSummary]);
+
+  const filteredTickets = filterTickets(tickets, visitFilter);
+
+  // ── Execution view: full-screen replacement ──────────────────────────────
+  if (selectedTicket) {
+    return (
+      <Box h="100vh" display="flex" flexDirection="column" bg="gray.950" overflow="hidden">
+        <SummaryBar summary={summary} loading={summaryLoading} />
+        <Box flex={1} overflow="hidden">
+          <ExecutionView
+            ticket={selectedTicket}
+            onBack={() => setSelected(null)}
+          />
+        </Box>
+      </Box>
+    );
   }
 
-  // ── Mobile Layout ──
-  const mobileLayout = (
-    <Box h="100dvh" bg="gray.950" display={{ base: 'flex', lg: 'none' }} flexDirection="column">
-      <DemoBanner />
-      <SummaryBar summary={summary} loading={loadingS} />
-      <IntelPanel />
-
-      <Box flex={1} overflow="hidden">
-        <Tabs index={mobileTab} onChange={setMobileTab} h="full" display="flex" flexDirection="column">
-          <TabPanels flex={1} overflow="hidden">
-            <TabPanel h="full" p={0} overflow="hidden">
-              <TicketQueue
-                tickets={tickets} loading={loadingT}
-                onSelect={handleSelect} selectedKey={selected?.ticket_key || null}
-              />
-            </TabPanel>
-            <TabPanel h="full" p={0} overflow="hidden">
-              <CalendarSidebar events={events} loading={loadingE} />
-            </TabPanel>
-            <TabPanel h="full" p={0} overflow="hidden">
-              <ChatPanel />
-            </TabPanel>
-          </TabPanels>
-
-          <TabList
-            bg="gray.900" borderTop="1px solid" borderColor="gray.700"
-            flexShrink={0} justifyContent="space-around"
-          >
-            <Tab fontSize="xs" color="gray.500" _selected={{ color: 'white', borderColor: 'blue.400' }}
-              fontFamily="mono" py={3}>
-              🎫 Tickets
-            </Tab>
-            <Tab fontSize="xs" color="gray.500" _selected={{ color: 'white', borderColor: 'blue.400' }}
-              fontFamily="mono" py={3}>
-              📅 Calendar
-            </Tab>
-            <Tab fontSize="xs" color="gray.500" _selected={{ color: 'white', borderColor: 'blue.400' }}
-              fontFamily="mono" py={3}>
-              🤖 Tank
-            </Tab>
-          </TabList>
-        </Tabs>
-      </Box>
-
-      <PrepBriefDrawer ticket={selected} isOpen={isOpen} onClose={onClose} />
-    </Box>
-  );
-
-  // ── Desktop Layout ──
-  const desktopLayout = (
-    <Flex
-      h="100dvh" bg="gray.950" direction="column"
-      display={{ base: 'none', lg: 'flex' }}
-    >
-      <DemoBanner />
-      <SummaryBar summary={summary} loading={loadingS} />
+  // ── Dashboard: 3-column layout ───────────────────────────────────────────
+  return (
+    <Box h="100vh" display="flex" flexDirection="column" bg="gray.950" overflow="hidden">
+      {isDemoMode() && <DemoBanner />}
+      <SummaryBar summary={summary} loading={summaryLoading} />
 
       <Grid
-        templateColumns="220px 1fr 340px"
         flex={1}
         overflow="hidden"
+        templateColumns="160px 1fr 320px"
+        templateRows="1fr"
         gap={0}
       >
-        {/* ── Sidebar: Calendar ── */}
+        {/* ── Left: Visit Filter ── */}
         <GridItem
-          borderRight="1px solid" borderColor="gray.700"
-          overflow="hidden" display="flex" flexDirection="column"
+          borderRight="1px solid"
+          borderColor="gray.700"
+          overflow="hidden"
+          display="flex"
+          flexDirection="column"
+          bg="gray.950"
         >
-          <CalendarSidebar events={events} loading={loadingE} />
-        </GridItem>
-
-        {/* ── Main: Ticket Queue ── */}
-        <GridItem overflow="hidden" display="flex" flexDirection="column">
-          <TicketQueue
-            tickets={tickets} loading={loadingT}
-            onSelect={handleSelect} selectedKey={selected?.ticket_key || null}
+          <VisitFilterSidebar
+            tickets={tickets}
+            activeFilter={visitFilter}
+            onFilter={f => { setVisitFilter(f); setSelected(null); }}
           />
         </GridItem>
 
-        {/* ── Right: Chat Panel ── */}
-        <GridItem overflow="hidden" display="flex" flexDirection="column">
-          <ChatPanel />
+        {/* ── Center: Ticket Queue ── */}
+        <GridItem
+          overflow="hidden"
+          display="flex"
+          flexDirection="column"
+          bg="gray.950"
+        >
+          <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}>
+            <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
+              {visitFilter.toUpperCase()}
+            </Text>
+            <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
+          </HStack>
+          <TicketQueue
+            tickets={filteredTickets}
+            loading={loading}
+            selectedKey={selectedTicket ? (selectedTicket as Ticket).ticket_key : null}
+            onSelect={t => setSelected(t)}
+            onDateSaved={() => { fetchTickets(); fetchSummary(); }}
+          />
+        </GridItem>
+
+        {/* ── Right: Tank / Intel ── */}
+        <GridItem
+          borderLeft="1px solid"
+          borderColor="gray.700"
+          overflow="hidden"
+          display="flex"
+          flexDirection="column"
+          bg="gray.950"
+        >
+          <Tabs
+            variant="unstyled"
+            index={activeTab}
+            onChange={setActiveTab}
+            display="flex"
+            flexDirection="column"
+            h="full"
+          >
+            <TabList px={2} pt={2} flexShrink={0} borderBottom="1px solid" borderColor="gray.700">
+              <Tab
+                fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}
+                color={activeTab === 0 ? 'green.300' : 'gray.500'}
+                borderBottom={activeTab === 0 ? '2px solid' : 'none'}
+                borderColor="green.400"
+                _selected={{}} _focus={{ boxShadow: 'none' }}
+              >
+                Tank
+              </Tab>
+              <Tab
+                fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}
+                color={activeTab === 1 ? 'purple.300' : 'gray.500'}
+                borderBottom={activeTab === 1 ? '2px solid' : 'none'}
+                borderColor="purple.400"
+                _selected={{}} _focus={{ boxShadow: 'none' }}
+              >
+                Intel
+              </Tab>
+            </TabList>
+            <TabPanels flex={1} overflow="hidden" display="flex" flexDirection="column">
+              <TabPanel p={0} flex={1} overflow="hidden" display={activeTab === 0 ? 'flex' : 'none'} flexDirection="column">
+                <ChatPanel />
+              </TabPanel>
+              <TabPanel p={0} flex={1} overflow={activeTab === 1 ? 'auto' : 'hidden'} display={activeTab === 1 ? 'block' : 'none'}>
+                <IntelPanel />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         </GridItem>
       </Grid>
-
-      <PrepBriefDrawer ticket={selected} isOpen={isOpen} onClose={onClose} />
-    </Flex>
-  );
-
-  return (
-    <>
-      {mobileLayout}
-      {desktopLayout}
-    </>
+    </Box>
   );
 }
