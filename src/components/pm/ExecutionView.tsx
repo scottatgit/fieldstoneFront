@@ -68,12 +68,10 @@ const CHECKLIST_LABELS: { key: keyof Checklist; label: string }[] = [
 
 function cleanTitle(raw: string | null | undefined): string {
   if (!raw) return '';
-  let t = raw.replace(/[
-
-]+/g, ' ').trim();
-  t = t.replace(/^(Fw|Re|Fwd):*/i, '');
-  t = t.replace(/^Project+Ticket#?+/[^/]+/[^/]+//i, '').trim();
-  t = t.replace(/^Project+Ticket*#?+*[-–]?*/i, '').trim();
+  let t = raw.replace(/[\r\n]+/g, ' ').trim();
+  t = t.replace(/^(Fw|Re|Fwd):\s*/i, '');
+  t = t.replace(/^Project\s+Ticket#?\d+\/[^\/]+\/[^\/]+\//i, '').trim();
+  t = t.replace(/^Project\s+Ticket\s*#?\d+\s*[-–]?\s*/i, '').trim();
   return t || raw.trim();
 }
 
@@ -90,27 +88,25 @@ function formatVisitDatetime(iso: string | null | undefined): string {
 
 function parseBriefSections(md: string): BriefSections {
   const ADVANCED = ['TECHNICAL','RESOLUTION STEP','CLIENT HISTORY','CROSS-CLIENT','KB REF','KNOWLEDGE BASE','HISTORICAL','INTEL','BACKGROUND'];
-  const lines = md.split('
-');
+  const lines = md.split('\n');
   const sections: Record<string, string[]> = {};
   let current = 'preamble';
   for (const line of lines) {
-    const h = line.replace(/^#+*/, '').trim().toUpperCase();
+    const h = line.replace(/^#+\s*/, '').trim().toUpperCase();
     if (line.startsWith('#')) {
       if      (h.includes('SITUATION') || h.includes('SUMMARY'))                current = 'situation';
-      else if (h.includes('EXPECTATION') || h.includes('CLIENT EXPECT'))         current = 'expectation';
+      else if (h.includes('EXPECTATION') || h.includes('CLIENT EXPECT'))        current = 'expectation';
       else if (h.includes('CONSTRAINT') || h.includes('ACCESS') || h.includes('TIME SENSITIVE')) current = 'constraints';
-      else if (h.includes('DECISION') || h.includes('ACTION'))                   current = 'decision';
-      else if (h.includes('RISK') || h.includes('FLAG'))                         current = 'risk_flags';
-      else if (ADVANCED.some(a => h.includes(a)))                                current = 'advanced';
-      else                                                                        current = 'advanced';
+      else if (h.includes('DECISION') || h.includes('ACTION'))                  current = 'decision';
+      else if (h.includes('RISK') || h.includes('FLAG'))                        current = 'risk_flags';
+      else if (ADVANCED.some(a => h.includes(a)))                               current = 'advanced';
+      else                                                                       current = 'advanced';
       continue;
     }
     if (!sections[current]) sections[current] = [];
     sections[current].push(line);
   }
-  const join = (k: string) => (sections[k] || []).join('
-').trim();
+  const join = (k: string) => (sections[k] || []).join('\n').trim();
   return {
     situation:   join('situation')   || join('preamble'),
     expectation: join('expectation'),
@@ -124,12 +120,11 @@ function parseBriefSections(md: string): BriefSections {
 function renderInline(md: string): string {
   return md
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/([^*]+)/g,'<strong>$1</strong>')
-    .replace(/([^*]+)/g,'<em>$1</em>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
     .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/^[-•]+/gm,'• ')
-    .replace(/
-/g,'<br/>');
+    .replace(/^[-•]\s+/gm,'• ')
+    .replace(/\n/g,'<br/>');
 }
 
 function SectionBlock({ label, content, accent = 'blue' }: { label: string; content: string; accent?: string }) {
