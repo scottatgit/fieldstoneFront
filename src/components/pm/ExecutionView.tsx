@@ -198,7 +198,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   const telHref = contactPhone ? `tel:${contactPhone.replace(/\D/g, '')}` : null;
 
   return (
-    <Box flex={1} overflowY='auto' px={8} py={6}
+    <Box flex={1} overflowY='auto' px={{ base: 4, md: 8 }} py={{ base: 4, md: 6 }}
       css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
       maxW='760px' mx='auto' w='full'>
 
@@ -209,16 +209,18 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
           <Text fontSize='sm' color='gray.400'>Contact: {contactName}</Text>
         )}
         {contactPhone && telHref && (
-          <Text fontSize='sm' color='gray.400'>
-            Office:{' '}
+          <HStack spacing={2} align='center' mt={0.5}>
+            <Text fontSize='sm' color='gray.500'>Office:</Text>
             <Box as='a' href={telHref}
+              fontSize='sm' fontWeight='medium'
               color='teal.300'
               _hover={{ color: 'teal.200', textDecoration: 'underline' }}
               cursor='pointer'
+              letterSpacing='wide'
             >
               {contactPhone}
             </Box>
-          </Text>
+          </HStack>
         )}
         {visitFormatted && (
           <Text fontSize='sm' color='blue.300' mt={1}>Visit: {visitFormatted}</Text>
@@ -380,7 +382,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
     t === 'escalate' ? 'red' : t === 'weaken' ? 'orange' : 'green';
 
   return (
-    <Box flex={1} overflowY="auto" px={6} py={5}
+    <Box flex={1} overflowY="auto" px={{ base: 3, md: 6 }} py={{ base: 3, md: 5 }}
       css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
       maxW="760px" mx="auto" w="full">
 
@@ -564,7 +566,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     <Flex h='full' direction='column' bg='gray.950' overflow='hidden'>
 
       {/* Header */}
-      <Flex px={4} py={2} bg='gray.900' borderBottom='1px solid' borderColor='gray.700'
+      <Flex px={{ base: 2, md: 4 }} py={2} bg='gray.900' borderBottom='1px solid' borderColor='gray.700'
         align='center' justify='space-between' flexShrink={0} minH='48px'>
         <HStack spacing={3} minW={0} flex={1} overflow='hidden'>
           <Box as='button' onClick={onBack}
@@ -618,7 +620,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
           }
         </Flex>
         {tankOpen && (
-          <Box w='340px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
+          <Box w={{ base: 'full', md: '340px' }} flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
             overflow='hidden' display='flex' flexDirection='column'>
             <ChatPanel onCommand={handleTankRefresh} />
           </Box>

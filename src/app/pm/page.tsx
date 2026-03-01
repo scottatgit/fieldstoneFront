@@ -329,7 +329,7 @@ export default function PMPage() {
       <Grid
         flex={1}
         overflow="hidden"
-        templateColumns="160px 1fr 320px"
+        templateColumns={{ base: '1fr', md: '140px 1fr', lg: '160px 1fr 320px' }}
         templateRows="1fr"
         gap={0}
       >
@@ -338,7 +338,7 @@ export default function PMPage() {
           borderRight="1px solid"
           borderColor="gray.700"
           overflow="hidden"
-          display="flex"
+          display={{ base: 'none', md: 'flex' }}
           flexDirection="column"
           bg="gray.950"
         >
@@ -356,7 +356,25 @@ export default function PMPage() {
           flexDirection="column"
           bg="gray.950"
         >
-          <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}>
+          {/* Mobile-only filter pills */}
+          <Box display={{ base: 'flex', md: 'none' }} overflowX="auto" px={2} py={2}
+            borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
+            css={{ '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
+            <HStack spacing={2} flexShrink={0}>
+              {([['today','Today','blue'],['tomorrow','Tomorrow','purple'],['unscheduled','Unsched','orange'],['all','All Open','gray']] as const).map(([key, label, color]) => (
+                <Box key={key} as="button" onClick={() => { setVisitFilter(key as VisitFilter); setSelected(null); }}
+                  px={3} py={1} borderRadius="full" border="1px solid" whiteSpace="nowrap" flexShrink={0}
+                  borderColor={visitFilter === key ? `${color}.500` : 'gray.700'}
+                  bg={visitFilter === key ? `${color}.900` : 'transparent'}>
+                  <Text fontSize="2xs" fontFamily="mono" fontWeight="bold"
+                    color={visitFilter === key ? `${color}.200` : 'gray.500'}>{label}</Text>
+                </Box>
+              ))}
+            </HStack>
+          </Box>
+          {/* Desktop filter label */}
+          <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
+            display={{ base: 'none', md: 'flex' }}>
             <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
               {visitFilter.toUpperCase()}
             </Text>
@@ -376,7 +394,7 @@ export default function PMPage() {
           borderLeft="1px solid"
           borderColor="gray.700"
           overflow="hidden"
-          display="flex"
+          display={{ base: 'none', lg: 'flex' }}
           flexDirection="column"
           bg="gray.950"
         >
