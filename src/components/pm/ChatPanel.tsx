@@ -93,7 +93,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
         data = await res.json();
       }
       const botMsg: ChatMessage = {
-        id: uid(), role: 'assistant', content: data.response, type: data.type || 'text', timestamp: new Date()
+        id: uid(), role: 'assistant', content: data.response, type: (data.type as 'table' | 'text' | 'brief') || 'text', timestamp: new Date()
       };
       setMessages(prev => [...prev, botMsg]);
     } catch {

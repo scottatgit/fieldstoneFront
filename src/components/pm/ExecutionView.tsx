@@ -407,66 +407,6 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Phase 7C: structured context + signals state ──────────────────────────
-  const [ingestContext,  setIngestContext]  = useState<TicketContext | null>(null);
-  const [ingestSignals,  setIngestSignals]  = useState<TicketSignals | null>(null);
-  const [ingestStatus,   setIngestStatus]   = useState<string>('never_queued');
-  const [isPolling,      setIsPolling]      = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Fetch /context and /ingest/status on ticket open
-  const fetchContext = useCallback(async () => {
-    try {
-      const [ctxRes, statusRes] = await Promise.all([
-        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/context`),
-        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`),
-      ]);
-      const ctxData    = await ctxRes.json();
-      const statusData = await statusRes.json();
-      setIngestContext(ctxData.context   ?? null);
-      setIngestSignals(ctxData.signals   ?? null);
-      setIngestStatus(statusData.status  ?? 'never_queued');
-    } catch {
-      setIngestStatus('never_queued');
-    }
-  }, [ticket.ticket_key]);
-
-  // Trigger ingestion + poll every 2s (max 30s) then refresh context
-  const triggerIngest = useCallback(async () => {
-    try {
-      await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest`, { method: 'POST' });
-      setIngestStatus('pending');
-      setIsPolling(true);
-      let elapsed = 0;
-      pollRef.current = setInterval(async () => {
-        elapsed += 2;
-        try {
-          const res  = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`);
-          const data = await res.json();
-          if (data.status === 'completed' || data.status === 'failed' || elapsed >= 30) {
-            clearInterval(pollRef.current!);
-            setIsPolling(false);
-            setIngestStatus(data.status);
-            if (data.status === 'completed') await fetchContext();
-          } else {
-            setIngestStatus(data.status);
-          }
-        } catch {
-          clearInterval(pollRef.current!);
-          setIsPolling(false);
-        }
-      }, 2000);
-    } catch {
-      setIngestStatus('failed');
-    }
-  }, [ticket.ticket_key, fetchContext]);
-
-  // Fetch context on ticket open; clear poll on unmount
-  useEffect(() => {
-    fetchContext();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [fetchContext]);
-
   const toast                           = useToast();
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -775,6 +715,67 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [tankOpen, setTankOpen]     = useState(false);
   const [saveState, setSaveState]   = useState<SaveState>('idle');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // ── Phase 7C: structured context + signals state ──────────────────────────
+  const [ingestContext,  setIngestContext]  = useState<TicketContext | null>(null);
+  const [ingestSignals,  setIngestSignals]  = useState<TicketSignals | null>(null);
+  const [ingestStatus,   setIngestStatus]   = useState<string>('never_queued');
+  const [isPolling,      setIsPolling]      = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch /context and /ingest/status on ticket open
+  const fetchContext = useCallback(async () => {
+    try {
+      const [ctxRes, statusRes] = await Promise.all([
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/context`),
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`),
+      ]);
+      const ctxData    = await ctxRes.json();
+      const statusData = await statusRes.json();
+      setIngestContext(ctxData.context   ?? null);
+      setIngestSignals(ctxData.signals   ?? null);
+      setIngestStatus(statusData.status  ?? 'never_queued');
+    } catch {
+      setIngestStatus('never_queued');
+    }
+  }, [ticket.ticket_key]);
+
+  // Trigger ingestion + poll every 2s (max 30s) then refresh context
+  const triggerIngest = useCallback(async () => {
+    try {
+      await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest`, { method: 'POST' });
+      setIngestStatus('pending');
+      setIsPolling(true);
+      let elapsed = 0;
+      pollRef.current = setInterval(async () => {
+        elapsed += 2;
+        try {
+          const res  = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`);
+          const data = await res.json();
+          if (data.status === 'completed' || data.status === 'failed' || elapsed >= 30) {
+            clearInterval(pollRef.current!);
+            setIsPolling(false);
+            setIngestStatus(data.status);
+            if (data.status === 'completed') await fetchContext();
+          } else {
+            setIngestStatus(data.status);
+          }
+        } catch {
+          clearInterval(pollRef.current!);
+          setIsPolling(false);
+        }
+      }, 2000);
+    } catch {
+      setIngestStatus('failed');
+    }
+  }, [ticket.ticket_key, fetchContext]);
+
+  // Fetch context on ticket open; clear poll on unmount
+  useEffect(() => {
+    fetchContext();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [fetchContext]);
+
 
   const clientName   = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'Unknown';
   const displayTitle = ticket.title_clean || cleanTitle(ticket.title);
