@@ -199,7 +199,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   const telHref = contactPhone ? `tel:${contactPhone.replace(/\D/g, '')}` : null;
 
   return (
-    <Box flex={1} overflowY='auto' px={{ base: 4, md: 8 }} py={{ base: 4, md: 6 }} pb={{ base: '140px', md: 8 }}
+    <Box flex={1} px={{ base: 4, md: 8 }} py={{ base: 4, md: 6 }} pb={{ base: 8, md: 8 }}
       css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
       maxW='760px' mx='auto' w='full'>
 
@@ -501,7 +501,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
     t === 'escalate' ? 'red' : t === 'weaken' ? 'orange' : 'green';
 
   return (
-    <Box flex={1} overflowY="auto" px={{ base: 3, md: 6 }} py={{ base: 3, md: 5 }} pb={{ base: "140px", md: "48px" }}
+    <Box flex={1} px={{ base: 3, md: 6 }} py={{ base: 3, md: 5 }} pb={{ base: 8, md: 8 }}
       css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
       maxW="760px" mx="auto" w="full">
 

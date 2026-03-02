@@ -308,9 +308,9 @@ export default function PMPage() {
   // ── Execution view: full-screen replacement ──────────────────────────────
   if (selectedTicket) {
     return (
-      <Box h="100vh" display="flex" flexDirection="column" bg="gray.950" overflow="hidden">
+      <Box h="100dvh" display="flex" flexDirection="column" bg="gray.950" overflowX="hidden">
         <SummaryBar summary={summary} loading={summaryLoading} />
-        <Box flex={1} overflow="hidden">
+        <Box flex={1} minH={0} overflowY="auto">
           <ExecutionView
             ticket={selectedTicket}
             onBack={() => setSelected(null)}
@@ -322,13 +322,13 @@ export default function PMPage() {
 
   // ── Dashboard: 3-column layout ───────────────────────────────────────────
   return (
-    <Box h="100vh" display="flex" flexDirection="column" bg="gray.950" overflow="hidden">
+    <Box h="100dvh" display="flex" flexDirection="column" bg="gray.950" overflowX="hidden">
       {isDemoMode() && <DemoBanner />}
       <SummaryBar summary={summary} loading={summaryLoading} />
 
       <Grid
         flex={1}
-        overflow="hidden"
+        minH={0}
         templateColumns={{ base: '1fr', md: '140px 1fr', lg: '160px 1fr 320px' }}
         templateRows="1fr"
         gap={0}
@@ -351,7 +351,7 @@ export default function PMPage() {
 
         {/* ── Center: Ticket Queue ── */}
         <GridItem
-          overflow="hidden"
+          overflowY="auto"
           display="flex"
           flexDirection="column"
           bg="gray.950"
