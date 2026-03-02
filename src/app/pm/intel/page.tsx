@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
+import { SummaryBar } from '@/components/pm/SummaryBar';
 
 const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -172,7 +173,8 @@ export default function IntelDashboard() {
   );
 
   return (
-    <Box bg="gray.900" minH="100vh">
+    <Box bg="gray.900" minH="100dvh" display="flex" flexDirection="column">
+      <SummaryBar summary={null} loading={false} />
       <DemoBanner />
       <Box p={6} maxW="1200px" mx="auto">
       {/* Header */}

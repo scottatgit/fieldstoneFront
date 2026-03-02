@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Flex as ChakraFlex } from '@chakra-ui/react';
+import { SummaryBar } from '../../../components/pm/SummaryBar';
 import {
   Box, VStack, HStack, Text, Heading, Divider, Badge, Code,
   Table, Thead, Tbody, Tr, Th, Td, Input, InputGroup,
@@ -708,7 +710,9 @@ export default function DocsPage() {
   const textColor   = useColorModeValue('gray.800', 'gray.100');
 
   return (
-    <Box minH="100vh" bg={bg} color={textColor}>
+    <ChakraFlex direction="column" minH="100dvh" overflowX="hidden">
+      <SummaryBar summary={null} loading={false} />
+      <Box minH="100vh" bg={bg} color={textColor}>
       <Flex h="100vh" overflow="hidden">
 
         {/* Desktop sidebar */}
@@ -776,5 +780,7 @@ export default function DocsPage() {
         </Box>
       </Flex>
     </Box>
+  </Box>
+    </ChakraFlex>
   );
 }
