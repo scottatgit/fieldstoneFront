@@ -11,7 +11,8 @@ import {
   BarElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { SummaryBar, Summary } from '../../../components/pm/SummaryBar';
+import { SummaryBar } from '../../../components/pm/SummaryBar';
+import type { Summary } from '../../../components/pm/types';
 import { isDemoMode, demoFetch } from '../../../lib/demoApi';
 
 ChartJS.register(
