@@ -780,7 +780,6 @@ export default function DocsPage() {
         </Box>
       </Flex>
     </Box>
-  </Box>
     </ChakraFlex>
   );
 }
