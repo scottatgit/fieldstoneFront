@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import {
-  Box, Flex, HStack, VStack, Text, Badge, Spinner,
+  Box, Button, Flex, HStack, VStack, Text, Badge, Spinner,
   Textarea, Select, Collapse, useToast, Divider, Checkbox,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -347,6 +347,19 @@ function VisitTimePicker({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
+
+// Combine CloseDraft fields into editable text block
+function draftToText(d: CloseDraft): string {
+  const lines: string[] = [];
+  if (d.work_performed) lines.push(d.work_performed);
+  if (d.outcome) lines.push('\nOUTCOME\n' + d.outcome);
+  if (d.recommendations?.length) {
+    lines.push('\nRECOMMENDATIONS');
+    d.recommendations.forEach(r => lines.push('• ' + r));
+  }
+  return lines.join('\n').trim();
+}
+
 // ── WorkingLayer: humanized expectation + visit time + checklist + live draft ─
 function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   ticket: Ticket; onSaveState: (s: SaveState) => void; onDraftReady?: () => void;
@@ -361,7 +374,10 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const [checklist, setChecklist]       = useState<Checklist>(EMPTY_CHECKLIST);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
+  const [draftMode, setDraftMode]       = useState<'generated' | 'custom'>('generated');
+  const [draftText, setDraftText]       = useState('');
   const notesDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftReqId                      = useRef(0);
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast                           = useToast();
@@ -373,18 +389,30 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
       exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft`).then(r => r.json()),
     ]).then(([exp, draft]) => {
       setExpSignal(exp);
-      setCloseDraft(draft.close_draft || null);
+      const d = draft.close_draft || null;
+      setCloseDraft(d);
+      if (d) setDraftText(draftToText(d));
     }).catch(console.error);
   }, [ticket.ticket_key]);
 
   // ── Refresh close draft (Goal 4) ─────────────────────────────────────────
-  const refreshDraft = useCallback(() => {
+  const refreshDraft = useCallback((force = false) => {
+    const reqId = ++draftReqId.current;
     setDraftLoading(true);
     exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft`)
       .then((r: Response) => r.json())
-      .then(d => { setCloseDraft(d.close_draft || null); setDraftLoading(false); })
+      .then(d => {
+        if (reqId !== draftReqId.current) return; // stale response — discard
+        const draft = d.close_draft || null;
+        setCloseDraft(draft);
+        if (draft && (force || draftMode === 'generated')) {
+          setDraftText(draftToText(draft));
+          setDraftMode('generated');
+        }
+        setDraftLoading(false);
+      })
       .catch(() => setDraftLoading(false));
-  }, [ticket.ticket_key]);
+  }, [ticket.ticket_key, draftMode]);
 
   // ── Visit Notes auto-save → triggers draft refresh ───────────────────────
   function handleNotesChange(val: string) {
@@ -398,7 +426,8 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
           body: JSON.stringify({ content: val, author: 'PM', type: 'visit_note' }),
         });
         onSaveState('saved');
-        refreshDraft();
+        setDraftMode('generated'); // reset custom draft on notes change
+        refreshDraft(true);
       } catch { onSaveState('error'); }
     }, 900);
   }
@@ -432,7 +461,8 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
       setExpNote('');
       toast({ title: 'Expectation updated', status: 'success', duration: 2000, isClosable: true });
       onDraftReady?.();
-      refreshDraft();
+      setDraftMode('generated');
+      refreshDraft(true);
     } catch { toast({ title: 'Failed to update expectation', status: 'error', duration: 3000 }); }
     finally { setSubmitting(false); }
   }
@@ -450,7 +480,8 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
           body: JSON.stringify(next),
         });
         onSaveState('saved');
-        refreshDraft();
+        setDraftMode('generated');
+        refreshDraft(true);
       } catch { onSaveState('error'); }
     }, 600);
   }
@@ -586,39 +617,62 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
         </Collapse>
       </Box>
 
-      {/* ── Goal 4: Close Draft (live recompute) ─────────────────────────── */}
-      {closeDraft && (
-        <Box p={4} borderRadius="md" bg="gray.900" border="1px solid" borderColor="gray.700" mb={6}
-          opacity={draftLoading ? 0.6 : 1} transition="opacity 0.2s">
+      {/* ── Close Draft (live recompute + manual edit mode) ──────────────── */}
+      {(closeDraft || draftText) && (
+        <Box p={4} borderRadius="md" bg="gray.900" border="1px solid"
+          borderColor={draftMode === 'custom' ? 'yellow.700' : 'gray.700'}
+          mb={6} opacity={draftLoading ? 0.7 : 1} transition="opacity 0.2s, border-color 0.2s">
           <HStack justify="space-between" mb={3}>
-            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="green.400"
-              letterSpacing="widest" textTransform="uppercase">Close Draft</Text>
-            {draftLoading && <Spinner size="xs" color="green.400" />}
+            <HStack spacing={2}>
+              <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="green.400"
+                letterSpacing="widest" textTransform="uppercase">Close Draft</Text>
+              <Badge
+                fontSize="2xs" fontFamily="mono" colorScheme={draftMode === 'custom' ? 'yellow' : 'green'}
+                variant="subtle" px={2} py={0.5} borderRadius="sm">
+                {draftMode === 'custom' ? 'CUSTOM' : 'GENERATED'}
+              </Badge>
+            </HStack>
+            <HStack spacing={2}>
+              {draftLoading && <Spinner size="xs" color="green.400" />}
+              {draftMode === 'custom' && (
+                <Button size="xs" variant="ghost" color="gray.400"
+                  _hover={{ color: 'white' }}
+                  onClick={() => {
+                    if (closeDraft) { setDraftText(draftToText(closeDraft)); }
+                    setDraftMode('generated');
+                  }}>Reset</Button>
+              )}
+            </HStack>
           </HStack>
-          <VStack align="stretch" spacing={3}>
-            <Box>
-              <Text fontSize="2xs" color="gray.500" fontFamily="mono" mb={1}>WORK PERFORMED</Text>
-              <Text fontSize="sm" color="gray.300" lineHeight="tall">{closeDraft.work_performed}</Text>
-            </Box>
-            <Divider borderColor="gray.700" />
-            <Box>
-              <Text fontSize="2xs" color="gray.500" fontFamily="mono" mb={1}>OUTCOME</Text>
-              <Text fontSize="sm" color="gray.300" lineHeight="tall">{closeDraft.outcome}</Text>
-            </Box>
-            {closeDraft.recommendations.length > 0 && (
-              <>
-                <Divider borderColor="gray.700" />
-                <Box>
-                  <Text fontSize="2xs" color="gray.500" fontFamily="mono" mb={1}>RECOMMENDATIONS</Text>
-                  <VStack align="stretch" spacing={1}>
-                    {closeDraft.recommendations.map((r, i) => (
-                      <Text key={i} fontSize="sm" color="gray.300" lineHeight="tall">• {r}</Text>
-                    ))}
-                  </VStack>
-                </Box>
-              </>
-            )}
-          </VStack>
+          <Textarea
+            value={draftText}
+            onChange={e => { setDraftText(e.target.value); setDraftMode('custom'); }}
+            bg="transparent"
+            border="none"
+            borderRadius="md"
+            color="gray.300"
+            fontSize="sm"
+            lineHeight="tall"
+            resize="none"
+            minH="180px"
+            p={0}
+            _focus={{ outline: 'none', boxShadow: 'none', border: 'none' }}
+            _hover={{ border: 'none' }}
+            placeholder="Close draft will appear here once visit notes are added..."
+            sx={{
+              height: 'auto',
+              overflow: 'hidden',
+              fontFamily: 'inherit',
+            }}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = 'auto';
+              el.style.height = el.scrollHeight + 'px';
+            }}
+          />
+          <Text fontSize="2xs" color="gray.600" mt={2} fontFamily="mono">
+            {draftMode === 'custom' ? 'Editing manually — notes changes will reset to generated.' : 'Auto-updating with notes and signals.'}
+          </Text>
         </Box>
       )}
     </Box>
