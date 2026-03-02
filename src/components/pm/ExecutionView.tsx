@@ -5,6 +5,7 @@ import {
   Textarea, Select, Collapse, useToast, Divider, Checkbox,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useBreakpointValue } from '@chakra-ui/react';
 import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import { ChatPanel } from './ChatPanel';
@@ -204,7 +205,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
 
       {/* Operational Header */}
       <Box mb={6} pb={4} borderBottom='1px solid' borderColor='gray.800'>
-        <Text fontSize='lg' fontWeight='bold' color='white' mb={1}>{clientName}</Text>
+        <Text fontSize={{ base: 'xl', md: 'lg' }} fontWeight='bold' color='white' mb={1}>{clientName}</Text>
         {contactName && (
           <Text fontSize='sm' color='gray.400'>Contact: {contactName}</Text>
         )}
@@ -261,6 +262,90 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   );
 }
 
+
+
+// ── Custom Visit Time Picker (mobile-friendly) ────────────────────────────────
+function parseISOToParts(iso: string | null): { date: string; hour: string; minute: string; ampm: 'AM' | 'PM' } {
+  if (!iso) return { date: '', hour: '9', minute: '00', ampm: 'AM' };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { date: '', hour: '9', minute: '00', ampm: 'AM' };
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let h = d.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  const snap = [0, 15, 30, 45].reduce((prev, cur) => Math.abs(cur - d.getMinutes()) < Math.abs(prev - d.getMinutes()) ? cur : prev, 0);
+  return { date: dateStr, hour: String(h), minute: pad(snap), ampm };
+}
+
+function partsToISO(date: string, hour: string, minute: string, ampm: 'AM' | 'PM'): string {
+  if (!date) return '';
+  let h = parseInt(hour, 10) % 12;
+  if (ampm === 'PM') h += 12;
+  return `${date}T${String(h).padStart(2, '0')}:${minute}`;
+}
+
+function VisitTimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const initial = parseISOToParts(value);
+  const [date,  setDate]  = useState(initial.date);
+  const [hour,  setHour]  = useState(initial.hour);
+  const [min,   setMin]   = useState(initial.minute);
+  const [ampm,  setAmpm]  = useState<'AM' | 'PM'>(initial.ampm);
+
+  const emit = (d: string, h: string, m: string, ap: 'AM' | 'PM') => {
+    const iso = partsToISO(d, h, m, ap);
+    if (iso) onChange(iso);
+  };
+
+  const inputStyle = {
+    bg: 'gray.900', border: '1px solid', borderColor: 'gray.700', borderRadius: 'md',
+    color: 'gray.200', fontSize: 'sm', px: 2, py: 2, cursor: 'pointer',
+    minH: '44px',
+    _focus: { outline: 'none', borderColor: 'blue.500' },
+    sx: { colorScheme: 'dark' },
+  } as const;
+
+  return (
+    <Box>
+      {/* Date row */}
+      <Box as='input' type='date' value={date}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDate(e.target.value); emit(e.target.value, hour, min, ampm); }}
+        w='full' mb={2} {...inputStyle} />
+      {/* Time row */}
+      <HStack spacing={2}>
+        {/* Hour */}
+        <Box as='select' value={hour}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setHour(e.target.value); emit(date, e.target.value, min, ampm); }}
+          flex={1} {...inputStyle}>
+          {[1,2,3,4,5,6,7,8,9,10,11,12].map(h => (
+            <option key={h} value={String(h)}>{h}</option>
+          ))}
+        </Box>
+        {/* Minute */}
+        <Box as='select' value={min}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setMin(e.target.value); emit(date, hour, e.target.value, ampm); }}
+          flex={1} {...inputStyle}>
+          {['00','15','30','45'].map(m => (
+            <option key={m} value={m}>:{m}</option>
+          ))}
+        </Box>
+        {/* AM/PM toggle */}
+        <HStack spacing={0} border='1px solid' borderColor='gray.700' borderRadius='md' overflow='hidden' flexShrink={0}>
+          {([['AM'], ['PM']] as const).map(([ap]) => (
+            <Box key={ap} as='button' onClick={() => { setAmpm(ap); emit(date, hour, min, ap); }}
+              px={3} minH='44px'
+              bg={ampm === ap ? 'blue.800' : 'gray.900'}
+              color={ampm === ap ? 'blue.200' : 'gray.500'}
+              fontSize='sm' fontWeight='bold' cursor='pointer'
+              borderRight={ap === 'AM' ? '1px solid' : 'none'} borderColor='gray.700'>
+              {ap}
+            </Box>
+          ))}
+        </HStack>
+      </HStack>
+    </Box>
+  );
+}
 
 // ── WorkingLayer: humanized expectation + visit time + checklist + live draft ─
 function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
@@ -386,22 +471,11 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
       css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
       maxW="760px" mx="auto" w="full">
 
-      {/* ── Goal 3: Visit Time ────────────────────────────────────────────── */}
+      {/* ── Goal 3: Visit Time (custom mobile picker) ───────────────────────── */}
       <Box mb={6}>
         <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
           letterSpacing="widest" textTransform="uppercase" mb={2}>Visit Time</Text>
-        <Box
-          as="input"
-          type="datetime-local"
-          value={visitDt}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleVisitDtChange(e.target.value)}
-          bg="gray.900" borderColor="gray.700" border="1px solid" borderRadius="md"
-          color="gray.200" fontSize="sm" px={3} py={2} w="full"
-          sx={{
-            colorScheme: 'dark',
-            '&:focus': { outline: 'none', borderColor: 'var(--chakra-colors-blue-500)' },
-          }}
-        />
+        <VisitTimePicker value={visitDt} onChange={handleVisitDtChange} />
       </Box>
 
       {/* ── Goal 2: Client Expectation (humanized) ────────────────────────── */}
@@ -464,11 +538,19 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
       <Box mb={4}>
         <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
           letterSpacing="widest" textTransform="uppercase" mb={2}>Visit Notes</Text>
-        <Textarea value={visitNotes} onChange={e => handleNotesChange(e.target.value)}
+        <Textarea value={visitNotes} onChange={e => {
+            handleNotesChange(e.target.value);
+            // Auto-grow
+            const el = e.target;
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+          }}
           placeholder="Field observations, actions taken, parts used..."
-          bg="gray.900" borderColor="gray.700" color="gray.200" fontSize="sm" rows={5}
+          bg="gray.900" borderColor="gray.700" color="gray.200" fontSize="sm" rows={4}
+          minH="120px"
           _focus={{ borderColor: 'blue.500', boxShadow: 'none' }}
-          _placeholder={{ color: 'gray.600' }} resize="vertical" />
+          _placeholder={{ color: 'gray.600' }} resize="none"
+          overflow="hidden" />
       </Box>
 
       {/* ── Goal 5: SOP Completion Checklist ────────────────────────────── */}
@@ -563,7 +645,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const handleTankRefresh = useCallback(() => { setRefreshKey(k => k + 1); }, []);
 
   return (
-    <Flex h='full' direction='column' bg='gray.950' overflow='hidden'>
+    <Flex h='full' direction='column' bg='gray.950' overflow='hidden' maxW='100vw'>
 
       {/* Header */}
       <Flex px={{ base: 2, md: 4 }} py={2} bg='gray.900' borderBottom='1px solid' borderColor='gray.700'
@@ -571,7 +653,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
         <HStack spacing={3} minW={0} flex={1} overflow='hidden'>
           <Box as='button' onClick={onBack}
             fontSize='xs' fontFamily='mono' color='gray.500' cursor='pointer'
-            px={2} py={1} borderRadius='sm' border='1px solid' borderColor='gray.700'
+            px={3} minH='44px' borderRadius='sm' border='1px solid' borderColor='gray.700'
             _hover={{ borderColor: 'gray.500', color: 'white' }} flexShrink={0}>
             Back
           </Box>
@@ -585,14 +667,14 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
         <HStack spacing={2} flexShrink={0} ml={3}>
           {saveIndicator[saveState]}
           <HStack spacing={0} border='1px solid' borderColor='gray.700' borderRadius='md' overflow='hidden'>
-            <Box as='button' onClick={() => setViewMode('door')} px={3} py={1.5}
+            <Box as='button' onClick={() => setViewMode('door')} px={3} minH='44px'
               fontSize='2xs' fontFamily='mono' cursor='pointer'
               bg={viewMode === 'door' ? 'blue.800' : 'gray.800'}
               color={viewMode === 'door' ? 'blue.200' : 'gray.500'}
               _hover={{ color: 'white' }} borderRight='1px solid' borderColor='gray.700'>
               Door View
             </Box>
-            <Box as='button' onClick={() => setViewMode('work')} px={3} py={1.5}
+            <Box as='button' onClick={() => setViewMode('work')} px={3} minH='44px'
               fontSize='2xs' fontFamily='mono' cursor='pointer'
               bg={viewMode === 'work' ? 'purple.800' : 'gray.800'}
               color={viewMode === 'work' ? 'purple.200' : 'gray.500'}
@@ -600,7 +682,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
               Edit / Work
             </Box>
           </HStack>
-          <Box as='button' onClick={() => setTankOpen(v => !v)} px={3} py={1.5}
+          <Box as='button' onClick={() => setTankOpen(v => !v)} px={3} minH='44px'
             fontSize='2xs' fontFamily='mono' cursor='pointer'
             bg={tankOpen ? 'gray.700' : 'gray.800'}
             color={tankOpen ? 'white' : 'gray.500'}
@@ -612,17 +694,40 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       </Flex>
 
       {/* Body */}
-      <Flex flex={1} overflow='hidden'>
-        <Flex flex={1} direction='column' overflow='hidden' align='center'>
+      <Flex flex={1} overflow='hidden' position='relative'>
+        <Flex flex={1} direction='column' overflow='hidden' align='center' overflowX='hidden'>
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
             : <WorkingLayer ticket={ticket} onSaveState={setSaveState} onDraftReady={() => setRefreshKey(k => k + 1)} />
           }
         </Flex>
+        {/* Desktop side panel (lg+) */}
         {tankOpen && (
-          <Box w={{ base: 'full', md: '340px' }} flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
-            overflow='hidden' display='flex' flexDirection='column'>
+          <Box display={{ base: 'none', lg: 'flex' }}
+            w='340px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
+            overflow='hidden' flexDirection='column'>
             <ChatPanel onCommand={handleTankRefresh} />
+          </Box>
+        )}
+        {/* Mobile bottom sheet */}
+        {tankOpen && (
+          <Box display={{ base: 'flex', lg: 'none' }}
+            position='fixed' bottom={0} left={0} right={0} h='60vh' zIndex={200}
+            bg='gray.900' borderTop='2px solid' borderColor='gray.600'
+            flexDirection='column' overflow='hidden'
+            boxShadow='0 -8px 32px rgba(0,0,0,0.6)'>
+            <Flex px={4} py={2} align='center' justify='space-between'
+              borderBottom='1px solid' borderColor='gray.700' flexShrink={0}>
+              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='green.300'>TANK</Text>
+              <Box as='button' onClick={() => setTankOpen(false)}
+                fontSize='lg' color='gray.400' _hover={{ color: 'white' }} cursor='pointer'
+                minH='44px' px={3}>
+                ✕
+              </Box>
+            </Flex>
+            <Box flex={1} overflow='hidden' display='flex' flexDirection='column'>
+              <ChatPanel onCommand={handleTankRefresh} />
+            </Box>
           </Box>
         )}
       </Flex>
