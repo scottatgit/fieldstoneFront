@@ -1,13 +1,8 @@
 'use client';
 import { Flex, HStack, VStack, Text, Spinner } from '@chakra-ui/react';
+import { Summary } from './types';
 import Link from 'next/link';
 
-export interface Summary {
-  total_open: number;
-  today_count: number;
-  declining_trust_count: number;
-  readiness: { high: number; medium: number; low: number };
-}
 
 export function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
   if (loading) return (
