@@ -14,6 +14,7 @@ import Link from 'next/link';
 import IntelPanel from '@/components/pm/IntelPanel';
 import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
+import { SummaryBar } from '@/components/pm/SummaryBar';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
