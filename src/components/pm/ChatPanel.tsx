@@ -5,6 +5,7 @@ import {
 } from '@chakra-ui/react';
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { ChatMessage } from './types';
+import { isDemoMode, demoFetch } from '@/lib/demoApi';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -80,12 +81,17 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      const res = await fetch(`${PM_API}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg }),
-      });
-      const data = await res.json();
+      let data: { response: string; type?: string };
+      if (isDemoMode()) {
+        data = await demoFetch('/api/chat') as { response: string; type?: string };
+      } else {
+        const res = await fetch(`${PM_API}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg }),
+        });
+        data = await res.json();
+      }
       const botMsg: ChatMessage = {
         id: uid(), role: 'assistant', content: data.response, type: data.type || 'text', timestamp: new Date()
       };
