@@ -12,10 +12,10 @@ const pmTheme = extendTheme({
         color: 'white',
         margin: 0,
         padding: 0,
-        overflow: 'hidden',
+        overflowX: 'hidden', overflowY: 'auto',
       },
       '#__next': {
-        height: '100dvh',
+        minHeight: '100dvh',
       },
     },
   },
