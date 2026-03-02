@@ -699,7 +699,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const handleTankRefresh = useCallback(() => { setRefreshKey(k => k + 1); }, []);
 
   return (
-    <Flex h='full' direction='column' bg='gray.950' overflow='hidden' maxW='100vw'>
+    <Flex minH='100svh' direction='column' bg='gray.950' overflowX='hidden' maxW='100vw'>
 
       {/* Header */}
       <Flex px={{ base: 2, md: 4 }} py={2} bg='gray.900' borderBottom='1px solid' borderColor='gray.700'
@@ -748,8 +748,8 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       </Flex>
 
       {/* Body */}
-      <Flex flex={1} overflow='hidden' position='relative'>
-        <Flex flex={1} direction='column' overflow='hidden' align='center' overflowX='hidden'>
+      <Flex flex={1} position='relative' minH={0}>
+        <Flex flex={1} direction='column' overflowX='hidden' overflowY='auto' align='center' minH={0}>
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
             : <WorkingLayer ticket={ticket} onSaveState={setSaveState} onDraftReady={() => setRefreshKey(k => k + 1)} />
