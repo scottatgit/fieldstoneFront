@@ -59,6 +59,32 @@ interface Checklist {
   manager_notified:      boolean;
 }
 
+
+interface TicketContext {
+  asset_hostname:            string | null;
+  asset_type:                string | null;
+  assigned_to:               string | null;
+  assigned_by:               string | null;
+  appointment_datetime:      string | null;
+  primary_issue:             string | null;
+  issue_category:            string | null;
+  impact_level:              string | null;
+  emotion_tone:              string | null;
+  clinical_workflow_impact:  boolean;
+  business_risk_summary:     string | null;
+  ingestion_version:         number;
+  last_ingested_at:          string | null;
+}
+
+interface TicketSignals {
+  urgency_score:   number;
+  readiness_score: number;
+  trust_score:     number;
+  friction_score:  number;
+  computed_at:     string;
+}
+
+
 const EMPTY_CHECKLIST: Checklist = {
   spoke_with_manager:    false,
   walkthrough_completed: false,
@@ -380,6 +406,67 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const draftReqId                      = useRef(0);
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Phase 7C: structured context + signals state ──────────────────────────
+  const [ingestContext,  setIngestContext]  = useState<TicketContext | null>(null);
+  const [ingestSignals,  setIngestSignals]  = useState<TicketSignals | null>(null);
+  const [ingestStatus,   setIngestStatus]   = useState<string>('never_queued');
+  const [isPolling,      setIsPolling]      = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch /context and /ingest/status on ticket open
+  const fetchContext = useCallback(async () => {
+    try {
+      const [ctxRes, statusRes] = await Promise.all([
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/context`),
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`),
+      ]);
+      const ctxData    = await ctxRes.json();
+      const statusData = await statusRes.json();
+      setIngestContext(ctxData.context   ?? null);
+      setIngestSignals(ctxData.signals   ?? null);
+      setIngestStatus(statusData.status  ?? 'never_queued');
+    } catch {
+      setIngestStatus('never_queued');
+    }
+  }, [ticket.ticket_key]);
+
+  // Trigger ingestion + poll every 2s (max 30s) then refresh context
+  const triggerIngest = useCallback(async () => {
+    try {
+      await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest`, { method: 'POST' });
+      setIngestStatus('pending');
+      setIsPolling(true);
+      let elapsed = 0;
+      pollRef.current = setInterval(async () => {
+        elapsed += 2;
+        try {
+          const res  = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/ingest/status`);
+          const data = await res.json();
+          if (data.status === 'completed' || data.status === 'failed' || elapsed >= 30) {
+            clearInterval(pollRef.current!);
+            setIsPolling(false);
+            setIngestStatus(data.status);
+            if (data.status === 'completed') await fetchContext();
+          } else {
+            setIngestStatus(data.status);
+          }
+        } catch {
+          clearInterval(pollRef.current!);
+          setIsPolling(false);
+        }
+      }, 2000);
+    } catch {
+      setIngestStatus('failed');
+    }
+  }, [ticket.ticket_key, fetchContext]);
+
+  // Fetch context on ticket open; clear poll on unmount
+  useEffect(() => {
+    fetchContext();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [fetchContext]);
+
   const toast                           = useToast();
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -714,11 +801,11 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             _hover={{ borderColor: 'gray.500', color: 'white' }} flexShrink={0}>
             Back
           </Box>
-          <TrustDot score={ticket.trust_score} />
+          <TrustDot score={ingestSignals?.trust_score ?? ticket.trust_score} />
           <Text fontSize='2xs' fontFamily='mono' color='gray.500' flexShrink={0}>#{ticket.ticket_key}</Text>
           <Text fontSize='sm' fontWeight='bold' color='white' noOfLines={1} flex={1} minW={0}>{clientName}</Text>
           <Text fontSize='xs' color='gray.400' noOfLines={1} display={{ base: 'none', xl: 'block' }} flexShrink={0}>{displayTitle}</Text>
-          <ReadinessBadge score={ticket.readiness_score} />
+          <ReadinessBadge score={ingestSignals?.readiness_score ?? ticket.readiness_score} />
           <DecisionBadge signal={ticket.decision_signal} label={ticket.decision_label} />
         </HStack>
         <HStack spacing={2} flexShrink={0} ml={3}>
@@ -753,6 +840,29 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       {/* Body */}
       <Flex flex={1} position='relative' minH={0}>
         <Flex flex={1} direction='column' overflowX='hidden' align='center' minH={0}>
+
+            {/* Phase 7C: context readiness banner */}
+            {(ingestStatus === 'never_queued' || ingestStatus === 'failed') && (
+              <Box bg="yellow.900" border="1px solid" borderColor="yellow.600" borderRadius="md" p={3} mb={3}>
+                <Flex align="center" justify="space-between" gap={3}>
+                  <Text fontSize="sm" color="yellow.200">
+                    {ingestStatus === 'failed' ? '⚠️ Structured context failed to generate.' : '⏳ Structured context not ready.'}
+                  </Text>
+                  <Button size="xs" colorScheme="yellow" variant="outline" onClick={triggerIngest} isLoading={isPolling} loadingText="Running...">
+                    Run Ingestion
+                  </Button>
+                </Flex>
+              </Box>
+            )}
+            {ingestStatus === 'running' || ingestStatus === 'pending' ? (
+              <Box bg="blue.900" border="1px solid" borderColor="blue.600" borderRadius="md" p={3} mb={3}>
+                <Flex align="center" gap={2}>
+                  <Spinner size="xs" color="blue.300" />
+                  <Text fontSize="sm" color="blue.200">Generating structured context...</Text>
+                </Flex>
+              </Box>
+            ) : null}
+
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
             : <WorkingLayer ticket={ticket} onSaveState={setSaveState} onDraftReady={() => setRefreshKey(k => k + 1)} />
