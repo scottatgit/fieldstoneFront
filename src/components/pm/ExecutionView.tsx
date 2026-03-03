@@ -28,12 +28,14 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type ViewMode  = 'door' | 'work';
 
 interface BriefSections {
-  situation:   string;
-  expectation: string;
-  constraints: string;
-  decision:    string;
-  risk_flags:  string;
-  advanced:    string;
+  situation:        string;
+  expectation:      string;
+  constraints:      string;
+  decision:         string;
+  risk_flags:       string;
+  advanced:         string;
+  contact:          string;
+  additional_notes: string;
 }
 
 interface CloseDraft {
@@ -139,6 +141,8 @@ function parseBriefSections(md: string): BriefSections {
       else if (h.includes('EXPECTATION') || h.includes('CLIENT EXPECT'))        current = 'expectation';
       else if (h.includes('CONSTRAINT') || h.includes('ACCESS') || h.includes('TIME SENSITIVE')) current = 'constraints';
       else if (h.includes('DECISION') || h.includes('ACTION'))                  current = 'decision';
+      else if (h.includes('CONTACT'))                                            current = 'contact';
+      else if (h.includes('ADDITIONAL') || h.includes('NOTES'))                 current = 'additional_notes';
       else if (h.includes('RISK') || h.includes('FLAG'))                        current = 'risk_flags';
       else if (ADVANCED.some(a => h.includes(a)))                               current = 'advanced';
       else                                                                       current = 'advanced';
@@ -152,7 +156,9 @@ function parseBriefSections(md: string): BriefSections {
     situation:   join('situation')   || join('preamble'),
     expectation: join('expectation'),
     constraints: join('constraints'),
-    decision:    join('decision'),
+    contact:          join('contact'),
+    additional_notes: join('additional_notes'),
+    decision:         join('decision'),
     risk_flags:  join('risk_flags'),
     advanced:    join('advanced'),
   };
@@ -218,7 +224,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
     </Flex>
   );
 
-  const contactName    = ticket.sender_name || null;
+  const contactName    = sections?.contact?.trim() || ticket.sender_name || null;
   const contactPhone   = ticket.contact_phone || null;
   const visitFormatted = formatVisitDatetime(ticket.visit_datetime);
   const clientName     = ticket.client_display_name || ticket.client_key || '';
@@ -274,6 +280,9 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       <SectionBlock label='EXPECTATION' content={sections.expectation} accent='purple' />
       <SectionBlock label='CONSTRAINTS' content={sections.constraints} accent='orange' />
       <SectionBlock label='DECISION'    content={sections.decision}    accent='green'  />
+      {sections.additional_notes?.trim() && (
+        <SectionBlock label='ADDITIONAL NOTES' content={sections.additional_notes} accent='gray' />
+      )}
       {sections.risk_flags && (
         <Box mb={5} p={3} borderRadius='md' bg='blackAlpha.400' border='1px solid' borderColor='red.800'>
           <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' color='red.400' letterSpacing='widest' textTransform='uppercase' mb={2}>
