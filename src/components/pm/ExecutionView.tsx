@@ -235,8 +235,6 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   // 3. cleanTitle(ticket.title) — derived from last / segment
   // 4. raw title as last resort
   const situationContent = sections?.situation?.trim() || ticket.situation?.trim() || cleanTitle(ticket.title) || ticket.title || '';
-  const situationSource  = sections?.situation?.trim() ? 'brief' : ticket.situation?.trim() ? 'stored' : 'derived';
-  const isDev = process.env.NODE_ENV === 'development';
 
   // Format phone for tel: link (strip non-digits)
   const telHref = contactPhone ? `tel:${contactPhone.replace(/\D/g, '')}` : null;
@@ -272,11 +270,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       </Box>
 
       <SectionBlock label='SITUATION'   content={situationContent}   accent='blue'   />
-      {isDev && (
-        <Text fontSize='2xs' fontFamily='mono' color='gray.600' mb={2} px={2}>
-          [debug] situation_source={situationSource} | subject={ticket.title?.slice(0,60)}
-        </Text>
-      )}
+
       <SectionBlock label='EXPECTATION' content={sections.expectation} accent='purple' />
       <SectionBlock label='CONSTRAINTS' content={sections.constraints} accent='orange' />
       <SectionBlock label='DECISION'    content={sections.decision}    accent='green'  />
