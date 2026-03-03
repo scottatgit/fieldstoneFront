@@ -29,6 +29,7 @@ export interface Ticket {
   notes_count: number;
   visit_datetime: string | null;
   contact_phone?: string | null;
+  situation?: string | null;
 }
 
 export interface CalendarEvent {

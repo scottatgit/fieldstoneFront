@@ -62,6 +62,8 @@ interface Checklist {
 
 interface TicketContext {
   asset_hostname:            string | null;
+  situation?:                string | null;
+  situation_source?:         string | null;
   asset_type:                string | null;
   assigned_to:               string | null;
   assigned_by:               string | null;
@@ -221,6 +223,15 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   const visitFormatted = formatVisitDatetime(ticket.visit_datetime);
   const clientName     = ticket.client_display_name || ticket.client_key || '';
 
+  // Situation fallback chain:
+  // 1. sections.situation (from brief ## SITUATION header)
+  // 2. ticket.situation (stored deterministic field from DB)
+  // 3. cleanTitle(ticket.title) — derived from last / segment
+  // 4. raw title as last resort
+  const situationContent = sections?.situation?.trim() || ticket.situation?.trim() || cleanTitle(ticket.title) || ticket.title || '';
+  const situationSource  = sections?.situation?.trim() ? 'brief' : ticket.situation?.trim() ? 'stored' : 'derived';
+  const isDev = process.env.NODE_ENV === 'development';
+
   // Format phone for tel: link (strip non-digits)
   const telHref = contactPhone ? `tel:${contactPhone.replace(/\D/g, '')}` : null;
 
@@ -254,7 +265,12 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
         )}
       </Box>
 
-      <SectionBlock label='SITUATION'   content={sections.situation}   accent='blue'   />
+      <SectionBlock label='SITUATION'   content={situationContent}   accent='blue'   />
+      {isDev && (
+        <Text fontSize='2xs' fontFamily='mono' color='gray.600' mb={2} px={2}>
+          [debug] situation_source={situationSource} | subject={ticket.title?.slice(0,60)}
+        </Text>
+      )}
       <SectionBlock label='EXPECTATION' content={sections.expectation} accent='purple' />
       <SectionBlock label='CONSTRAINTS' content={sections.constraints} accent='orange' />
       <SectionBlock label='DECISION'    content={sections.decision}    accent='green'  />
