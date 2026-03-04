@@ -12,6 +12,24 @@ const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 function uid() { return Math.random().toString(36).slice(2); }
 
+// Extract key facts from assistant response into working memory
+function extractFacts(text: string, prev: Record<string,string>): Record<string,string> {
+  const updated = { ...prev };
+  // Observed fix pattern
+  const fixMatch = text.match(/(?:fix(?:ed)?|resolv(?:ed)?|restart(?:ed)?|replac(?:ed)?)\s+(?:by\s+)?([^.\n,]{10,60})/i);
+  if (fixMatch) updated['observed_fix'] = fixMatch[1].trim();
+  // Remaining issue pattern
+  const remainMatch = text.match(/(?:still|but|however|remaining|unresolved)[:\s]+([^.\n]{10,80})/i);
+  if (remainMatch) updated['remaining_issue'] = remainMatch[1].trim();
+  // Device/hardware mentioned
+  const hwMatch = text.match(/(?:the\s+)?(\w+(?:\s+\w+){0,3}?)\s+(?:is|was|appears)\s+(?:dead|failed|faulty|bad|broken|offline)/i);
+  if (hwMatch) updated['failed_component'] = hwMatch[1].trim();
+  // Root cause
+  const causeMatch = text.match(/(?:root\s+cause|caused\s+by|due\s+to)[:\s]+([^.\n]{10,80})/i);
+  if (causeMatch) updated['root_cause'] = causeMatch[1].trim();
+  return updated;
+}
+
 function renderMd(text: string): string {
   return text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -140,6 +158,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [input, setInput]                   = useState('');
   const [loading, setLoading]               = useState(false);
   const [pendingImages, setPendingImages]   = useState<{ b64: string; preview: string }[]>([]);
+  const [workingMemory, setWorkingMemory]   = useState<Record<string,string>>({});
   const [sidebarOpen, setSidebarOpen]       = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
@@ -202,12 +221,13 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         const res = await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/work/pilot/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg, transcript: buildTranscript(messages), images: imgs }),
+          body: JSON.stringify({ message: msg, transcript: buildTranscript(messages), images: imgs, artifact_type: artifactType || null, working_memory: workingMemory }),
         });
         if (!res.ok) throw new Error(`API ${res.status}`);
         const data = await res.json();
         responseText = data.response || '(no response)';
       }
+      setWorkingMemory((prev) => extractFacts(responseText, prev));
       setMessages((prev) => [...prev, {
         id: uid(), role: 'assistant', content: responseText,
         timestamp: new Date(), artifact: artifactType,
@@ -230,6 +250,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
     const files = Array.from(e.target.files || []);
     const results: { b64: string; preview: string }[] = [];
     for (const file of files.slice(0, 4)) {
+      if (file.size > 5 * 1024 * 1024) { console.warn('Image exceeds 5MB limit, skipping:', file.name); continue; }
       const b64 = await new Promise<string>((res) => {
         const reader = new FileReader();
         reader.onload = () => { res((reader.result as string).split(',')[1] || ''); };
