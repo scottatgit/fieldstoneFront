@@ -78,3 +78,42 @@ export interface ChatMessage {
   type: 'text' | 'table' | 'brief';
   timestamp: Date;
 }
+
+
+export interface TicketContext {
+  asset_hostname:            string | null;
+  situation?:                string | null;
+  situation_source?:         string | null;
+  asset_type:                string | null;
+  assigned_to:               string | null;
+  assigned_by:               string | null;
+  appointment_datetime:      string | null;
+  primary_issue:             string | null;
+  issue_category:            string | null;
+  impact_level:              string | null;
+  emotion_tone:              string | null;
+  clinical_workflow_impact:  boolean;
+  business_risk_summary:     string | null;
+  expectation?:              string | null;
+  constraints?:              string | null;
+  risk_flags?:               string[] | string | null;
+  ingestion_version:         number;
+  last_ingested_at:          string | null;
+}
+
+export interface TicketSignals {
+  urgency_score:    number;
+  readiness_score:  number;
+  trust_score:      number;
+  friction_score:   number;
+  readiness_signal?: string | null;
+  trust_signal?:     string | null;
+  computed_at:      string;
+}
+
+export interface TicketContextResponse {
+  context:          TicketContext | null;
+  signals:          TicketSignals | null;
+  situation?:       string | null;
+  situation_source?: string | null;
+}

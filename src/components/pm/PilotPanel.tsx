@@ -5,8 +5,8 @@ import {
   useBreakpointValue,
 } from '@chakra-ui/react';
 import { useState, useRef, useEffect, useCallback, KeyboardEvent, ChangeEvent } from 'react';
-import { Ticket, TicketContext } from './types';
-import { demoFetch, isDemoMode } from '@/lib/demoApi';
+import { Ticket, TicketContext, TicketSignals } from './types';
+import { isDemoMode } from '@/lib/demoApi';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -44,28 +44,28 @@ function getChips(ctx: TicketContext | null, ticket: Ticket): PilotChip[] {
     { label: '📝 Internal note',    prompt: 'Generate a detailed internal technician note for ConnectWise based on the context and our conversation.' },
     { label: '🧠 KB entry',         prompt: 'Generate a knowledge base entry capturing what was learned about this environment and issue.' },
   ];
-  if (ctx?.context?.clinical_workflow_impact) {
+  if (ctx?.clinical_workflow_impact) {
     chips.unshift({ label: '🏥 Clinical impact', prompt: 'What clinical workflows might be affected and what is the fallback protocol?' });
   }
-  if (ctx?.context?.emotion_tone === 'frustrated') {
+  if (ctx?.emotion_tone === 'frustrated') {
     chips.unshift({ label: '🤝 Client relations', prompt: 'This client appears frustrated. How should I approach the conversation to rebuild trust?' });
   }
   return chips.slice(0, 8);
 }
 
-function ContextSidebar({ ticket, ctx }: { ticket: Ticket; ctx: TicketContext | null }) {
+function ContextSidebar({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
   const situation   = ctx?.situation   || ticket.situation || ticket.title || '';
-  const expectation = ctx?.context?.expectation || '';
-  const constraints = ctx?.context?.constraints || '';
+  const expectation = ctx?.expectation || '';
+  const constraints = ctx?.constraints || '';
   const riskFlags: string[] = (() => {
     try {
-      const raw = (ctx?.context as Record<string, unknown>)?.risk_flags;
+      const raw = (ctx as Record<string, unknown> | null)?.risk_flags;
       if (Array.isArray(raw)) return raw as string[];
       if (typeof raw === 'string') return JSON.parse(raw);
     } catch { /* empty */ }
     return [];
   })();
-  const sig = ctx?.signals;
+  const sig = signals;
 
   return (
     <VStack align='stretch' spacing={3} p={3} overflowY='auto' h='full'
@@ -124,7 +124,7 @@ function ContextSidebar({ ticket, ctx }: { ticket: Ticket; ctx: TicketContext | 
   );
 }
 
-export function PilotPanel({ ticket, ctx }: { ticket: Ticket; ctx: TicketContext | null }) {
+export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
   const storageKey = `pilot_chat_${ticket.ticket_key}`;
   const [messages, setMessages] = useState<PilotMessage[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -397,7 +397,7 @@ export function PilotPanel({ ticket, ctx }: { ticket: Ticket; ctx: TicketContext
       {/* Context sidebar */}
       {sidebarOpen && !isMobile && (
         <Box w='200px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700' bg='gray.900' h='full' overflow='hidden'>
-          <ContextSidebar ticket={ticket} ctx={ctx} />
+          <ContextSidebar ticket={ticket} ctx={ctx} signals={signals} />
         </Box>
       )}
     </Flex>

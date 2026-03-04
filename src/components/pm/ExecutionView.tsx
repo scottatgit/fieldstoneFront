@@ -6,7 +6,7 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useBreakpointValue } from '@chakra-ui/react';
-import { Ticket } from './types';
+import { Ticket, TicketContext, TicketSignals, TicketContextResponse } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import { ChatPanel } from './ChatPanel';
 import { PilotPanel } from './PilotPanel';
@@ -63,31 +63,7 @@ interface Checklist {
 }
 
 
-interface TicketContext {
-  asset_hostname:            string | null;
-  situation?:                string | null;
-  situation_source?:         string | null;
-  asset_type:                string | null;
-  assigned_to:               string | null;
-  assigned_by:               string | null;
-  appointment_datetime:      string | null;
-  primary_issue:             string | null;
-  issue_category:            string | null;
-  impact_level:              string | null;
-  emotion_tone:              string | null;
-  clinical_workflow_impact:  boolean;
-  business_risk_summary:     string | null;
-  ingestion_version:         number;
-  last_ingested_at:          string | null;
-}
 
-interface TicketSignals {
-  urgency_score:   number;
-  readiness_score: number;
-  trust_score:     number;
-  friction_score:  number;
-  computed_at:     string;
-}
 
 
 const EMPTY_CHECKLIST: Checklist = {
@@ -886,7 +862,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
-            : <PilotPanel ticket={ticket} ctx={ingestContext} />
+            : <PilotPanel ticket={ticket} ctx={ingestContext} signals={ingestSignals} />
           }
         </Flex>
         {/* Desktop side panel (lg+) */}
