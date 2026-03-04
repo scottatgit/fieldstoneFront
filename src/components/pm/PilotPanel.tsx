@@ -59,7 +59,7 @@ function ContextSidebar({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketC
   const constraints = ctx?.constraints || '';
   const riskFlags: string[] = (() => {
     try {
-      const raw = (ctx as Record<string, unknown> | null)?.risk_flags;
+      const raw = (ctx as unknown as Record<string, unknown> | null)?.risk_flags;
       if (Array.isArray(raw)) return raw as string[];
       if (typeof raw === 'string') return JSON.parse(raw);
     } catch { /* empty */ }
@@ -194,7 +194,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         } else if (artifactType === 'internal') {
           responseText = `## Internal Note — Ticket #${ticket.ticket_key}\n\n**Issue:** ${sit}\n**Client:** ${client}\n\nOnsite diagnosis complete. Root cause identified and resolved. All systems tested and confirmed operational. No regressions observed. Full resolution notes added to ConnectWise.`;
         } else if (artifactType === 'kb') {
-          responseText = `## KB Entry\n\n**Client:** ${client}\n**Pattern:** ${sit}\n\n**Environment:** Dental office — clinical workflow dependency.\n**Resolution approach:** See ticket #${ticket.ticket_key}.\n**Future note:** Verify all connected devices before closing. Client contact: ${ctx?.context ? 'see context' : 'check KB profile'}.`;
+          responseText = `## KB Entry\n\n**Client:** ${client}\n**Pattern:** ${sit}\n\n**Environment:** Dental office — clinical workflow dependency.\n**Resolution approach:** See ticket #${ticket.ticket_key}.\n**Future note:** Verify all connected devices before closing. Client contact: ${ctx ? 'see context' : 'check KB profile'}.`;
         } else {
           responseText = `Based on **${sit}** for ${client}:\n\n1. Start with a visual check of all affected hardware\n2. Verify connectivity at the switch/router level before touching workstations\n3. Check for recent changes — software updates, moved equipment, or new devices\n\nAsk: *"Has anything changed in the office recently?"* — this question surfaces 60% of root causes.`;
         }
