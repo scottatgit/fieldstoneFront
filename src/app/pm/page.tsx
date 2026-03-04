@@ -348,7 +348,7 @@ export default function PMPage() {
           />
         </GridItem>
 
-        {/* ── Right: Tank / Intel ── */}
+        {/* ── Right: Pilot / Intel ── */}
         <GridItem
           borderLeft="1px solid"
           borderColor="gray.700"
@@ -373,7 +373,7 @@ export default function PMPage() {
                 borderColor="green.400"
                 _selected={{}} _focus={{ boxShadow: 'none' }}
               >
-                Tank
+                Pilot
               </Tab>
               <Tab
                 fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}

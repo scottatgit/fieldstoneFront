@@ -15,7 +15,7 @@ const SECTIONS = [
   { id: 'knowledge-base',     label: '3. Node-Based Knowledge Base' },
   { id: 'cross-client-intel', label: '4. Cross-Client Intelligence' },
   { id: 'ai-wrapper',         label: '5. AI Wrapper (sb_ai.py)' },
-  { id: 'tank-commands',      label: '6. Pilot Discord Commands' },
+  { id: 'pilot-commands',      label: '6. Pilot Discord Commands' },
   { id: 'signal-model',       label: '7. Signal Model' },
   { id: 'api-reference',      label: '8. API Reference' },
   { id: 'setup-guide',        label: '9. Setup Guide' },
@@ -106,7 +106,7 @@ function S1() {
       <SectionHeading>1. System Overview</SectionHeading>
       <Badge colorScheme="cyan" mb={3}>SecondBrain V2.5 — Autonomous IT MSP Intelligence</Badge>
       <Para>
-        SecondBrain is an autonomous IT operations assistant built for IPQuest, a dental IT MSP.
+        SecondBrain is an autonomous IT operations assistant built for Fieldstone, a dental IT MSP.
         It ingests emails, tracks tickets, detects patterns across clients, and surfaces intelligence
         to Scott (the operator) via a PM dashboard and Pilot (Discord bot).
       </Para>
@@ -299,7 +299,7 @@ function S4() {
           <strong>Example:</strong> Outbreak detected for Eaglesoft → any client mapped to Eaglesoft
           in <Code fontSize="xs">client_tools</Code> but with <em>no open ticket</em> is flagged
           as at-risk and surfaced in <Code fontSize="xs">/api/intel/atrisk</Code> and
-          the <Code fontSize="xs">!atrisk</Code> Tank command.
+          the <Code fontSize="xs">!atrisk</Code> Pilot command.
         </Text>
       </Box>
     </Box>
@@ -373,7 +373,7 @@ query_kb(question, kb_text)          # KB-grounded Q&A`} />
   );
 }
 
-/* ── S6: Tank Commands ────────────────────────────────────────────────────── */
+/* ── S6: Pilot Commands ────────────────────────────────────────────────────── */
 const PILOT_CMDS: [string, string][] = [
   ['!ingest',            'Trigger email ingestion manually'],
   ['!brief <client>',    'Generate and email prep brief for client'],
@@ -394,7 +394,7 @@ const PILOT_CMDS: [string, string][] = [
 function S6() {
   return (
     <Box>
-      <SectionAnchor id="tank-commands" />
+      <SectionAnchor id="pilot-commands" />
       <SectionHeading>6. Pilot Discord Commands</SectionHeading>
       <Para>
         Pilot is the Discord bot interface for field operations. All 14 commands are available
@@ -550,7 +550,7 @@ function S9() {
     { n: 1, title: 'Configure Email (IMAP)',     detail: 'Go to /pm/setup → Email / IMAP section. Enter IMAP host, port, username, and password.' },
     { n: 2, title: 'Set AI Provider',            detail: 'AI Configuration section → Set API Base URL, API Key, fast model ID, and strong model ID.' },
     { n: 3, title: 'Configure OAuth (Optional)', detail: 'AI OAuth 2.0 section → Select provider (Google / Azure / OpenAI / custom) → click Connect.' },
-    { n: 4, title: 'Set Discord Token',          detail: 'Discord section → Paste bot token. Ensure Tank has message + read permissions in your server.' },
+    { n: 4, title: 'Set Discord Token',          detail: 'Discord section → Paste bot token. Ensure Pilot has message + read permissions in your server.' },
     { n: 5, title: 'Set GitHub Token',           detail: 'GitHub section → Personal access token for KB sync (if using a GitHub-hosted knowledge base).' },
     { n: 6, title: 'Test Connections',           detail: 'Use the Test buttons for AI and Email to verify configuration before saving.' },
     { n: 7, title: 'Save All Settings',          detail: 'Click Save All Settings. Changes are written to .env immediately.' },
@@ -774,7 +774,7 @@ export default function DocsPage() {
 
           <Box mt={12} mb={4}>
             <Text fontSize="xs" color="gray.600" textAlign="center">
-              SecondBrain V2.5 — IPQuest Dental IT MSP Platform
+              SecondBrain V2.5 — Fieldstone Dental IT MSP Platform
             </Text>
           </Box>
         </Box>

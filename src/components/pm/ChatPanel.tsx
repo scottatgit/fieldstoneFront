@@ -54,7 +54,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
   const [loading, setLoading] = useState(false);
   const bottomRef             = useRef<HTMLDivElement>(null);
 
-  // Add initial Tank message client-side only (avoids SSR hydration mismatch)
+  // Add initial Pilot message client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
     setMessages([{
       id: uid(),
