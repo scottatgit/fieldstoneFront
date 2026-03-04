@@ -15,7 +15,7 @@ const SECTIONS = [
   { id: 'knowledge-base',     label: '3. Node-Based Knowledge Base' },
   { id: 'cross-client-intel', label: '4. Cross-Client Intelligence' },
   { id: 'ai-wrapper',         label: '5. AI Wrapper (sb_ai.py)' },
-  { id: 'tank-commands',      label: '6. Tank Discord Commands' },
+  { id: 'tank-commands',      label: '6. Pilot Discord Commands' },
   { id: 'signal-model',       label: '7. Signal Model' },
   { id: 'api-reference',      label: '8. API Reference' },
   { id: 'setup-guide',        label: '9. Setup Guide' },
@@ -97,7 +97,7 @@ function S1() {
     { icon: '🔍', label: 'Cross-client intelligence',          note: 'outbreak detection, at-risk alerting' },
     { icon: '🧠', label: 'Node-based knowledge base',          note: 'tool nodes, client nodes, living documentation' },
     { icon: '🤖', label: 'AI wrapper (sb_ai.py)',              note: 'provider-agnostic, OAuth2 primary, API key fallback' },
-    { icon: '🦾', label: 'Discord bot (Tank)',                 note: '14 commands for field operations' },
+    { icon: '🦾', label: 'Discord bot (Pilot)',                 note: '14 commands for field operations' },
     { icon: '📋', label: 'PM Dashboard',                      note: 'tickets, signals, intel, setup, docs' },
   ];
   return (
@@ -108,7 +108,7 @@ function S1() {
       <Para>
         SecondBrain is an autonomous IT operations assistant built for IPQuest, a dental IT MSP.
         It ingests emails, tracks tickets, detects patterns across clients, and surfaces intelligence
-        to Scott (the operator) via a PM dashboard and Tank (Discord bot).
+        to Scott (the operator) via a PM dashboard and Pilot (Discord bot).
       </Para>
       <SubHeading>Core Capabilities</SubHeading>
       <VStack align="stretch" spacing={2} mb={4}>
@@ -172,7 +172,7 @@ function S2() {
               </Text>
             </VStack>
             <VStack spacing={0}>
-              <ArchBox label="discord_bot.py  (Tank)" color="purple" />
+              <ArchBox label="discord_bot.py  (Pilot)" color="purple" />
               <Text fontSize="9px" color="gray.500" fontFamily="monospace" mt={1}>
                 14 commands for field ops
               </Text>
@@ -254,7 +254,7 @@ function S4() {
     'Correlation engine checks: N clients + same tool + time window',
     'If threshold hit → cross-client event created with classification',
     'At-risk clients identified (use same tool, no open ticket yet)',
-    'Tank alerted, dashboard updated',
+    'Pilot alerted, dashboard updated',
   ];
   return (
     <Box>
@@ -279,7 +279,7 @@ function S4() {
       <DT
         headers={['Classification', 'Trigger', 'Action']}
         rows={[
-          [<Badge key="active" colorScheme="red">active_outbreak</Badge>,     '2+ clients, same tool, 4hr window',     'Immediate Tank alert'],
+          [<Badge key="active" colorScheme="red">active_outbreak</Badge>,     '2+ clients, same tool, 4hr window',     'Immediate Pilot alert'],
           [<Badge key="update" colorScheme="yellow">update_related</Badge>,   'Monday morning pattern',                'Check vendor release notes'],
           [<Badge key="recurring" colorScheme="orange">recurring</Badge>,        'Same tool, 3rd+ occurrence in 90 days', 'Create permanent SOP'],
           [<Badge key="regional" colorScheme="blue">regional_outage</Badge>,    'Multiple clients, same ISP',            'Check ISP status'],
@@ -374,7 +374,7 @@ query_kb(question, kb_text)          # KB-grounded Q&A`} />
 }
 
 /* ── S6: Tank Commands ────────────────────────────────────────────────────── */
-const TANK_CMDS: [string, string][] = [
+const PILOT_CMDS: [string, string][] = [
   ['!ingest',            'Trigger email ingestion manually'],
   ['!brief <client>',    'Generate and email prep brief for client'],
   ['!signals',           'Show all client signal scores'],
@@ -395,15 +395,15 @@ function S6() {
   return (
     <Box>
       <SectionAnchor id="tank-commands" />
-      <SectionHeading>6. Tank Discord Commands</SectionHeading>
+      <SectionHeading>6. Pilot Discord Commands</SectionHeading>
       <Para>
-        Tank is the Discord bot interface for field operations. All 14 commands are available
+        Pilot is the Discord bot interface for field operations. All 14 commands are available
         from any Discord channel the bot has access to.
       </Para>
       <DT
         headers={['Command', 'Description']}
         widths={['38%', '62%']}
-        rows={TANK_CMDS.map(([cmd, desc]) => [
+        rows={PILOT_CMDS.map(([cmd, desc]) => [
           <Code key={cmd} fontSize="xs">{cmd}</Code>,
           desc,
         ])}

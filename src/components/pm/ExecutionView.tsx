@@ -9,6 +9,7 @@ import { useBreakpointValue } from '@chakra-ui/react';
 import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import { ChatPanel } from './ChatPanel';
+import { PilotPanel } from './PilotPanel';
 import { isDemoMode, demoFetch } from '@/lib/demoApi';
 
 // Demo-aware fetch wrapper for ExecutionView
@@ -731,7 +732,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
 // -- Main ExecutionView -------------------------------------------------------
 export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
   const [viewMode, setViewMode]     = useState<ViewMode>('door');
-  const [tankOpen, setTankOpen]     = useState(false);
+  const [pilotOpen, setPilotOpen]   = useState(false);
   const [saveState, setSaveState]   = useState<SaveState>('idle');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -806,7 +807,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     error:  (<Text fontSize='2xs' fontFamily='mono' color='red.400'>Connection issue</Text>),
   };
 
-  const handleTankRefresh = useCallback(() => { setRefreshKey(k => k + 1); }, []);
+  const handlePilotRefresh = useCallback(() => { setRefreshKey(k => k + 1); }, []);
 
   return (
     <Flex minH='100dvh' direction='column' bg='gray.950' overflowX='hidden' maxW='100vw'>
@@ -840,19 +841,19 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             </Box>
             <Box as='button' onClick={() => setViewMode('work')} px={3} minH='44px'
               fontSize='2xs' fontFamily='mono' cursor='pointer'
-              bg={viewMode === 'work' ? 'purple.800' : 'gray.800'}
-              color={viewMode === 'work' ? 'purple.200' : 'gray.500'}
+              bg={viewMode === 'work' ? 'blue.900' : 'gray.800'}
+              color={viewMode === 'work' ? 'blue.200' : 'gray.500'}
               _hover={{ color: 'white' }}>
-              Edit / Work
+              ✈️ Pilot
             </Box>
           </HStack>
-          <Box as='button' onClick={() => setTankOpen(v => !v)} px={3} minH='44px'
+          <Box as='button' onClick={() => setPilotOpen(v => !v)} px={3} minH='44px'
             fontSize='2xs' fontFamily='mono' cursor='pointer'
-            bg={tankOpen ? 'gray.700' : 'gray.800'}
-            color={tankOpen ? 'white' : 'gray.500'}
-            border='1px solid' borderColor={tankOpen ? 'gray.500' : 'gray.700'} borderRadius='md'
-            _hover={{ borderColor: 'gray.500', color: 'white' }}>
-            {tankOpen ? 'Tank >' : 'Tank'}
+            bg={pilotOpen ? 'blue.800' : 'gray.800'}
+            color={pilotOpen ? 'blue.200' : 'gray.500'}
+            border='1px solid' borderColor={pilotOpen ? 'blue.600' : 'gray.700'} borderRadius='md'
+            _hover={{ borderColor: 'blue.500', color: 'white' }}>
+            {pilotOpen ? 'Pilot >' : 'Pilot'}
           </Box>
         </HStack>
       </Flex>
@@ -885,19 +886,19 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
-            : <WorkingLayer ticket={ticket} onSaveState={setSaveState} onDraftReady={() => setRefreshKey(k => k + 1)} />
+            : <PilotPanel ticket={ticket} ctx={ingestContext} />
           }
         </Flex>
         {/* Desktop side panel (lg+) */}
-        {tankOpen && (
+        {pilotOpen && (
           <Box display={{ base: 'none', lg: 'flex' }}
             w='340px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
             overflow='hidden' flexDirection='column'>
-            <ChatPanel onCommand={handleTankRefresh} />
+            <ChatPanel onCommand={handlePilotRefresh} />
           </Box>
         )}
         {/* Mobile bottom sheet */}
-        {tankOpen && (
+        {pilotOpen && (
           <Box display={{ base: 'flex', lg: 'none' }}
             position='fixed' bottom={0} left={0} right={0} h='60vh' zIndex={200}
             bg='gray.900' borderTop='2px solid' borderColor='gray.600'
@@ -905,15 +906,15 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             boxShadow='0 -8px 32px rgba(0,0,0,0.6)'>
             <Flex px={4} py={2} align='center' justify='space-between'
               borderBottom='1px solid' borderColor='gray.700' flexShrink={0}>
-              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='green.300'>TANK</Text>
-              <Box as='button' onClick={() => setTankOpen(false)}
+              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='blue.300'>PILOT</Text>
+              <Box as='button' onClick={() => setPilotOpen(false)}
                 fontSize='lg' color='gray.400' _hover={{ color: 'white' }} cursor='pointer'
                 minH='44px' px={3}>
                 ✕
               </Box>
             </Flex>
             <Box flex={1} overflow='hidden' display='flex' flexDirection='column'>
-              <ChatPanel onCommand={handleTankRefresh} />
+              <ChatPanel onCommand={handlePilotRefresh} />
             </Box>
           </Box>
         )}

@@ -59,7 +59,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
     setMessages([{
       id: uid(),
       role: 'assistant',
-      content: '## 🤖 Tank Online\n\nIPQuest PM Intelligence ready. Try `!digest`, `!signals`, or `!brief <ticket_key>`.\n\nType `help` for all commands.',
+      content: '## ✈️ Pilot Online\n\nFieldstone tech copilot ready. Try `!digest`, `!signals`, or `!brief <ticket_key>`.\n\nType `help` for all commands.',
       type: 'text',
       timestamp: new Date(),
     }]);
@@ -115,8 +115,8 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
       <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" bg="gray.900" flexShrink={0}>
         <Text fontSize="lg">🤖</Text>
         <VStack align="flex-start" spacing={0}>
-          <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">TANK</Text>
-          <Text fontSize="2xs" color="green.400" fontFamily="mono">PM INTELLIGENCE ● ONLINE</Text>
+          <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">PILOT</Text>
+          <Text fontSize="2xs" color="green.400" fontFamily="mono">FIELD COPILOT ● ONLINE</Text>
         </VStack>
       </HStack>
 
@@ -155,7 +155,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
         {messages.map(m => (
           <Box key={m.id} alignSelf={m.role === 'user' ? 'flex-end' : 'flex-start'} maxW="92%">
             {m.role === 'assistant' && (
-              <Text fontSize="2xs" color="gray.600" mb={0.5} fontFamily="mono">TANK</Text>
+              <Text fontSize="2xs" color="gray.600" mb={0.5} fontFamily="mono">PILOT</Text>
             )}
             <Box
               bg={m.role === 'user' ? 'blue.800' : 'gray.800'}
@@ -187,7 +187,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
         {loading && (
           <HStack spacing={2} pl={1}>
             <Spinner size="xs" color="blue.400" />
-            <Text fontSize="xs" color="gray.500" fontFamily="mono">Tank thinking…</Text>
+            <Text fontSize="xs" color="gray.500" fontFamily="mono">Pilot thinking…</Text>
           </HStack>
         )}
         <div ref={bottomRef} />
