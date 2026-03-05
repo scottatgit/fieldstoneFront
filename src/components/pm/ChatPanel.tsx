@@ -59,7 +59,7 @@ export function ChatPanel({ onCommand }: { onCommand?: () => void } = {}) {
     setMessages([{
       id: uid(),
       role: 'assistant',
-      content: '## ✈️ Pilot Online\n\nFieldstone tech copilot ready. Try `!digest`, `!signals`, or `!brief <ticket_key>`.\n\nType `help` for all commands.',
+      content: '## Pilot Ready\n\nFieldstone tech copilot ready. Try `!digest`, `!signals`, or `!brief <ticket_key>`.\n\nType `help` for all commands.',
       type: 'text',
       timestamp: new Date(),
     }]);

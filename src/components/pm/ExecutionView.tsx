@@ -167,7 +167,7 @@ function SectionBlock({ label, content, accent = 'blue' }: { label: string; cont
 }
 
 
-// -- Goal 1: Door View with operational header ---------------------------------
+// -- Goal 1: Brief with operational header ---------------------------------
 function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }) {
   const [sections, setSections]     = useState<BriefSections | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -813,14 +813,14 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
               bg={viewMode === 'door' ? 'blue.800' : 'gray.800'}
               color={viewMode === 'door' ? 'blue.200' : 'gray.500'}
               _hover={{ color: 'white' }} borderRight='1px solid' borderColor='gray.700'>
-              Door View
+              Brief
             </Box>
             <Box as='button' onClick={() => setViewMode('work')} px={3} minH='44px'
               fontSize='2xs' fontFamily='mono' cursor='pointer'
               bg={viewMode === 'work' ? 'blue.900' : 'gray.800'}
               color={viewMode === 'work' ? 'blue.200' : 'gray.500'}
               _hover={{ color: 'white' }}>
-              ✈️ Pilot
+              Pilot
             </Box>
           </HStack>
           <Box as='button' onClick={() => setPilotOpen(v => !v)} px={3} minH='44px'

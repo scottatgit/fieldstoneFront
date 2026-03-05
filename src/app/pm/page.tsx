@@ -372,7 +372,10 @@ export default function PMPage() {
   if (selectedTicket) {
     return (
       <Box h="100dvh" display="flex" flexDirection="column" bg="gray.950" overflowX="hidden">
-        <SummaryBar summary={summary} loading={summaryLoading} />
+        {/* Hide metrics header on mobile when in Brief/Pilot view — frees ~80px */}
+        <Box display={{ base: 'none', md: 'block' }}>
+          <SummaryBar summary={summary} loading={summaryLoading} />
+        </Box>
         <Box flex={1} minH={0} overflowY="auto">
           <ExecutionView
             ticket={selectedTicket}

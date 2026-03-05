@@ -104,6 +104,9 @@ export interface IntelEntry {
   observed_at: string;
   created_by: string;
   created_at: string;
+  kb_status?: 'none' | 'proposed' | 'approved';   // 13A
+  kb_promoted_at?: string | null;
+  kb_promoted_by?: string | null;
 }
 
 interface IntelCandidate {
@@ -129,6 +132,19 @@ function IntelCandidateCard({
 }) {
   const [local, setLocal] = React.useState<IntelCandidate>(candidate);
   const update = (k: keyof IntelCandidate, v: string) => setLocal((p) => ({ ...p, [k]: v }));
+  // 13E: Duplicate detection
+  const [similar, setSimilar] = React.useState<{id:string;pattern:string;confidence:string}[]>([]);
+  React.useEffect(() => {
+    if (!local.pattern || local.pattern.length < 10) return;
+    const params = new URLSearchParams();
+    if (local.client_key) params.set('client_key', local.client_key);
+    if (local.tool_id)    params.set('tool_id', local.tool_id);
+    params.set('pattern', local.pattern);
+    fetch(`/api/intel/similar?${params}`)
+      .then(r => r.json())
+      .then(d => setSimilar(d.similar || []))
+      .catch(() => {});
+  }, [local.pattern, local.client_key, local.tool_id]);
   return (
     <Box border="1px solid" borderColor="blue.600" borderRadius="md" p={3} mb={3} bg="blackAlpha.500">
       <HStack mb={2} justify="space-between">
@@ -156,6 +172,17 @@ function IntelCandidateCard({
         {local.tool_id && <Text color="gray.500">Tool: <Text as="span" color="blue.300">{local.tool_id}</Text></Text>}
         {local.tags?.length > 0 && <Text color="gray.500">Tags: <Text as="span" color="gray.300">{local.tags.join(', ')}</Text></Text>}
       </VStack>
+      {/* 13E: Duplicate warning */}
+      {similar.length > 0 && !saved && (
+        <Box mt={2} p={2} borderRadius="md" bg="yellow.900" border="1px solid" borderColor="yellow.600">
+          <Text fontSize="2xs" color="yellow.300" fontWeight="bold" mb={1}>⚠️ Possible similar Intel exists:</Text>
+          {similar.map(s => (
+            <Text key={s.id} fontSize="2xs" color="yellow.200" fontStyle="italic" noOfLines={1}>
+              &ldquo;{s.pattern}&rdquo;
+            </Text>
+          ))}
+        </Box>
+      )}
       <HStack mt={3} spacing={2}>
         {saved ? (
           <Text fontSize="xs" color="green.400" fontWeight="bold">✅ Saved to Intel</Text>
@@ -175,6 +202,61 @@ function IntelCandidateCard({
   );
 }
 
+
+
+function IntelKBPromotion({ entry }: { entry: IntelEntry }) {
+  const [status, setStatus] = React.useState<string>(entry.kb_status || 'none');
+  const [saving, setSaving] = React.useState(false);
+
+  const updateStatus = async (newStatus: 'proposed' | 'approved') => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/intel/${entry.id}/kb-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kb_status: newStatus, promoted_by: 'pm' }),
+      });
+      if (res.ok) setStatus(newStatus);
+    } catch (e) { console.error('KB status update failed', e); }
+    finally { setSaving(false); }
+  };
+
+  const badgeScheme = status === 'approved' ? 'green' : status === 'proposed' ? 'blue' : 'gray';
+  const badgeLabel  = status === 'approved' ? '🟢 Approved' : status === 'proposed' ? '🔵 Proposed' : '⚪ Not in KB';
+
+  return (
+    <Box border="1px solid" borderColor="gray.700" borderRadius="md" p={3} bg="blackAlpha.400">
+      <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={2}>KNOWLEDGE BASE PROMOTION</Text>
+      <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
+        <Badge colorScheme={badgeScheme} fontSize="xs" px={2} py={0.5}>{badgeLabel}</Badge>
+        <HStack spacing={2}>
+          {status === 'none' && (
+            <Box as="button" onClick={() => updateStatus('proposed')}
+              disabled={saving}
+              style={{padding:'3px 10px',borderRadius:4,background:'#2b4c8c',color:'#90cdf4',fontSize:'0.7rem',cursor:'pointer',border:'1px solid #3182ce'}}>
+              {saving ? '…' : 'Propose for KB'}
+            </Box>
+          )}
+          {status === 'proposed' && (
+            <Box as="button" onClick={() => updateStatus('approved')}
+              disabled={saving}
+              style={{padding:'3px 10px',borderRadius:4,background:'#1a4731',color:'#9ae6b4',fontSize:'0.7rem',cursor:'pointer',border:'1px solid #38a169'}}>
+              {saving ? '…' : 'Approve to KB'}
+            </Box>
+          )}
+          {status === 'approved' && (
+            <Text fontSize="xs" color="green.400">✅ Synced to KB</Text>
+          )}
+        </HStack>
+      </HStack>
+      {status === 'approved' && entry.kb_promoted_at && (
+        <Text fontSize="2xs" color="gray.500" mt={1}>
+          Promoted {(entry.kb_promoted_at).slice(0,10)} by {entry.kb_promoted_by || 'pm'}
+        </Text>
+      )}
+    </Box>
+  );
+}
 
 function IntelDetailModal({ entry, isOpen, onClose }: { entry: IntelEntry | null; isOpen: boolean; onClose: () => void }) {
   if (!entry) return null;
@@ -216,6 +298,8 @@ function IntelDetailModal({ entry, isOpen, onClose }: { entry: IntelEntry | null
                 ))}
               </HStack>
             )}
+            {/* 13B — KB Promotion section */}
+            <IntelKBPromotion entry={entry} />
           </VStack>
         </ModalBody>
       </ModalContent>
@@ -427,7 +511,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
       const situation = ctx?.situation || ticket.situation || ticket.title || 'this ticket';
       setMessages([{
         id: uid(), role: 'assistant', timestamp: new Date(),
-        content: `## ✈️ Pilot Online\n\nGrounded in **${ticket.client_display_name || ticket.client_key || 'this client'}** — **${situation}**.\n\nUse the chips below, upload site photos, or ask me anything.`,
+        content: `## Pilot Ready\n\nGrounded in **${ticket.client_display_name || ticket.client_key || 'this client'}** — **${situation}**.\n\nUse the chips below, upload site photos, or ask me anything.`,
       }]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -437,7 +521,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
 
   const buildTranscript = useCallback((msgs: PilotMessage[]) =>
     msgs
-      .filter((m) => !(m.role === 'assistant' && m.content.startsWith('## ✈️ Pilot Online')))
+      .filter((m) => !(m.role === 'assistant' && m.content.startsWith('## Pilot Ready')))
       .map((m) => ({ role: m.role, content: m.content, images: m.images || [] }))
   , []);
 
@@ -558,7 +642,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         {/* Header */}
         <HStack px={3} py={2} borderBottom='1px solid' borderColor='gray.700' bg='gray.900' flexShrink={0} justify='space-between'>
           <HStack spacing={2}>
-            <Text fontSize='lg'>✈️</Text>
             <VStack align='flex-start' spacing={0}>
               <Text fontSize='sm' fontWeight='bold' color='white' fontFamily='mono'>PILOT</Text>
               <Text fontSize='2xs' color='blue.400' fontFamily='mono'>TECH COPILOT ● ONLINE</Text>
@@ -594,24 +677,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
               _hover={{ bg: 'gray.700', color: 'white', borderColor: 'blue.600' }}
               transition='all 0.15s' cursor='pointer' flexShrink={0}>
               {chip.label}
-            </Box>
-          ))}
-        </HStack>
-        {/* Artifact buttons */}
-        <HStack px={2} py={1} spacing={1.5} borderBottom='1px solid' borderColor='gray.800' flexShrink={0}>
-          <Text fontSize='2xs' color='gray.600' fontFamily='mono' mr={1}>Generate:</Text>
-          {([
-            { label: '✉️ Client Note',   type: 'closing'  as const, prompt: 'Generate a professional client-facing closing note based on the context and our conversation so far.' },
-            { label: '📝 Internal Note', type: 'internal' as const, prompt: 'Generate a detailed internal technician note for ConnectWise based on the context and our conversation.' },
-            { label: '🧠 KB Entry',      type: 'kb'       as const, prompt: 'Generate a knowledge base entry capturing what was learned about this environment and issue.' },
-          ] as { label: string; type: 'closing' | 'internal' | 'kb'; prompt: string }[]).map((a) => (
-            <Box key={a.type} as='button' onClick={() => send(a.prompt, a.type)}
-              px={2} py={0.5} fontSize='2xs' fontFamily='mono'
-              color={a.type === 'closing' ? 'green.300' : a.type === 'internal' ? 'blue.300' : 'purple.300'}
-              bg='gray.900' borderRadius='sm' border='1px solid'
-              borderColor={a.type === 'closing' ? 'green.800' : a.type === 'internal' ? 'blue.900' : 'purple.900'}
-              _hover={{ opacity: 0.8 }} transition='all 0.15s' cursor='pointer'>
-              {a.label}
             </Box>
           ))}
         </HStack>
@@ -690,7 +755,9 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           </HStack>
         )}
         {/* Input */}
-        <HStack p={2} borderTop='1px solid' borderColor='gray.700' bg='gray.900' flexShrink={0} spacing={2} align='flex-end'>
+        <HStack p={2} borderTop='1px solid' borderColor='gray.700' bg='gray.900'
+          position='sticky' bottom={0} zIndex={10} flexShrink={0} spacing={2} align='flex-end'
+          style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
           <input ref={fileRef} type='file' accept='image/*' multiple hidden onChange={onFileChange} />
           <Tooltip label='Upload site photos' placement='top'>
             <IconButton aria-label='Upload image' icon={<Text fontSize='sm'>📷</Text>}
