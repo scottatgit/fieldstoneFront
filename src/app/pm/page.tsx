@@ -8,75 +8,120 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 
 import { Ticket, Summary } from '../../components/pm/types';
 import { TicketCard } from '../../components/pm/TicketCard';
-import { ChatPanel } from '../../components/pm/ChatPanel';
 import { ExecutionView } from '../../components/pm/ExecutionView';
-import Link from 'next/link';
 import IntelPanel from '@/components/pm/IntelPanel';
 import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 
-const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const PM_API      = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const DEFAULT_TECH = process.env.NEXT_PUBLIC_DEFAULT_TECH || 'Scott Everett';
 
-function cleanTitle(raw: string | null | undefined): string {
-  if (!raw) return '';
-  let t = raw.replace(/[\r\n]+/g, ' ').trim();
-  t = t.replace(/^(Fw|Re|Fwd):\s*/i, '');
-  t = t.replace(/^Project\s+Ticket#?\d+\/[^\/]+\/[^\/]+\//i, '').trim();
-  t = t.replace(/^Project\s+Ticket\s*#?\d+\s*[-–]?\s*/i, '').trim();
-  return t || raw.trim();
+// ─── Effective visit time helper ─────────────────────────────────────────────
+// Priority: PM-set visit_datetime > email Date Assigned (appointment_at)
+function effectiveVisit(t: Ticket): string {
+  return t.effective_visit_time || t.visit_datetime || t.appointment_at || '';
 }
 
-// ─── Summary Bar ──────────────────────────────────────────────────────────────
-// ─── Visit Filter Sidebar ─────────────────────────────────────────────────────
+// ─── Visit Filter ─────────────────────────────────────────────────────────────
 type VisitFilter = 'today' | 'tomorrow' | 'unscheduled' | 'all';
 
-function filterTickets(tickets: Ticket[], vf: VisitFilter): Ticket[] {
+function filterTickets(tickets: Ticket[], vf: VisitFilter, myOnly: boolean, tech: string): Ticket[] {
   if (!Array.isArray(tickets)) return [];
   const today    = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   return tickets.filter(t => {
     if (t.status === 'closed') return false;
-    const vd = (t.visit_datetime || '').slice(0, 10);
+    // My Tickets filter
+    if (myOnly && tech) {
+      const assigned = (t.assigned_to || '').toLowerCase();
+      if (!assigned.includes(tech.split(' ')[0].toLowerCase())) return false;
+    }
+    const vd = effectiveVisit(t).slice(0, 10);
     if (vf === 'today')       return vd === today;
     if (vf === 'tomorrow')    return vd === tomorrow;
-    if (vf === 'unscheduled') return !t.visit_datetime;
+    if (vf === 'unscheduled') return !effectiveVisit(t);
     return true; // 'all'
   });
 }
 
+// ─── Visit Filter Sidebar ─────────────────────────────────────────────────────
 function VisitFilterSidebar({
-  tickets, activeFilter, onFilter
+  tickets, activeFilter, onFilter, myOnly, onToggleMy, tech
 }: {
   tickets: Ticket[];
   activeFilter: VisitFilter;
   onFilter: (f: VisitFilter) => void;
+  myOnly: boolean;
+  onToggleMy: () => void;
+  tech: string;
 }) {
   const today    = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const open     = tickets.filter(t => t.status !== 'closed');
 
-  const counts = {
-    today:       open.filter(t => (t.visit_datetime || '').slice(0, 10) === today).length,
-    tomorrow:    open.filter(t => (t.visit_datetime || '').slice(0, 10) === tomorrow).length,
-    unscheduled: open.filter(t => !t.visit_datetime).length,
-    all:         open.length,
-  };
+  // Count using same effective visit logic + my filter
+  function countFor(vf: VisitFilter): number {
+    return tickets.filter(t => {
+      if (t.status === 'closed') return false;
+      if (myOnly && tech) {
+        const assigned = (t.assigned_to || '').toLowerCase();
+        if (!assigned.includes(tech.split(' ')[0].toLowerCase())) return false;
+      }
+      const vd = effectiveVisit(t).slice(0, 10);
+      if (vf === 'today')       return vd === today;
+      if (vf === 'tomorrow')    return vd === tomorrow;
+      if (vf === 'unscheduled') return !effectiveVisit(t);
+      return t.status !== 'closed';
+    }).length;
+  }
 
-  const FILTERS: { key: VisitFilter; label: string; color: string }[] = [
-    { key: 'today',       label: 'Today',       color: 'blue'   },
-    { key: 'tomorrow',    label: 'Tomorrow',    color: 'purple' },
-    { key: 'unscheduled', label: 'Unscheduled', color: 'orange' },
-    { key: 'all',         label: 'All Open',    color: 'gray'   },
+  const FILTERS: { key: VisitFilter; label: string; myLabel: string; color: string }[] = [
+    { key: 'today',       label: 'Today',       myLabel: 'My Today',       color: 'blue'   },
+    { key: 'tomorrow',    label: 'Tomorrow',    myLabel: 'My Tomorrow',    color: 'purple' },
+    { key: 'unscheduled', label: 'Unscheduled', myLabel: 'Unscheduled',    color: 'orange' },
+    { key: 'all',         label: 'All Open',    myLabel: 'My Open',        color: 'gray'   },
   ];
 
   return (
     <VStack align="stretch" spacing={0} h="full">
-      <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}>
-        <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">VISITS</Text>
+      <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0} justify="space-between">
+        <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">DISPATCH</Text>
       </HStack>
+
+      {/* My / All toggle */}
+      <HStack px={2} py={2} spacing={1} borderBottom="1px solid" borderColor="gray.800">
+        <Box
+          as="button" onClick={() => !myOnly && onToggleMy()}
+          flex={1} py={1} borderRadius="sm" fontSize="2xs" fontFamily="mono" fontWeight="bold"
+          bg={myOnly ? 'blue.700' : 'transparent'}
+          color={myOnly ? 'white' : 'gray.500'}
+          border="1px solid" borderColor={myOnly ? 'blue.500' : 'gray.700'}
+          _hover={{ borderColor: 'blue.500' }} transition="all 0.1s"
+        >
+          MINE
+        </Box>
+        <Box
+          as="button" onClick={() => myOnly && onToggleMy()}
+          flex={1} py={1} borderRadius="sm" fontSize="2xs" fontFamily="mono" fontWeight="bold"
+          bg={!myOnly ? 'gray.700' : 'transparent'}
+          color={!myOnly ? 'white' : 'gray.500'}
+          border="1px solid" borderColor={!myOnly ? 'gray.500' : 'gray.700'}
+          _hover={{ borderColor: 'gray.400' }} transition="all 0.1s"
+        >
+          ALL
+        </Box>
+      </HStack>
+
+      {myOnly && (
+        <Box px={3} py={1} bg="blue.950">
+          <Text fontSize="2xs" color="blue.400" fontFamily="mono" noOfLines={1}>
+            {tech.split(' ')[0]}
+          </Text>
+        </Box>
+      )}
+
       <VStack align="stretch" spacing={1} p={2} flex={1}>
-        {FILTERS.map(({ key, label, color }) => (
+        {FILTERS.map(({ key, label, myLabel, color }) => (
           <Box
             key={key}
             as="button"
@@ -95,12 +140,12 @@ function VisitFilterSidebar({
               <Text fontSize="xs" fontFamily="mono"
                 color={activeFilter === key ? `${color}.200` : 'gray.400'}
                 fontWeight={activeFilter === key ? 'bold' : 'normal'}>
-                {label}
+                {myOnly ? myLabel : label}
               </Text>
               <Badge
                 colorScheme={activeFilter === key ? color : 'gray'}
                 fontSize="2xs" variant={activeFilter === key ? 'solid' : 'subtle'}>
-                {counts[key]}
+                {countFor(key)}
               </Badge>
             </Flex>
           </Box>
@@ -119,7 +164,7 @@ function VisitDatePicker({ ticket, onSaved }: { ticket: Ticket; onSaved?: () => 
 
   const dtLocal = value
     ? new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-    : 'Unscheduled';
+    : 'Set visit time';
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
@@ -166,13 +211,69 @@ function VisitDatePicker({ ticket, onSaved }: { ticket: Ticket; onSaved?: () => 
       onClick={e => { e.stopPropagation(); setEditing(true); }}
       fontSize="2xs"
       fontFamily="mono"
-      color={value ? 'blue.300' : 'gray.600'}
-      _hover={{ color: 'blue.200' }}
+      color={value ? 'blue.400' : 'gray.700'}
+      _hover={{ color: 'blue.300' }}
       cursor="pointer"
-      title="Click to schedule"
+      title="Override visit time"
     >
-      {dtLocal}
+      ✏️ {dtLocal}
     </Box>
+  );
+}
+
+// ─── Ingestion Banner (replaces Pilot in list view) ──────────────────────────
+function IngestionBanner() {
+  const [status, setStatus] = useState<'idle'|'running'|'done'|'error'>('idle');
+  const [msg, setMsg]       = useState('');
+
+  async function runIngest() {
+    setStatus('running'); setMsg('');
+    try {
+      const r = await fetch(`${PM_API}/api/ingest`, { method: 'POST' });
+      const d = await r.json();
+      setMsg(d.message || JSON.stringify(d));
+      setStatus('done');
+    } catch (e: any) {
+      setMsg(e.message || 'Error');
+      setStatus('error');
+    }
+  }
+
+  return (
+    <VStack align="stretch" spacing={3} p={4} flex={1}>
+      <HStack>
+        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="gray.500" letterSpacing="wider">INGESTION</Text>
+      </HStack>
+      <Box
+        p={3} borderRadius="md" border="1px solid"
+        borderColor={status === 'done' ? 'green.700' : status === 'error' ? 'red.700' : 'gray.700'}
+        bg={status === 'done' ? 'green.950' : status === 'error' ? 'red.950' : 'gray.900'}
+      >
+        <VStack align="stretch" spacing={2}>
+          <Text fontSize="xs" color="gray.300">
+            {status === 'idle' && 'Pull latest emails and update ticket data.'}
+            {status === 'running' && '⏳ Scanning inbox...'}
+            {status === 'done' && `✅ ${msg}`}
+            {status === 'error' && `❌ ${msg}`}
+          </Text>
+          <Box
+            as="button" onClick={runIngest}
+            isDisabled={status === 'running'}
+            px={3} py={1.5} borderRadius="sm"
+            bg={status === 'running' ? 'gray.700' : 'blue.700'}
+            color="white" fontSize="2xs" fontFamily="mono" fontWeight="bold"
+            _hover={{ bg: status === 'running' ? 'gray.700' : 'blue.600' }}
+            transition="all 0.1s" cursor={status === 'running' ? 'not-allowed' : 'pointer'}
+          >
+            {status === 'running' ? <Spinner size="xs" /> : 'Run Ingestion'}
+          </Box>
+        </VStack>
+      </Box>
+
+      <Box mt={2}>
+        <Text fontSize="2xs" color="gray.600" fontFamily="mono">Open a ticket to access Pilot AI →</Text>
+      </Box>
+    </VStack>
   );
 }
 
@@ -236,6 +337,7 @@ export default function PMPage() {
   const [summaryLoading, setSummaryL]   = useState(true);
   const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
   const [visitFilter, setVisitFilter]   = useState<VisitFilter>('today');
+  const [myOnly, setMyOnly]             = useState(true);
   const [activeTab, setActiveTab]       = useState(0);
 
   const fetchTickets = useCallback(async () => {
@@ -262,7 +364,10 @@ export default function PMPage() {
     return () => clearInterval(iv);
   }, [fetchTickets, fetchSummary]);
 
-  const filteredTickets = filterTickets(tickets, visitFilter);
+  const filteredTickets = filterTickets(tickets, visitFilter, myOnly, DEFAULT_TECH);
+  const filterLabel     = myOnly
+    ? ({ today: 'MY TODAY', tomorrow: 'MY TOMORROW', unscheduled: 'UNSCHEDULED', all: 'MY OPEN' } as const)[visitFilter]
+    : ({ today: 'TODAY', tomorrow: 'TOMORROW', unscheduled: 'UNSCHEDULED', all: 'ALL OPEN' } as const)[visitFilter];
 
   // ── Execution view: full-screen replacement ──────────────────────────────
   if (selectedTicket) {
@@ -279,7 +384,7 @@ export default function PMPage() {
     );
   }
 
-  // ── Dashboard: 3-column layout ───────────────────────────────────────────
+  // ── Dashboard: 3-column dispatch layout ──────────────────────────────────
   return (
     <Box h="100dvh" display="flex" flexDirection="column" bg="gray.950" overflowX="hidden">
       {isDemoMode() && <DemoBanner />}
@@ -288,11 +393,11 @@ export default function PMPage() {
       <Grid
         flex={1}
         minH={0}
-        templateColumns={{ base: '1fr', md: '140px 1fr', lg: '160px 1fr 320px' }}
+        templateColumns={{ base: '1fr', md: '160px 1fr', lg: '180px 1fr 300px' }}
         templateRows="1fr"
         gap={0}
       >
-        {/* ── Left: Visit Filter ── */}
+        {/* ── Left: Dispatch Filter ── */}
         <GridItem
           borderRight="1px solid"
           borderColor="gray.700"
@@ -305,6 +410,9 @@ export default function PMPage() {
             tickets={tickets}
             activeFilter={visitFilter}
             onFilter={f => { setVisitFilter(f); setSelected(null); }}
+            myOnly={myOnly}
+            onToggleMy={() => setMyOnly(v => !v)}
+            tech={DEFAULT_TECH}
           />
         </GridItem>
 
@@ -320,25 +428,37 @@ export default function PMPage() {
             borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
             css={{ '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
             <HStack spacing={2} flexShrink={0}>
-              {([['today','Today','blue'],['tomorrow','Tomorrow','purple'],['unscheduled','Unsched','orange'],['all','All Open','gray']] as const).map(([key, label, color]) => (
-                <Box key={key} as="button" onClick={() => { setVisitFilter(key as VisitFilter); setSelected(null); }}
+              {/* My/All pill */}
+              <Box as="button" onClick={() => setMyOnly(v => !v)}
+                px={3} py={1} borderRadius="full" border="1px solid" whiteSpace="nowrap" flexShrink={0}
+                borderColor={myOnly ? 'blue.500' : 'gray.700'}
+                bg={myOnly ? 'blue.900' : 'transparent'}>
+                <Text fontSize="2xs" fontFamily="mono" fontWeight="bold"
+                  color={myOnly ? 'blue.200' : 'gray.500'}>{myOnly ? 'Mine' : 'All'}</Text>
+              </Box>
+              {(['today','tomorrow','unscheduled','all'] as const).map((key) => (
+                <Box key={key} as="button" onClick={() => { setVisitFilter(key); setSelected(null); }}
                   px={3} py={1} borderRadius="full" border="1px solid" whiteSpace="nowrap" flexShrink={0}
-                  borderColor={visitFilter === key ? `${color}.500` : 'gray.700'}
-                  bg={visitFilter === key ? `${color}.900` : 'transparent'}>
+                  borderColor={visitFilter === key ? 'blue.500' : 'gray.700'}
+                  bg={visitFilter === key ? 'blue.900' : 'transparent'}>
                   <Text fontSize="2xs" fontFamily="mono" fontWeight="bold"
-                    color={visitFilter === key ? `${color}.200` : 'gray.500'}>{label}</Text>
+                    color={visitFilter === key ? 'blue.200' : 'gray.500'}>
+                    {key === 'today' ? 'Today' : key === 'tomorrow' ? 'Tomorrow' : key === 'unscheduled' ? 'Unsched' : 'All'}
+                  </Text>
                 </Box>
               ))}
             </HStack>
           </Box>
-          {/* Desktop filter label */}
+
+          {/* Desktop header */}
           <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
             display={{ base: 'none', md: 'flex' }}>
             <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
-              {visitFilter.toUpperCase()}
+              {filterLabel}
             </Text>
             <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
           </HStack>
+
           <TicketQueue
             tickets={filteredTickets}
             loading={loading}
@@ -348,7 +468,7 @@ export default function PMPage() {
           />
         </GridItem>
 
-        {/* ── Right: Pilot / Intel ── */}
+        {/* ── Right: Ingestion + Intel ── */}
         <GridItem
           borderLeft="1px solid"
           borderColor="gray.700"
@@ -373,7 +493,7 @@ export default function PMPage() {
                 borderColor="green.400"
                 _selected={{}} _focus={{ boxShadow: 'none' }}
               >
-                Pilot
+                Ingest
               </Tab>
               <Tab
                 fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}
@@ -387,7 +507,7 @@ export default function PMPage() {
             </TabList>
             <TabPanels flex={1} overflow="hidden" display="flex" flexDirection="column">
               <TabPanel p={0} flex={1} overflow="hidden" display={activeTab === 0 ? 'flex' : 'none'} flexDirection="column">
-                <ChatPanel />
+                <IngestionBanner />
               </TabPanel>
               <TabPanel p={0} flex={1} overflow={activeTab === 1 ? 'auto' : 'hidden'} display={activeTab === 1 ? 'block' : 'none'}>
                 <IntelPanel />

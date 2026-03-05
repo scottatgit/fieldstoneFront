@@ -15,11 +15,17 @@ function cleanTitle(raw: string | null | undefined): string {
   return t || (raw.trim());
 }
 
-function formatAppt(raw: string | null | undefined): string {
+function formatVisitTime(raw: string | null | undefined): string {
   if (!raw) return '';
-  // 'Mon 2/9/2026 3:00:00 PM' -> 'Mon 2/9 3pm'
-  const m = raw.match(/(\w+\s+\d+\/\d+)\/\d+\s+(\d+):\d+:\d+\s+(AM|PM)/i);
-  if (m) return `${m[1]} ${m[2]}${m[3].toLowerCase()}`;
+  // 'Mon 2/9/2026 3:00:00 PM' -> 'Mon Feb 9 · 3pm'
+  const m = raw.match(/(\w+)\s+(\d+)\/(\d+)\/\d+\s+(\d+):\d+:\d+\s+(AM|PM)/i);
+  if (m) return `${m[1]} ${m[2]}/${m[3]} · ${m[4]}${m[5].toLowerCase()}`;
+  // ISO: 2026-03-02T10:30:00
+  const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (iso) {
+    const d = new Date(raw);
+    return d.toLocaleString('en-US', { weekday:'short', month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
   return raw.slice(0, 16);
 }
 
@@ -34,6 +40,15 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
   const displayTitle = ticket.situation?.trim() || ticket.title_clean || cleanTitle(ticket.title);
   const isDeclining  = (ticket.trust_score ?? 100) < 40;
   const isLowReady   = (ticket.readiness_score ?? 100) < 50;
+
+  // Effective visit time: PM-set takes priority, fallback to email Date Assigned
+  const visitTime = ticket.effective_visit_time || ticket.visit_datetime || ticket.appointment_at;
+  const visitDisplay = formatVisitTime(visitTime);
+
+  // Contact info
+  const contactName  = ticket.contact_name || null;
+  const contactPhone = ticket.contact_phone || null;
+  const assignedTo   = ticket.assigned_to || null;
 
   return (
     <MotionBox
@@ -60,58 +75,68 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
       )}
 
       <VStack align="stretch" spacing={1.5}>
-        {/* Row 1: Trust dot + client + readiness */}
+        {/* Row 1: Client name + trust dot */}
         <Flex justify="space-between" align="center">
-          <HStack spacing={2} minW={0} flex={1}>
-            <TrustDot score={ticket.trust_score} />
-            <Text fontWeight="bold" fontSize="sm" color="white" noOfLines={1} flex={1}>
-              {clientName}
-            </Text>
-            {isDeclining && (
-              <Badge colorScheme="red" fontSize="2xs" px={1} variant="solid" flexShrink={0}>
-                ⚠️ DECLINING
-              </Badge>
-            )}
-            {ticket.needs_response === 1 && (
-              <Badge colorScheme="orange" fontSize="2xs" px={1} variant="subtle" flexShrink={0}>
-                📩
-              </Badge>
-            )}
-          </HStack>
-          <ReadinessBadge score={ticket.readiness_score} />
+          <Text fontSize="xs" fontWeight="bold" color="gray.100" noOfLines={1} flex={1}>
+            {clientName}
+          </Text>
+          <TrustDot score={ticket.trust_score} />
         </Flex>
 
-        {/* Row 2: Ticket key + cleaned title */}
-        <HStack spacing={2} align="flex-start">
-          <Text fontSize="2xs" fontFamily="mono" color="gray.500" flexShrink={0} mt="1px">
-            #{ticket.ticket_key}
-          </Text>
-          <Text fontSize="xs" color="gray.300" noOfLines={2} lineHeight="short" flex={1}
-            title={ticket.title}>
-            {displayTitle}
-          </Text>
-        </HStack>
+        {/* Row 2: Visit time (prominent) */}
+        {visitDisplay && (
+          <HStack spacing={1}>
+            <Text fontSize="2xs" color="blue.300" fontFamily="mono" fontWeight="bold">
+              🕐 {visitDisplay}
+            </Text>
+          </HStack>
+        )}
 
-        {/* Row 3: Decision badge + appointment */}
-        <Flex justify="space-between" align="center" flexWrap="wrap" gap={1}>
-          <HStack spacing={1.5} flexWrap="wrap">
-            <DecisionBadge signal={ticket.decision_signal} label={ticket.decision_label} />
-            {ticket.lifecycle_status && (
-              <Badge colorScheme="purple" fontSize="2xs" px={1.5} variant="subtle" borderRadius="sm">
-                {ticket.lifecycle_status}
-              </Badge>
+        {/* Row 3: Contact + Phone */}
+        {(contactName || contactPhone) && (
+          <HStack spacing={2} flexWrap="wrap">
+            {contactName && (
+              <Text fontSize="2xs" color="gray.400" noOfLines={1}>
+                👤 {contactName}
+              </Text>
+            )}
+            {contactPhone && (
+              <Text
+                as="a"
+                href={`tel:${contactPhone.replace(/\D/g, '')}`}
+                fontSize="2xs"
+                color="green.400"
+                onClick={e => e.stopPropagation()}
+              >
+                📞 {contactPhone}
+              </Text>
             )}
           </HStack>
-          <HStack spacing={2}>
-            {ticket.appointment_at && (
-              <Text fontSize="2xs" color="blue.300" fontFamily="mono" flexShrink={0}>
-                📅 {formatAppt(ticket.appointment_at)}
-              </Text>
+        )}
+
+        {/* Row 4: Situation / title */}
+        <Text fontSize="xs" color="gray.300" noOfLines={2} lineHeight="short">
+          {displayTitle}
+        </Text>
+
+        {/* Row 5: Signals + tech badge */}
+        <Flex justify="space-between" align="center" wrap="wrap" gap={1}>
+          <HStack spacing={1}>
+            <DecisionBadge signal={ticket.decision_signal} />
+            <ReadinessBadge score={ticket.readiness_score} />
+          </HStack>
+          <HStack spacing={1}>
+            {assignedTo && (
+              <Badge
+                fontSize="2xs" fontFamily="mono"
+                colorScheme="purple" variant="subtle"
+                px={1.5} py={0.5} borderRadius="sm"
+              >
+                {assignedTo.split(' ')[0]}
+              </Badge>
             )}
             {ticket.notes_count > 0 && (
-              <Text fontSize="2xs" color="gray.600" flexShrink={0}>
-                📝{ticket.notes_count}
-              </Text>
+              <Badge fontSize="2xs" colorScheme="gray" variant="subtle">{ticket.notes_count} notes</Badge>
             )}
           </HStack>
         </Flex>

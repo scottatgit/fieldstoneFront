@@ -28,8 +28,14 @@ export interface Ticket {
   last_updated: string | null;
   notes_count: number;
   visit_datetime: string | null;
-  contact_phone?: string | null;
   situation?: string | null;
+  // Dispatch fields
+  assigned_to?: string | null;
+  assigned_by?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  client_address?: string | null;
+  effective_visit_time?: string | null;
 }
 
 export interface CalendarEvent {
