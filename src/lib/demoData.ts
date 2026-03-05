@@ -1226,3 +1226,124 @@ Trust: NEUTRAL. Westside Pediatric has a second open ticket (TKT-2885) for drive
 `,
 };
 
+
+// ─── Phase 11/12 Demo Data ───────────────────────────────────────────────────
+
+export const DEMO_INTEL_ENTRIES = [
+  {
+    id: 'intel-demo-001',
+    client_key: 'hooverfamilydentistry',
+    tool_id: 'eaglesoft',
+    pattern: 'Eaglesoft service stops after power outages',
+    observation: 'Server unreachable from all workstations after UPS failure. Eaglesoft DB path verification required after every power event.',
+    resolution: 'Restart Eaglesoft service via Windows Services. Verify DB path in Eaglesoft settings. Perform full UPS battery audit before leaving.',
+    confidence: 'high' as const,
+    tags: ['eaglesoft', 'power', 'ups', 'server', 'recurrence'],
+    source_ticket: '4112718',
+    observed_at: '2026-02-15T10:30:00',
+    created_by: 'pilot',
+    created_at: '2026-02-15T11:00:00',
+  },
+  {
+    id: 'intel-demo-002',
+    client_key: 'hooverfamilydentistry',
+    tool_id: null,
+    pattern: 'UPS backup batteries failing across multiple workstations',
+    observation: 'Three workstations in exam rooms 1, 2, and 4 showed battery failure warnings. APC Back-UPS units approximately 4 years old.',
+    resolution: 'Replace APC Back-UPS batteries. Schedule proactive replacement across all 6 units. Client approved full battery audit.',
+    confidence: 'high' as const,
+    tags: ['ups', 'battery', 'power', 'recurrence', 'hardware'],
+    source_ticket: '4114075',
+    observed_at: '2026-02-20T09:15:00',
+    created_by: 'pilot',
+    created_at: '2026-02-20T12:00:00',
+  },
+  {
+    id: 'intel-demo-003',
+    client_key: null,
+    tool_id: 'eaglesoft',
+    pattern: 'Eaglesoft 21.x crashes on Windows 11 22H2 after update KB5034441',
+    observation: 'Multiple clients reported Eaglesoft crashing at startup after Windows Update applied overnight. Error: runtime exception in EagleSoft.exe.',
+    resolution: 'Uninstall KB5034441 via Windows Update history. Block update via GPO or WSUS. Vendor patch expected within 2 weeks.',
+    confidence: 'high' as const,
+    tags: ['eaglesoft', 'windows-update', 'windows-11', 'crash', 'cross-client'],
+    source_ticket: null,
+    observed_at: '2026-01-28T08:00:00',
+    created_by: 'pilot',
+    created_at: '2026-01-28T10:30:00',
+  },
+  {
+    id: 'intel-demo-004',
+    client_key: 'foundation-dental-partners-wh',
+    tool_id: 'dexis',
+    pattern: 'DEXIS sensor calibration drift after 18 months',
+    observation: 'Sensor producing slightly overexposed images. Calibration log showed last calibration 19 months ago.',
+    resolution: 'Run DEXIS sensor calibration wizard. If drift persists after 3 calibrations, escalate to vendor for sensor replacement under warranty.',
+    confidence: 'medium' as const,
+    tags: ['dexis', 'sensor', 'calibration', 'imaging', 'clinical'],
+    source_ticket: '3972572',
+    observed_at: '2026-02-10T14:00:00',
+    created_by: 'pilot',
+    created_at: '2026-02-10T16:00:00',
+  },
+  {
+    id: 'intel-demo-005',
+    client_key: 'westside-pediatric-dental',
+    tool_id: null,
+    pattern: 'Veeam backup credential failure after AD password rotation',
+    observation: 'Service account password updated in AD but not propagated to Veeam job credentials. Three consecutive nightly backup failures before discovery.',
+    resolution: 'Update NAS repository credentials in Veeam B&R console for all 4 scheduled jobs. Implement credential rotation checklist — AD changes must include Veeam audit.',
+    confidence: 'high' as const,
+    tags: ['veeam', 'backup', 'credentials', 'active-directory', 'nas'],
+    source_ticket: '4001',
+    observed_at: '2026-02-25T11:00:00',
+    created_by: 'pilot',
+    created_at: '2026-02-25T13:00:00',
+  },
+];
+
+export const DEMO_FILTER_OPTIONS = {
+  client_keys: [
+    'hooverfamilydentistry',
+    'foundation-dental-partners-wh',
+    'westside-pediatric-dental',
+    'jayashree-srinivasan-dmd',
+    'shades-creek-dental',
+  ],
+  tool_ids: [
+    'eaglesoft',
+    'dexis',
+    'dentrix',
+    'carestream',
+    'veeam',
+    'windows-server',
+  ],
+};
+
+export const DEMO_CONTEXT = {
+  ticket_key: 'TKT-2891',
+  client_key: 'hooverfamilydentistry',
+  situation: 'Eaglesoft server unreachable — all workstations offline',
+  expectation: 'Client expects full system restoration during this visit. Dr. Hoover has back-to-back patients starting at 9 AM.',
+  constraints: 'Visit window 7:30–9:00 AM before patients arrive. No remote access available — must be onsite.',
+  emotion_tone: 'frustrated',
+  impact_level: 'high',
+  clinical_workflow_impact: true,
+  issue_category: 'server',
+  risk_flags: [
+    'Appointment schedule at risk — 12 patients booked before noon',
+    'UPS units flagged as aging — potential repeat failure',
+    'Client expressed frustration on prior ticket — trust score declining',
+  ],
+};
+
+export const DEMO_SIGNALS = {
+  urgency_score: 87,
+  urgency_signal: 'HIGH',
+  readiness_score: 62,
+  readiness_signal: 'MEDIUM',
+  trust_score: 58,
+  trust_signal: 'DECLINING',
+  friction_score: 71,
+  friction_signal: 'ELEVATED',
+};

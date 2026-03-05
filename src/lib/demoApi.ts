@@ -6,6 +6,10 @@ import {
   DEMO_TOOL_SCORES,
   DEMO_STATS,
   DEMO_BRIEFS,
+  DEMO_INTEL_ENTRIES,
+  DEMO_FILTER_OPTIONS,
+  DEMO_CONTEXT,
+  DEMO_SIGNALS,
 } from './demoData';
 
 /**
@@ -147,6 +151,93 @@ export async function demoFetch(endpoint: string): Promise<unknown> {
     return { status: 'ok', message: 'Demo mode — note saved.' };
   }
 
+
+  // ── Intel: filter options ─────────────────────────────────────────────────
+  if (endpoint.includes('/api/intel/filter-options')) {
+    return DEMO_FILTER_OPTIONS;
+  }
+
+  // ── Intel: by-ticket ─────────────────────────────────────────────────────
+  if (endpoint.includes('/api/intel/by-ticket')) {
+    const keyMatch = endpoint.match(/by-ticket\/([^?]+)/);
+    const key = keyMatch ? keyMatch[1] : '';
+    // Return site intel for first demo ticket, tool intel for eaglesoft tickets
+    const siteIntel = DEMO_INTEL_ENTRIES.filter((e: Record<string,unknown>) =>
+      e.client_key === DEMO_TICKETS.find((t: Record<string,unknown>) => t.ticket_key === key)?.client_key
+    ).slice(0, 5);
+    const toolIntel = DEMO_INTEL_ENTRIES.filter((e: Record<string,unknown>) => e.tool_id && !e.client_key).slice(0, 5);
+    return {
+      client_intel: siteIntel.length > 0 ? siteIntel : DEMO_INTEL_ENTRIES.slice(0, 2),
+      tool_intel:   toolIntel.length > 0 ? toolIntel : DEMO_INTEL_ENTRIES.slice(2, 4),
+      client_count: siteIntel.length,
+      tool_count:   toolIntel.length,
+    };
+  }
+
+  // ── Intel: entries list (GET /api/intel) ──────────────────────────────────
+  if (endpoint.includes('/api/intel') && !endpoint.includes('/run') && !endpoint.includes('/outbreaks') && !endpoint.includes('/atrisk')) {
+    let items = [...DEMO_INTEL_ENTRIES];
+    if (endpoint.includes('client_key=')) {
+      const m = endpoint.match(/client_key=([^&]+)/);
+      if (m) items = items.filter((e: Record<string,unknown>) => e.client_key === m[1]);
+    }
+    if (endpoint.includes('tool_id=')) {
+      const m = endpoint.match(/tool_id=([^&]+)/);
+      if (m) items = items.filter((e: Record<string,unknown>) => e.tool_id === m[1]);
+    }
+    if (endpoint.includes('confidence=')) {
+      const m = endpoint.match(/confidence=([^&]+)/);
+      if (m) items = items.filter((e: Record<string,unknown>) => e.confidence === m[1]);
+    }
+    return { total: items.length, items };
+  }
+
+  // ── POST /api/intel — confirm intel candidate ────────────────────────────
+  if (endpoint.includes('/api/intel') && endpoint.endsWith('/api/intel')) {
+    return { id: 'demo-' + Date.now(), status: 'created', message: 'Demo mode — intel entry recorded.' };
+  }
+
+  // ── Ticket context ─────────────────────────────────────────────────────────
+  if (endpoint.match(/\/api\/tickets\/[^/]+\/context/)) {
+    const keyMatch = endpoint.match(/tickets\/([^/]+)/);
+    const key = keyMatch ? keyMatch[1] : '';
+    const ticket = DEMO_TICKETS.find((t: Record<string,unknown>) => t.ticket_key === key);
+    return { ...DEMO_CONTEXT, ticket_key: key, client_key: (ticket as Record<string,unknown>)?.client_key ?? 'demo-client', situation: (ticket as Record<string,unknown>)?.situation ?? 'System Issue' };
+  }
+
+  // ── Ticket signals ────────────────────────────────────────────────────────
+  if (endpoint.match(/\/api\/tickets\/[^/]+\/signals/)) {
+    return DEMO_SIGNALS;
+  }
+
+  // ── Pilot chat ────────────────────────────────────────────────────────────
+  if (endpoint.includes('/work/pilot/chat')) {
+    return {
+      response: `## ✈️ Pilot — Demo Mode
+
+I can see the context for this ticket.
+
+**Based on prior intel and the current situation:**
+
+1. Start with a visual check of all affected hardware and network gear
+2. Verify the Eaglesoft service is running — check Windows Services
+3. Confirm UPS status — prior intel flags recurring battery failures at this site
+
+> In the live system, I would have access to full client history, real-time signals, and KB entries from past visits.`,
+      intel_candidate: null,
+    };
+  }
+
+  // ── Ticket ingest status ──────────────────────────────────────────────────
+  if (endpoint.includes('/ingest/status')) {
+    return { status: 'idle', last_run: new Date().toISOString() };
+  }
+
+  // ── Settings: pilot persona ───────────────────────────────────────────────
+  if (endpoint.includes('/api/settings/pilot-persona')) {
+    return { pilot_system_description: 'You are Pilot, a field technician copilot for dental IT environments. Be concise, practical, and step-oriented. Assume the technician is onsite and time-pressured.' };
+  }
+
   // ── Fallback ──────────────────────────────────────────────────────────────
   console.warn('[demoApi] Unmatched endpoint:', endpoint);
   return {};
@@ -159,11 +250,11 @@ export async function demoFetch(endpoint: string): Promise<unknown> {
  * Usage:
  *   const data = await pmFetch('/api/tickets');
  */
-export async function pmFetch(endpoint: string, apiBase: string): Promise<unknown> {
+export async function pmFetch(endpoint: string, apiBase: string, options?: RequestInit): Promise<unknown> {
   if (isDemoMode()) {
     return demoFetch(endpoint);
   }
-  const res = await fetch(`${apiBase}${endpoint}`);
+  const res = await fetch(`${apiBase}${endpoint}`, options);
   if (!res.ok) throw new Error(`PM API error: ${res.status} ${res.statusText}`);
   return res.json();
 }
