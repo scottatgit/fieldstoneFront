@@ -1,10 +1,11 @@
 'use client';
 import {
-  Box, Flex, Heading, Text, Badge, Button, Spinner,
+  Box, Flex, Heading, Text, Badge, Button, Spinner, Input, Select,
   HStack, VStack, Divider, Progress,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer,
   Tabs, TabList, Tab, TabPanels, TabPanel,
-  Stat, StatLabel, StatNumber,
+  Stat, StatLabel, StatNumber, Modal, ModalOverlay, ModalContent,
+  ModalHeader, ModalBody, ModalCloseButton,
   SimpleGrid, Collapse, useDisclosure,
 } from '@chakra-ui/react';
 import { useEffect, useState, useCallback } from 'react';
@@ -32,6 +33,21 @@ interface ToolRow {
   vendor?: string;
   category?: string;
   risk_score?: number;
+}
+
+interface IntelEntry {
+  id: string;
+  client_key?: string | null;
+  tool_id?: string | null;
+  pattern: string;
+  observation: string;
+  resolution: string;
+  confidence: 'low' | 'medium' | 'high';
+  tags: string[];
+  source_ticket?: string | null;
+  observed_at: string;
+  created_by: string;
+  created_at: string;
 }
 
 function cn(c: unknown): string {
@@ -123,11 +139,31 @@ function OutbreakCard({ evt }: { evt: OutbreakEvent }) {
 }
 
 export default function IntelDashboard() {
-  const [events, setEvents]   = useState<OutbreakEvent[]>([]);
-  const [tools,  setTools]    = useState<ToolRow[]>([]);
-  const [lastRun, setLastRun] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
+  const [events, setEvents]         = useState<OutbreakEvent[]>([]);
+  const [tools,  setTools]           = useState<ToolRow[]>([]);
+  const [lastRun, setLastRun]        = useState<string>('');
+  const [loading, setLoading]        = useState(true);
+  const [running, setRunning]        = useState(false);
+  const [intelEntries, setIntelEntries] = useState<IntelEntry[]>([]);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [intelFilter, setIntelFilter]   = useState({ client: '', tool: '', confidence: '' });
+  const [intelSort, setIntelSort]       = useState<'recent'|'confidence'>('recent');
+  const [selectedIntel, setSelectedIntel] = useState<IntelEntry | null>(null);
+  const [filterOptions, setFilterOptions] = useState<{ client_keys: string[]; tool_ids: string[] }>({ client_keys: [], tool_ids: [] });
+  const { isOpen: detailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
+
+  const fetchIntel = useCallback(async () => {
+    setIntelLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (intelFilter.client)     params.set('client_key',  intelFilter.client);
+      if (intelFilter.tool)       params.set('tool_id',     intelFilter.tool);
+      if (intelFilter.confidence) params.set('confidence',  intelFilter.confidence);
+      params.set('limit', '50');
+      const res = await pmFetch(`/api/intel?${params}`, API);
+      setIntelEntries((res as any)?.items ?? []);
+    } catch { /* silent */ } finally { setIntelLoading(false); }
+  }, [intelFilter]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -152,6 +188,14 @@ export default function IntelDashboard() {
     const id = setInterval(fetchAll, 60_000);
     return () => clearInterval(id);
   }, [fetchAll]);
+
+  useEffect(() => { fetchIntel(); }, [fetchIntel]);
+
+  useEffect(() => {
+    pmFetch('/api/intel/filter-options', API)
+      .then((d) => setFilterOptions(d as any))
+      .catch(() => {});
+  }, []);
 
   const runNow = async () => {
     setRunning(true);
@@ -228,6 +272,9 @@ export default function IntelDashboard() {
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
             🕐 History ({resolved.length})
+          </Tab>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+            🧠 Intel Entries ({intelEntries.length})
           </Tab>
         </TabList>
 
@@ -333,6 +380,169 @@ export default function IntelDashboard() {
                 <Text color="gray.500">No resolved events yet</Text>
               </Flex>
             ) : resolved.map((e, i) => <OutbreakCard key={i} evt={e} />)}
+          </TabPanel>
+
+
+          {/* Intel Entries Tab */}
+          <TabPanel px={0}>
+            {/* Filters */}
+            <HStack mb={4} spacing={3} flexWrap="wrap">
+              <Select size="sm" maxW="200px" bg="gray.800" border="1px solid" borderColor="gray.600"
+                color="gray.200" fontSize="xs" placeholder="All clients"
+                value={intelFilter.client}
+                onChange={(e) => setIntelFilter((f) => ({ ...f, client: e.target.value }))}>
+                {filterOptions.client_keys.map((k) => (
+                  <option key={k} value={k} style={{background:'#1a202c'}}>{k}</option>
+                ))}
+              </Select>
+              <Select size="sm" maxW="160px" bg="gray.800" border="1px solid" borderColor="gray.600"
+                color="gray.200" fontSize="xs" placeholder="All tools"
+                value={intelFilter.tool}
+                onChange={(e) => setIntelFilter((f) => ({ ...f, tool: e.target.value }))}>
+                {filterOptions.tool_ids.map((t) => (
+                  <option key={t} value={t} style={{background:'#1a202c'}}>{t}</option>
+                ))}
+              </Select>
+              <Select size="sm" maxW="140px" bg="gray.800" border="1px solid" borderColor="gray.600"
+                color="gray.200" fontSize="xs" placeholder="Any confidence"
+                value={intelFilter.confidence}
+                onChange={(e) => setIntelFilter((f) => ({ ...f, confidence: e.target.value }))}>
+                {["high","medium","low"].map((c) => (
+                  <option key={c} value={c} style={{background:'#1a202c'}}>{c}</option>
+                ))}
+              </Select>
+              <HStack spacing={1}>
+                {(["recent", "confidence"] as const).map((s) => (
+                  <Button key={s} size="xs" variant={intelSort === s ? "solid" : "outline"}
+                    colorScheme="blue"
+                    onClick={() => {
+                      setIntelSort(s);
+                    }}>
+                    {s === "recent" ? "🕐 Recent" : "⭐ Confidence"}
+                  </Button>
+                ))}
+              </HStack>
+              {(intelFilter.client || intelFilter.tool || intelFilter.confidence) && (
+                <Button size="xs" variant="ghost" colorScheme="gray"
+                  onClick={() => setIntelFilter({ client: '', tool: '', confidence: '' })}>
+                  Clear
+                </Button>
+              )}
+            </HStack>
+
+            {intelLoading ? (
+              <Flex py={8} align="center" justify="center"><Spinner color="blue.400" size="sm" /></Flex>
+            ) : intelEntries.length === 0 ? (
+              <Flex py={12} align="center" justify="center" direction="column" gap={2}>
+                <Text fontSize="3xl">🧠</Text>
+                <Text color="gray.500">No Intel entries yet</Text>
+                <Text fontSize="xs" color="gray.600">Use the Pilot chip "Propose Intel entry" during a visit to create the first one</Text>
+              </Flex>
+            ) : (
+              <Box>
+                {/* Intel Detail Modal */}
+                <Modal isOpen={detailOpen} onClose={closeDetail} size="lg" isCentered>
+                  <ModalOverlay bg="blackAlpha.800" />
+                  <ModalContent bg="gray.900" border="1px solid" borderColor="blue.700" color="gray.100">
+                    <ModalHeader fontSize="sm" fontFamily="mono" color="blue.300"
+                      borderBottom="1px solid" borderColor="gray.700" pb={3}>
+                      🧠 Intel Entry
+                      {selectedIntel && (
+                        <Badge ml={3} fontSize="0.65em" verticalAlign="middle"
+                          colorScheme={selectedIntel.confidence === 'high' ? 'green' : selectedIntel.confidence === 'medium' ? 'yellow' : 'gray'}>
+                          {selectedIntel.confidence}
+                        </Badge>
+                      )}
+                    </ModalHeader>
+                    <ModalCloseButton color="gray.400" />
+                    <ModalBody py={4}>
+                      {selectedIntel && (
+                        <VStack align="stretch" spacing={4} fontSize="sm">
+                          <Box>
+                            <Text fontSize="2xs" color="blue.400" fontFamily="mono" mb={1}>PATTERN</Text>
+                            <Text fontWeight="bold" color="white">{selectedIntel.pattern}</Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={1}>OBSERVATION</Text>
+                            <Text color="gray.300" lineHeight="tall">{selectedIntel.observation}</Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="2xs" color="green.400" fontFamily="mono" mb={1}>RESOLUTION</Text>
+                            <Text color="gray.200" lineHeight="tall">{selectedIntel.resolution}</Text>
+                          </Box>
+                          <Divider borderColor="gray.700" />
+                          <HStack spacing={4} fontSize="xs" color="gray.500" flexWrap="wrap">
+                            {selectedIntel.client_key && <Text>Site: <Text as="span" color="gray.300">{selectedIntel.client_key}</Text></Text>}
+                            {selectedIntel.tool_id    && <Text>Tool: <Text as="span" color="blue.300">{selectedIntel.tool_id}</Text></Text>}
+                            {selectedIntel.source_ticket && <Text>Ticket: <Text as="span" color="gray.300">#{selectedIntel.source_ticket}</Text></Text>}
+                            <Text>Observed: <Text as="span" color="gray.300">{(selectedIntel.observed_at || '').slice(0,10)}</Text></Text>
+                            <Text>By: <Text as="span" color="gray.400">{selectedIntel.created_by}</Text></Text>
+                          </HStack>
+                          {selectedIntel.tags?.length > 0 && (
+                            <HStack flexWrap="wrap" spacing={1}>
+                              {selectedIntel.tags.map((t: string, i: number) => (
+                                <Badge key={i} variant="outline" colorScheme="gray" fontSize="2xs">{t}</Badge>
+                              ))}
+                            </HStack>
+                          )}
+                        </VStack>
+                      )}
+                    </ModalBody>
+                  </ModalContent>
+                </Modal>
+
+                {/* Entry List */}
+                <VStack align="stretch" spacing={2}>
+                  {[...intelEntries]
+                    .sort((a, b) => {
+                      if (intelSort === 'confidence') {
+                        const order = { high: 0, medium: 1, low: 2 };
+                        return (order[a.confidence] ?? 3) - (order[b.confidence] ?? 3);
+                      }
+                      return new Date(b.observed_at).getTime() - new Date(a.observed_at).getTime();
+                    })
+                    .map((entry) => (
+                      <Box key={entry.id}
+                        border="1px solid" borderColor="gray.700" borderRadius="md" p={3} bg="gray.800"
+                        cursor="pointer" _hover={{ borderColor: 'blue.600', bg: 'gray.750' }}
+                        transition="all 0.15s"
+                        onClick={() => { setSelectedIntel(entry); openDetail(); }}>
+                        <Flex justify="space-between" align="flex-start" gap={2}>
+                          <VStack align="flex-start" spacing={1} flex={1} minW={0}>
+                            <Text fontWeight="bold" fontSize="sm" color="gray.100" noOfLines={1}>
+                              {entry.pattern}
+                            </Text>
+                            <Text fontSize="xs" color="gray.400" noOfLines={2} lineHeight="short">
+                              {entry.resolution}
+                            </Text>
+                            <HStack spacing={2} flexWrap="wrap" pt={0.5}>
+                              {entry.client_key && (
+                                <Badge variant="outline" colorScheme="gray" fontSize="2xs">{entry.client_key}</Badge>
+                              )}
+                              {entry.tool_id && (
+                                <Badge colorScheme="blue" variant="subtle" fontSize="2xs">{entry.tool_id}</Badge>
+                              )}
+                              {entry.tags?.slice(0,3).map((t: string, i: number) => (
+                                <Badge key={i} variant="outline" colorScheme="gray" fontSize="2xs">{t}</Badge>
+                              ))}
+                            </HStack>
+                          </VStack>
+                          <VStack align="flex-end" spacing={1} flexShrink={0}>
+                            <Badge fontSize="xs"
+                              colorScheme={entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray'}>
+                              {entry.confidence}
+                            </Badge>
+                            <Text fontSize="2xs" color="gray.600">
+                              {(entry.observed_at || '').slice(0,10)}
+                            </Text>
+                          </VStack>
+                        </Flex>
+                      </Box>
+                    ))
+                  }
+                </VStack>
+              </Box>
+            )}
           </TabPanel>
         </TabPanels>
       </Tabs>

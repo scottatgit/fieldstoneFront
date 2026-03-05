@@ -2,9 +2,7 @@
 import React from 'react';
 import {
   Box, VStack, HStack, Text, Textarea, IconButton,
-  Flex, Spinner, Badge, Divider, Tooltip, Modal,
-  ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
-  useDisclosure,
+  Flex, Spinner, Badge, Divider, Tooltip,
   useBreakpointValue,
 } from '@chakra-ui/react';
 import { useState, useRef, useEffect, useCallback, KeyboardEvent, ChangeEvent } from 'react';
@@ -31,20 +29,6 @@ function extractFacts(text: string, prev: Record<string,string>): Record<string,
   const causeMatch = text.match(/(?:root\s+cause|caused\s+by|due\s+to)[:\s]+([^.\n]{10,80})/i);
   if (causeMatch) updated['root_cause'] = causeMatch[1].trim();
   return updated;
-}
-
-
-function timeAgoShort(iso?: string | null): string {
-  if (!iso) return '';
-  try {
-    const ms = Date.now() - new Date(iso).getTime();
-    const d = Math.floor(ms / 86_400_000);
-    const h = Math.floor(ms / 3_600_000);
-    if (d > 30) return `${Math.floor(d/30)}mo ago`;
-    if (d > 0)  return `${d}d ago`;
-    if (h > 0)  return `${h}h ago`;
-    return 'just now';
-  } catch { return ''; }
 }
 
 function renderMd(text: string): string {
@@ -86,24 +70,8 @@ function getChips(ctx: TicketContext | null, ticket: Ticket): PilotChip[] {
     chips.unshift({ label: '🤝 Client relations', prompt: 'This client appears frustrated. How should I approach the conversation to rebuild trust?' });
   }
   // Always include Intel proposal chip
-  chips.unshift({ label: '🔍 Use prior intel', prompt: 'Review the prior intel for this site and tool, then suggest the most relevant next steps for this visit.' });
   chips.unshift({ label: '🧠 Propose Intel entry', prompt: 'Propose an Intel entry based on what we have discussed and the ticket context.', artifact: 'intel' });
   return chips.slice(0, 8);
-}
-
-export interface IntelEntry {
-  id: string;
-  client_key?: string | null;
-  tool_id?: string | null;
-  pattern: string;
-  observation: string;
-  resolution: string;
-  confidence: 'low' | 'medium' | 'high';
-  tags: string[];
-  source_ticket?: string | null;
-  observed_at: string;
-  created_by: string;
-  created_at: string;
 }
 
 interface IntelCandidate {
@@ -175,95 +143,7 @@ function IntelCandidateCard({
   );
 }
 
-
-function IntelDetailModal({ entry, isOpen, onClose }: { entry: IntelEntry | null; isOpen: boolean; onClose: () => void }) {
-  if (!entry) return null;
-  const confColor = entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray';
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
-      <ModalOverlay bg="blackAlpha.800" />
-      <ModalContent bg="gray.900" border="1px solid" borderColor="blue.700" color="gray.100">
-        <ModalHeader fontSize="sm" fontFamily="mono" color="blue.300" borderBottom="1px solid" borderColor="gray.700" pb={3}>
-          🧠 Intel Entry
-          <Badge ml={3} colorScheme={confColor} fontSize="0.65em" verticalAlign="middle">{entry.confidence}</Badge>
-        </ModalHeader>
-        <ModalCloseButton color="gray.400" />
-        <ModalBody py={4}>
-          <VStack align="stretch" spacing={4} fontSize="sm">
-            <Box>
-              <Text fontSize="2xs" color="blue.400" fontFamily="mono" mb={1}>PATTERN</Text>
-              <Text fontWeight="bold" color="white">{entry.pattern}</Text>
-            </Box>
-            <Box>
-              <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={1}>OBSERVATION</Text>
-              <Text color="gray.300" lineHeight="tall">{entry.observation}</Text>
-            </Box>
-            <Box>
-              <Text fontSize="2xs" color="green.400" fontFamily="mono" mb={1}>RESOLUTION</Text>
-              <Text color="gray.200" lineHeight="tall">{entry.resolution}</Text>
-            </Box>
-            <Divider borderColor="gray.700" />
-            <HStack spacing={6} fontSize="xs" color="gray.500" flexWrap="wrap">
-              {entry.client_key && <Text>Site: <Text as="span" color="gray.300">{entry.client_key}</Text></Text>}
-              {entry.tool_id    && <Text>Tool: <Text as="span" color="blue.300">{entry.tool_id}</Text></Text>}
-              {entry.source_ticket && <Text>Ticket: <Text as="span" color="gray.300">#{entry.source_ticket}</Text></Text>}
-              <Text>Observed: <Text as="span" color="gray.300">{(entry.observed_at || '').slice(0,10)}</Text></Text>
-            </HStack>
-            {entry.tags?.length > 0 && (
-              <HStack flexWrap="wrap" spacing={1}>
-                {entry.tags.map((t: string, i: number) => (
-                  <Badge key={i} variant="outline" colorScheme="gray" fontSize="2xs">{t}</Badge>
-                ))}
-              </HStack>
-            )}
-          </VStack>
-        </ModalBody>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-function IntelSidebarCard({ entry, onPin, onOpen }: {
-  entry: IntelEntry;
-  onPin: (e: IntelEntry) => void;
-  onOpen: (e: IntelEntry) => void;
-}) {
-  const confColor = entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray';
-  return (
-    <Box border="1px solid" borderColor="blue.900" borderRadius="sm" p={2} bg="gray.900"
-      _hover={{ borderColor: 'blue.700' }} transition="all 0.15s">
-      <Text fontSize="2xs" fontWeight="bold" color="gray.200" lineHeight="short" noOfLines={2} mb={1}>
-        {entry.pattern}
-      </Text>
-      <Text fontSize="2xs" color="gray.400" lineHeight="short" noOfLines={2} mb={1.5}>
-        {entry.resolution}
-      </Text>
-      <HStack justify="space-between" align="center" mb={1.5}>
-        <HStack spacing={1}>
-          <Badge colorScheme={confColor} fontSize="2xs" variant="subtle">{entry.confidence}</Badge>
-          {entry.tool_id && <Badge colorScheme="blue" fontSize="2xs" variant="outline">{entry.tool_id}</Badge>}
-        </HStack>
-        <Text fontSize="2xs" color="gray.600">{timeAgoShort(entry.observed_at)}</Text>
-      </HStack>
-      <HStack spacing={1}>
-        <Box as="button" onClick={() => onPin(entry)}
-          px={1.5} py={0.5} fontSize="2xs" fontFamily="mono" color="blue.400"
-          bg="blue.900" borderRadius="sm" border="1px solid" borderColor="blue.800"
-          _hover={{ bg: 'blue.800', color: 'blue.200' }} cursor="pointer" flexShrink={0}>
-          📌 Pin
-        </Box>
-        <Box as="button" onClick={() => onOpen(entry)}
-          px={1.5} py={0.5} fontSize="2xs" fontFamily="mono" color="gray.500"
-          bg="gray.800" borderRadius="sm" border="1px solid" borderColor="gray.700"
-          _hover={{ color: 'gray.300' }} cursor="pointer" flexShrink={0}>
-          Open
-        </Box>
-      </HStack>
-    </Box>
-  );
-}
-
-function ContextSidebar({ ticket, ctx, signals, priorIntel, onPinIntel }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null; priorIntel?: { client_intel: IntelEntry[]; tool_intel: IntelEntry[] }; onPinIntel?: (e: IntelEntry) => void }) {
+function ContextSidebar({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
   const situation   = ctx?.situation   || ticket.situation || ticket.title || '';
   const expectation = ctx?.expectation || '';
   const constraints = ctx?.constraints || '';
@@ -330,53 +210,6 @@ function ContextSidebar({ ticket, ctx, signals, priorIntel, onPinIntel }: { tick
           </VStack>
         </Box>
       )}
-
-      {/* Prior Intel Section */}
-      {(() => {
-        const si = priorIntel?.client_intel || [];
-        const ti = priorIntel?.tool_intel   || [];
-        const has = si.length > 0 || ti.length > 0;
-        return (
-          <>
-            <Divider borderColor='gray.700' my={1} />
-            <Text fontSize='2xs' fontWeight='bold' color='blue.500' fontFamily='mono'
-              textTransform='uppercase' letterSpacing='wider' mb={2}>Prior Intel</Text>
-            {has ? (
-              <>
-                {si.length > 0 && (
-                  <Box mb={2}>
-                    <Text fontSize='2xs' color='gray.500' fontFamily='mono' mb={1.5}>SITE MEMORY</Text>
-                    <VStack align='stretch' spacing={2}>
-                      {si.map((e: IntelEntry) => (
-                        <IntelSidebarCard key={e.id} entry={e}
-                          onPin={onPinIntel || (() => {})}
-                          onOpen={() => {}} />
-                      ))}
-                    </VStack>
-                  </Box>
-                )}
-                {ti.length > 0 && (
-                  <Box>
-                    {si.length > 0 && <Divider borderColor='gray.800' my={1.5} />}
-                    <Text fontSize='2xs' color='gray.500' fontFamily='mono' mb={1.5}>TOOL MEMORY</Text>
-                    <VStack align='stretch' spacing={2}>
-                      {ti.map((e: IntelEntry) => (
-                        <IntelSidebarCard key={e.id} entry={e}
-                          onPin={onPinIntel || (() => {})}
-                          onOpen={() => {}} />
-                      ))}
-                    </VStack>
-                  </Box>
-                )}
-              </>
-            ) : (
-              <Text fontSize='2xs' color='gray.600' fontFamily='mono' fontStyle='italic'>
-                No prior intel for this site yet
-              </Text>
-            )}
-          </>
-        );
-      })()}
     </VStack>
   );
 }
@@ -402,7 +235,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [intelSaving, setIntelSaving]       = useState(false);
   const [intelSaved, setIntelSaved]         = useState(false);
   const [sidebarOpen, setSidebarOpen]       = useState(true);
-  const [priorIntel, setPriorIntel]         = useState<{ client_intel: IntelEntry[]; tool_intel: IntelEntry[] }>({ client_intel: [], tool_intel: [] });
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
   const isMobile  = useBreakpointValue({ base: true, md: false });
@@ -411,16 +243,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
     if (typeof window === 'undefined') return;
     try { localStorage.setItem(storageKey, JSON.stringify(messages)); } catch { /* empty */ }
   }, [messages, storageKey]);
-
-  // Load prior intel on mount
-  useEffect(() => {
-    if (isDemoMode()) return;
-    fetch(`${PM_API}/api/intel/by-ticket/${ticket.ticket_key}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setPriorIntel(d); })
-      .catch(() => {/* silent */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket.ticket_key]);
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -440,11 +262,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
       .filter((m) => !(m.role === 'assistant' && m.content.startsWith('## ✈️ Pilot Online')))
       .map((m) => ({ role: m.role, content: m.content, images: m.images || [] }))
   , []);
-
-  function pinIntelToChat(entry: IntelEntry) {
-    const pinMsg = `Pilot, consider this prior intel:\n\n**${entry.pattern}**\n\nResolution: ${entry.resolution}\n\nHow does this apply to the current situation?`;
-    send(pinMsg);
-  }
 
   async function send(text: string, artifactType?: 'closing' | 'internal' | 'kb' | 'intel') {
     const msg = text.trim();
@@ -513,15 +330,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...candidate, source_ticket: ticket.ticket_key, created_by: 'pilot' }),
       });
-      if (res.ok) {
-        setIntelSaved(true);
-        setIntelCandidate(null);
-        // Refresh prior intel sidebar
-        fetch(`${PM_API}/api/intel/by-ticket/${ticket.ticket_key}`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((d) => { if (d) setPriorIntel(d); })
-          .catch(() => {});
-      }
+      if (res.ok) { setIntelSaved(true); setIntelCandidate(null); }
       else throw new Error(`API ${res.status}`);
     } catch (e) {
       console.error('Intel save failed', e);
@@ -565,11 +374,6 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
             </VStack>
           </HStack>
           <HStack spacing={2}>
-            {(priorIntel.client_intel.length + priorIntel.tool_intel.length) > 0 && (
-              <Badge colorScheme='blue' fontSize='2xs' variant='subtle'>
-                {priorIntel.client_intel.length + priorIntel.tool_intel.length} intel
-              </Badge>
-            )}
             <Box as='button' onClick={() => setSidebarOpen((v) => !v)}
               px={2} py={1} fontSize='2xs' fontFamily='mono' color='gray.400'
               bg='gray.800' borderRadius='sm' border='1px solid' borderColor='gray.700'
@@ -710,8 +514,8 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
       </Flex>
       {/* Context sidebar */}
       {sidebarOpen && !isMobile && (
-        <Box w='240px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700' bg='gray.900' h='full' overflow='hidden'>
-          <ContextSidebar ticket={ticket} ctx={ctx} signals={signals} priorIntel={priorIntel} onPinIntel={pinIntelToChat} />
+        <Box w='200px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700' bg='gray.900' h='full' overflow='hidden'>
+          <ContextSidebar ticket={ticket} ctx={ctx} signals={signals} />
         </Box>
       )}
     </Flex>
