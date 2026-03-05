@@ -25,7 +25,7 @@ export function isDemoMode(): boolean {
  * Matches every PM API endpoint and returns pre-seeded demo data.
  * Adds a small simulated network delay so the UI feels live.
  */
-export async function demoFetch(endpoint: string): Promise<unknown> {
+export async function demoFetch(endpoint: string, method = 'GET', body?: unknown): Promise<unknown> {
   // Simulated network latency (makes spinners feel real)
   await new Promise(r => setTimeout(r, 120 + Math.random() * 180));
 
@@ -193,8 +193,22 @@ export async function demoFetch(endpoint: string): Promise<unknown> {
   }
 
   // ── POST /api/intel — confirm intel candidate ────────────────────────────
-  if (endpoint.includes('/api/intel') && endpoint.endsWith('/api/intel')) {
+  if (method === 'POST' && endpoint.endsWith('/api/intel')) {
     return { id: 'demo-' + Date.now(), status: 'created', message: 'Demo mode — intel entry recorded.' };
+  }
+
+  // ── PATCH /api/intel/{id}/kb-status — 13B ────────────────────────────────
+  if (method === 'PATCH' && endpoint.includes('/api/intel/') && endpoint.includes('/kb-status')) {
+    const match = endpoint.match(/\/api\/intel\/([^/]+)\/kb-status/);
+    const id = match ? match[1] : '';
+    const kb_status = (body as Record<string,string>)?.kb_status || 'proposed';
+    return { id, kb_status, updated_at: new Date().toISOString() };
+  }
+
+  // ── GET /api/intel/similar — 13E duplicate detection ─────────────────────
+  if (endpoint.includes('/api/intel/similar')) {
+    // Return empty in demo — no duplicates to warn about
+    return { similar: [] };
   }
 
   // ── Ticket context ─────────────────────────────────────────────────────────
@@ -252,7 +266,12 @@ I can see the context for this ticket.
  */
 export async function pmFetch(endpoint: string, apiBase: string, options?: RequestInit): Promise<unknown> {
   if (isDemoMode()) {
-    return demoFetch(endpoint);
+    const method = options?.method || 'GET';
+    let parsedBody: unknown = undefined;
+    if (options?.body && typeof options.body === 'string') {
+      try { parsedBody = JSON.parse(options.body); } catch { parsedBody = options.body; }
+    }
+    return demoFetch(endpoint, method, parsedBody);
   }
   const res = await fetch(`${apiBase}${endpoint}`, options);
   if (!res.ok) throw new Error(`PM API error: ${res.status} ${res.statusText}`);

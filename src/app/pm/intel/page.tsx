@@ -8,7 +8,8 @@ import {
   ModalHeader, ModalBody, ModalCloseButton,
   SimpleGrid, Collapse, useDisclosure,
 } from '@chakra-ui/react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react'
+import React from 'react';
 import Link from 'next/link';
 import { pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
@@ -48,6 +49,9 @@ interface IntelEntry {
   observed_at: string;
   created_by: string;
   created_at: string;
+  kb_status?: 'none' | 'proposed' | 'approved';  // 13A
+  kb_promoted_at?: string | null;
+  kb_promoted_by?: string | null;
 }
 
 function cn(c: unknown): string {
@@ -134,6 +138,52 @@ function OutbreakCard({ evt }: { evt: OutbreakEvent }) {
           </Box>
         )}
       </Collapse>
+    </Box>
+  );
+}
+
+
+function IntelPageKBPromotion({ entry, onUpdate }: {
+  entry: IntelEntry;
+  onUpdate: (id: string, status: string) => void;
+}) {
+  const [status, setStatus] = React.useState<string>(entry.kb_status || 'none');
+  const [saving, setSaving] = React.useState(false);
+
+  const updateStatus = async (newStatus: 'proposed' | 'approved') => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/intel/${entry.id}/kb-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kb_status: newStatus, promoted_by: 'pm' }),
+      });
+      if (res.ok) { setStatus(newStatus); onUpdate(entry.id, newStatus); }
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const badgeScheme = status === 'approved' ? 'green' : status === 'proposed' ? 'blue' : 'gray';
+  const badgeLabel  = status === 'approved' ? '🟢 Approved' : status === 'proposed' ? '🔵 Proposed' : '⚪ Not in KB';
+  return (
+    <Box border="1px solid" borderColor="gray.700" borderRadius="md" p={3} bg="blackAlpha.400" mt={1}>
+      <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={2}>KNOWLEDGE BASE PROMOTION</Text>
+      <HStack justify="space-between" flexWrap="wrap" gap={2}>
+        <Badge colorScheme={badgeScheme} fontSize="xs" px={2} py={0.5}>{badgeLabel}</Badge>
+        <HStack spacing={2}>
+          {status === 'none' && (
+            <Button size="xs" colorScheme="blue" variant="outline" isLoading={saving}
+              onClick={() => updateStatus('proposed')}>Propose for KB</Button>
+          )}
+          {status === 'proposed' && (
+            <Button size="xs" colorScheme="green" variant="outline" isLoading={saving}
+              onClick={() => updateStatus('approved')}>Approve to KB</Button>
+          )}
+          {status === 'approved' && (
+            <Text fontSize="xs" color="green.400">✅ Synced to KB</Text>
+          )}
+        </HStack>
+      </HStack>
     </Box>
   );
 }
@@ -485,6 +535,12 @@ export default function IntelDashboard() {
                               ))}
                             </HStack>
                           )}
+                          {/* 13B: KB Promotion controls in Intel page modal */}
+                          <IntelPageKBPromotion entry={selectedIntel} onUpdate={(id, status) => {
+                            setIntelEntries(prev => prev.map(e =>
+                              e.id === id ? { ...e, kb_status: status as IntelEntry['kb_status'] } : e
+                            ));
+                          }} />
                         </VStack>
                       )}
                     </ModalBody>
@@ -532,6 +588,13 @@ export default function IntelDashboard() {
                               colorScheme={entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray'}>
                               {entry.confidence}
                             </Badge>
+                            {/* 13C: KB Status badge */}
+                            {entry.kb_status === 'approved' && (
+                              <Badge fontSize="2xs" colorScheme="green" variant="subtle">🟢 KB</Badge>
+                            )}
+                            {entry.kb_status === 'proposed' && (
+                              <Badge fontSize="2xs" colorScheme="blue" variant="subtle">🔵 Proposed</Badge>
+                            )}
                             <Text fontSize="2xs" color="gray.600">
                               {(entry.observed_at || '').slice(0,10)}
                             </Text>
