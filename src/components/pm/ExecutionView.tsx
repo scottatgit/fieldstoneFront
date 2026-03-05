@@ -801,7 +801,6 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
           <TrustDot score={ingestSignals?.trust_score ?? ticket.trust_score} />
           <Text fontSize='2xs' fontFamily='mono' color='gray.500' flexShrink={0}>#{ticket.ticket_key}</Text>
           <Text fontSize='sm' fontWeight='bold' color='white' noOfLines={1} flex={1} minW={0}>{clientName}</Text>
-          <Text fontSize='xs' color='gray.400' noOfLines={1} display={{ base: 'none', xl: 'block' }} flexShrink={0}>{displayTitle}</Text>
           <ReadinessBadge score={ingestSignals?.readiness_score ?? ticket.readiness_score} />
           <DecisionBadge signal={ticket.decision_signal} label={ticket.decision_label} />
         </HStack>
@@ -820,7 +819,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
               bg={viewMode === 'work' ? 'blue.900' : 'gray.800'}
               color={viewMode === 'work' ? 'blue.200' : 'gray.500'}
               _hover={{ color: 'white' }}>
-              Pilot
+              Work
             </Box>
           </HStack>
           <Box as='button' onClick={() => setPilotOpen(v => !v)} px={3} minH='44px'
@@ -829,7 +828,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             color={pilotOpen ? 'blue.200' : 'gray.500'}
             border='1px solid' borderColor={pilotOpen ? 'blue.600' : 'gray.700'} borderRadius='md'
             _hover={{ borderColor: 'blue.500', color: 'white' }}>
-            {pilotOpen ? 'Pilot >' : 'Pilot'}
+            {pilotOpen ? 'Work >' : 'Work'}
           </Box>
         </HStack>
       </Flex>

@@ -372,10 +372,7 @@ export default function PMPage() {
   if (selectedTicket) {
     return (
       <Box h="100dvh" display="flex" flexDirection="column" bg="gray.950" overflowX="hidden">
-        {/* Hide metrics header on mobile when in Brief/Pilot view — frees ~80px */}
-        <Box display={{ base: 'none', md: 'block' }}>
-          <SummaryBar summary={summary} loading={summaryLoading} />
-        </Box>
+        {/* Phase 16: Metrics hidden in ticket view — no metadata when tech is working */}
         <Box flex={1} minH={0} overflowY="auto">
           <ExecutionView
             ticket={selectedTicket}

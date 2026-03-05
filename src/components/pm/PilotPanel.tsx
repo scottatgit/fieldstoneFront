@@ -508,10 +508,9 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
 
   useEffect(() => {
     if (messages.length === 0) {
-      const situation = ctx?.situation || ticket.situation || ticket.title || 'this ticket';
       setMessages([{
         id: uid(), role: 'assistant', timestamp: new Date(),
-        content: `## Pilot Ready\n\nGrounded in **${ticket.client_display_name || ticket.client_key || 'this client'}** — **${situation}**.\n\nUse the chips below, upload site photos, or ask me anything.`,
+        content: 'Ask anything or use a chip below.',
       }]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,7 +520,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
 
   const buildTranscript = useCallback((msgs: PilotMessage[]) =>
     msgs
-      .filter((m) => !(m.role === 'assistant' && m.content.startsWith('## Pilot Ready')))
+      .filter((m) => !(m.role === 'assistant' && m.content === 'Ask anything or use a chip below.'))
       .map((m) => ({ role: m.role, content: m.content, images: m.images || [] }))
   , []);
 
@@ -643,8 +642,8 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         <HStack px={3} py={2} borderBottom='1px solid' borderColor='gray.700' bg='gray.900' flexShrink={0} justify='space-between'>
           <HStack spacing={2}>
             <VStack align='flex-start' spacing={0}>
-              <Text fontSize='sm' fontWeight='bold' color='white' fontFamily='mono'>PILOT</Text>
-              <Text fontSize='2xs' color='blue.400' fontFamily='mono'>TECH COPILOT ● ONLINE</Text>
+              <Text fontSize='sm' fontWeight='bold' color='white' fontFamily='mono'>WORK</Text>
+              <Text fontSize='2xs' color='blue.400' fontFamily='mono'>FIELDSTONE WORK</Text>
             </VStack>
           </HStack>
           <HStack spacing={2}>
@@ -687,7 +686,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
             <Box key={m.id} alignSelf={m.role === 'user' ? 'flex-end' : 'flex-start'} maxW='88%'>
               {m.role === 'assistant' && (
                 <HStack mb={0.5} spacing={1}>
-                  <Text fontSize='2xs' color='blue.500' fontFamily='mono'>PILOT</Text>
+                  <Text fontSize='2xs' color='blue.500' fontFamily='mono'>WORK</Text>
                   {m.artifact && (
                     <Badge fontSize='2xs'
                       colorScheme={m.artifact === 'closing' ? 'green' : m.artifact === 'internal' ? 'blue' : 'purple'}>
