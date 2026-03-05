@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import {
   Box, VStack, HStack, Text, Textarea, IconButton,
   Flex, Spinner, Badge, Divider, Tooltip,
@@ -48,10 +49,10 @@ interface PilotMessage {
   content: string;
   images?: string[];
   timestamp: Date;
-  artifact?: 'closing' | 'internal' | 'kb';
+  artifact?: 'closing' | 'internal' | 'kb' | 'intel';
 }
 
-interface PilotChip { label: string; prompt: string; }
+interface PilotChip { label: string; prompt: string; artifact?: string; }
 
 function getChips(ctx: TicketContext | null, ticket: Ticket): PilotChip[] {
   const chips: PilotChip[] = [
@@ -68,7 +69,78 @@ function getChips(ctx: TicketContext | null, ticket: Ticket): PilotChip[] {
   if (ctx?.emotion_tone === 'frustrated') {
     chips.unshift({ label: '🤝 Client relations', prompt: 'This client appears frustrated. How should I approach the conversation to rebuild trust?' });
   }
+  // Always include Intel proposal chip
+  chips.unshift({ label: '🧠 Propose Intel entry', prompt: 'Propose an Intel entry based on what we have discussed and the ticket context.', artifact: 'intel' });
   return chips.slice(0, 8);
+}
+
+interface IntelCandidate {
+  client_key?: string | null;
+  tool_id?: string | null;
+  pattern: string;
+  observation: string;
+  resolution: string;
+  confidence: 'low' | 'medium' | 'high';
+  tags: string[];
+  source_ticket?: string | null;
+}
+
+function IntelCandidateCard({
+  candidate, ticketKey, onConfirm, onIgnore, saving, saved
+}: {
+  candidate: IntelCandidate;
+  ticketKey: string;
+  onConfirm: (c: IntelCandidate) => void;
+  onIgnore: () => void;
+  saving: boolean;
+  saved: boolean;
+}) {
+  const [local, setLocal] = React.useState<IntelCandidate>(candidate);
+  const update = (k: keyof IntelCandidate, v: string) => setLocal((p) => ({ ...p, [k]: v }));
+  return (
+    <Box border="1px solid" borderColor="blue.600" borderRadius="md" p={3} mb={3} bg="blackAlpha.500">
+      <HStack mb={2} justify="space-between">
+        <Text fontSize="xs" fontWeight="bold" color="blue.300" letterSpacing="wider">🧠 INTEL CANDIDATE</Text>
+        <Badge colorScheme={local.confidence === 'high' ? 'green' : local.confidence === 'medium' ? 'yellow' : 'gray'} fontSize="0.65em">
+          {local.confidence} confidence
+        </Badge>
+      </HStack>
+      <VStack align="stretch" spacing={2} fontSize="xs">
+        <Box>
+          <Text color="gray.400" mb={0.5}>Pattern</Text>
+          <Box as="textarea" value={local.pattern} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => update('pattern', e.target.value)}
+            style={{width:'100%',background:'#1a202c',border:'1px solid #2d3748',borderRadius:4,padding:'4px 6px',color:'#e2e8f0',fontSize:'0.75rem',resize:'vertical',minHeight:40}} />
+        </Box>
+        <Box>
+          <Text color="gray.400" mb={0.5}>Observation</Text>
+          <Box as="textarea" value={local.observation} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => update('observation', e.target.value)}
+            style={{width:'100%',background:'#1a202c',border:'1px solid #2d3748',borderRadius:4,padding:'4px 6px',color:'#e2e8f0',fontSize:'0.75rem',resize:'vertical',minHeight:40}} />
+        </Box>
+        <Box>
+          <Text color="gray.400" mb={0.5}>Resolution</Text>
+          <Box as="textarea" value={local.resolution} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => update('resolution', e.target.value)}
+            style={{width:'100%',background:'#1a202c',border:'1px solid #2d3748',borderRadius:4,padding:'4px 6px',color:'#e2e8f0',fontSize:'0.75rem',resize:'vertical',minHeight:40}} />
+        </Box>
+        {local.tool_id && <Text color="gray.500">Tool: <Text as="span" color="blue.300">{local.tool_id}</Text></Text>}
+        {local.tags?.length > 0 && <Text color="gray.500">Tags: <Text as="span" color="gray.300">{local.tags.join(', ')}</Text></Text>}
+      </VStack>
+      <HStack mt={3} spacing={2}>
+        {saved ? (
+          <Text fontSize="xs" color="green.400" fontWeight="bold">✅ Saved to Intel</Text>
+        ) : (
+          <Box as="button" onClick={() => onConfirm(local)}
+            disabled={saving}
+            style={{padding:'4px 12px',borderRadius:4,background:'#2b6cb0',color:'white',fontSize:'0.75rem',cursor:saving?'wait':'pointer',opacity:saving?0.7:1}}>
+            {saving ? 'Saving…' : 'Confirm → Save to Intel'}
+          </Box>
+        )}
+        <Box as="button" onClick={onIgnore}
+          style={{padding:'4px 12px',borderRadius:4,background:'transparent',border:'1px solid #4a5568',color:'#a0aec0',fontSize:'0.75rem',cursor:'pointer'}}>
+          Ignore
+        </Box>
+      </HStack>
+    </Box>
+  );
 }
 
 function ContextSidebar({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
@@ -159,6 +231,9 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [loading, setLoading]               = useState(false);
   const [pendingImages, setPendingImages]   = useState<{ b64: string; preview: string }[]>([]);
   const [workingMemory, setWorkingMemory]   = useState<Record<string,string>>({});
+  const [intelCandidate, setIntelCandidate] = useState<IntelCandidate | null>(null);
+  const [intelSaving, setIntelSaving]       = useState(false);
+  const [intelSaved, setIntelSaved]         = useState(false);
   const [sidebarOpen, setSidebarOpen]       = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
@@ -188,7 +263,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
       .map((m) => ({ role: m.role, content: m.content, images: m.images || [] }))
   , []);
 
-  async function send(text: string, artifactType?: 'closing' | 'internal' | 'kb') {
+  async function send(text: string, artifactType?: 'closing' | 'internal' | 'kb' | 'intel') {
     const msg = text.trim();
     if (!msg && pendingImages.length === 0) return;
     const imgs = pendingImages.map((p) => p.b64);
@@ -226,6 +301,10 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         if (!res.ok) throw new Error(`API ${res.status}`);
         const data = await res.json();
         responseText = data.response || '(no response)';
+        if (data.intel_candidate) {
+          setIntelCandidate(data.intel_candidate);
+          setIntelSaved(false);
+        }
       }
       setWorkingMemory((prev) => extractFacts(responseText, prev));
       setMessages((prev) => [...prev, {
@@ -239,6 +318,24 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
       }]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveIntel(candidate: IntelCandidate) {
+    setIntelSaving(true);
+    try {
+      const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+      const res = await fetch(`${PM_API}/api/intel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...candidate, source_ticket: ticket.ticket_key, created_by: 'pilot' }),
+      });
+      if (res.ok) { setIntelSaved(true); setIntelCandidate(null); }
+      else throw new Error(`API ${res.status}`);
+    } catch (e) {
+      console.error('Intel save failed', e);
+    } finally {
+      setIntelSaving(false);
     }
   }
 
@@ -295,7 +392,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         <HStack px={2} py={1.5} spacing={1.5} flexWrap='wrap' borderBottom='1px solid'
           borderColor='gray.800' flexShrink={0}>
           {chips.map((chip) => (
-            <Box key={chip.label} as='button' onClick={() => send(chip.prompt)}
+            <Box key={chip.label} as='button' onClick={() => send(chip.prompt, chip.artifact as 'closing' | 'internal' | 'kb' | 'intel' | undefined)}
               px={2} py={0.5} fontSize='2xs' fontFamily='mono' color='gray.300'
               bg='gray.800' borderRadius='sm' border='1px solid' borderColor='gray.700' whiteSpace='nowrap'
               _hover={{ bg: 'gray.700', color: 'white', borderColor: 'blue.600' }}
