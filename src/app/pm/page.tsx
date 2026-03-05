@@ -257,8 +257,7 @@ function IngestionBanner() {
             {status === 'error' && `❌ ${msg}`}
           </Text>
           <Box
-            as="button" onClick={runIngest}
-            isDisabled={status === 'running'}
+            as="button" onClick={status !== 'running' ? runIngest : undefined}
             px={3} py={1.5} borderRadius="sm"
             bg={status === 'running' ? 'gray.700' : 'blue.700'}
             color="white" fontSize="2xs" fontFamily="mono" fontWeight="bold"

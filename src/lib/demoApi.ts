@@ -162,10 +162,10 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
     const keyMatch = endpoint.match(/by-ticket\/([^?]+)/);
     const key = keyMatch ? keyMatch[1] : '';
     // Return site intel for first demo ticket, tool intel for eaglesoft tickets
-    const siteIntel = DEMO_INTEL_ENTRIES.filter((e: Record<string,unknown>) =>
-      e.client_key === DEMO_TICKETS.find((t: Record<string,unknown>) => t.ticket_key === key)?.client_key
+    const siteIntel = DEMO_INTEL_ENTRIES.filter((e) =>
+      e.client_key === DEMO_TICKETS.find((t: Ticket) => t.ticket_key === key)?.client_key
     ).slice(0, 5);
-    const toolIntel = DEMO_INTEL_ENTRIES.filter((e: Record<string,unknown>) => e.tool_id && !e.client_key).slice(0, 5);
+    const toolIntel = DEMO_INTEL_ENTRIES.filter((e) => e.tool_id && !e.client_key).slice(0, 5);
     return {
       client_intel: siteIntel.length > 0 ? siteIntel : DEMO_INTEL_ENTRIES.slice(0, 2),
       tool_intel:   toolIntel.length > 0 ? toolIntel : DEMO_INTEL_ENTRIES.slice(2, 4),
@@ -215,8 +215,8 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
   if (endpoint.match(/\/api\/tickets\/[^/]+\/context/)) {
     const keyMatch = endpoint.match(/tickets\/([^/]+)/);
     const key = keyMatch ? keyMatch[1] : '';
-    const ticket = DEMO_TICKETS.find((t: Record<string,unknown>) => t.ticket_key === key);
-    return { ...DEMO_CONTEXT, ticket_key: key, client_key: (ticket as Record<string,unknown>)?.client_key ?? 'demo-client', situation: (ticket as Record<string,unknown>)?.situation ?? 'System Issue' };
+    const ticket = DEMO_TICKETS.find((t: Ticket) => t.ticket_key === key);
+    return { ...DEMO_CONTEXT, ticket_key: key, client_key: ticket?.client_key ?? 'demo-client', situation: ticket?.situation ?? 'System Issue' };
   }
 
   // ── Ticket signals ────────────────────────────────────────────────────────
