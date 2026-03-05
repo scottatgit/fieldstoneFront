@@ -1,3 +1,4 @@
+import type { Ticket } from '../components/pm/types';
 import {
   DEMO_TICKETS,
   DEMO_CALENDAR_EVENTS,
