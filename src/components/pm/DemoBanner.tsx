@@ -6,27 +6,27 @@ export function DemoBanner() {
   if (!isDemoMode()) return null;
   return (
     <Box
-      bg="purple.800"
+      bg="indigo.900"
       borderBottom="1px solid"
-      borderColor="purple.600"
+      borderColor="indigo.700"
       py={1.5}
       px={4}
       flexShrink={0}
     >
       <Flex align="center" justify="center" gap={2} flexWrap="wrap">
-        <Text fontSize="xs" color="purple.100">
-          🎭 <Text as="strong" color="white">Demo Mode</Text>
-          {' '}— Showing example data for illustration purposes.
+        <Text fontSize="xs" color="gray.300">
+          <Text as="strong" color="white">Signal Demo</Text>
+          {' '}— Explore how Signal extracts intelligence from service operations.
         </Text>
         <Link
           href="https://fieldstone.pro"
           fontSize="xs"
-          color="purple.300"
+          color="blue.300"
           fontWeight="semibold"
           _hover={{ color: 'white', textDecoration: 'underline' }}
           isExternal
         >
-          Get SecondBrain for your MSP →
+          Get Signal for your team →
         </Link>
       </Flex>
     </Box>

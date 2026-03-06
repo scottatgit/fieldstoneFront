@@ -3,8 +3,8 @@ import { PMProviders } from '../../components/pm/PMProviders';
 import BillingBanner from '../../components/pm/BillingBanner';
 
 export const metadata = {
-  title: 'Fieldstone PM | SecondBrain',
-  description: 'Fieldstone Field Service Intelligence Dashboard',
+  title: 'Signal | Fieldstone',
+  description: 'Signal — Operational Intelligence for Service Teams',
 };
 
 export default function PMLayout({ children }: { children: ReactNode }) {

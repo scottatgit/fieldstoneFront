@@ -1,5 +1,5 @@
 'use client';
-import { Flex, HStack, VStack, Text, Spinner } from '@chakra-ui/react';
+import { Flex, HStack, VStack, Text, Spinner, Tooltip, Box } from '@chakra-ui/react';
 import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -14,6 +14,11 @@ const NAV_TABS = [
   { label: 'ADMIN',  href: '/pm/admin'  },
 ];
 
+const COMING_SOON_MODULES = [
+  { label: 'OPS',   tag: 'Coming Soon' },
+  { label: 'SALES', tag: 'Coming Soon' },
+];
+
 export function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
   const pathname = usePathname();
   const demo = isDemoMode();
@@ -26,6 +31,19 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
       justify="space-between"
     >
       <HStack spacing={0} align="stretch">
+
+        {/* ── Signal Wordmark ── */}
+        <Flex align="center" px={4} borderRight="1px solid" borderColor="gray.700" mr={1} flexShrink={0}>
+          <Text
+            fontSize="xs" fontWeight="black" fontFamily="mono"
+            letterSpacing="widest" color="blue.400"
+            userSelect="none"
+          >
+            SIGNAL
+          </Text>
+        </Flex>
+
+        {/* ── Tickets module tabs ── */}
         {NAV_TABS.map(tab => {
           const isActive =
             tab.href === '/pm'
@@ -50,75 +68,75 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
             </Link>
           );
         })}
-      </HStack>
-      {!demo && (
-        <Flex align="center" px={3}>
-          <UserButton
-            afterSignOutUrl="/login"
-            appearance={{
-              elements: {
-                avatarBox: { width: 28, height: 28 },
-              },
-            }}
-          />
+
+        {/* ── Divider ── */}
+        <Flex align="center" px={2} flexShrink={0}>
+          <Box w="1px" h="20px" bg="gray.700" />
         </Flex>
-      )}
+
+        {/* ── Coming Soon: Ops + Sales ── */}
+        {COMING_SOON_MODULES.map(mod => (
+          <Tooltip key={mod.label} label={`${mod.label} module — ${mod.tag}`} placement="bottom" fontSize="xs">
+            <Flex
+              align="center" justify="center"
+              px={4} minH="44px" minW="60px"
+              borderBottom="2px solid" borderColor="transparent"
+              color="gray.700"
+              cursor="not-allowed"
+              position="relative"
+            >
+              <Text fontSize="xs" fontWeight="medium" fontFamily="mono" letterSpacing="wider">
+                {mod.label}
+              </Text>
+              <Text fontSize="2xs" color="gray.700" fontFamily="mono" ml={1}>
+                •
+              </Text>
+            </Flex>
+          </Tooltip>
+        ))}
+      </HStack>
+
+      {/* ── Right: summary stats + user button ── */}
+      <HStack spacing={4} px={3} flexShrink={0}>
+        {loading ? (
+          <Spinner size="xs" color="gray.600" />
+        ) : summary ? (
+          <HStack spacing={3} display={{ base: 'none', lg: 'flex' }}>
+            <VStack spacing={0} align="center">
+              <Text fontSize="lg" fontWeight="black" color="white" lineHeight={1}>
+                {summary.open_tickets ?? '—'}
+              </Text>
+              <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">OPEN</Text>
+            </VStack>
+            <VStack spacing={0} align="center">
+              <Text fontSize="lg" fontWeight="black" color="orange.400" lineHeight={1}>
+                {summary.high_urgency ?? '—'}
+              </Text>
+              <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">URGENT</Text>
+            </VStack>
+            <VStack spacing={0} align="center">
+              <Text fontSize="lg" fontWeight="black" color="blue.400" lineHeight={1}>
+                {summary.scheduled_today ?? '—'}
+              </Text>
+              <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">TODAY</Text>
+            </VStack>
+          </HStack>
+        ) : null}
+        {!demo && (
+          <Flex align="center" px={1}>
+            <UserButton
+              afterSignOutUrl="/login"
+              appearance={{
+                elements: {
+                  avatarBox: { width: 28, height: 28 },
+                },
+              }}
+            />
+          </Flex>
+        )}
+      </HStack>
     </Flex>
   );
 
-  if (loading) return (
-    <>
-      {navBar}
-      <Flex px={4} py={2} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
-        align="center" justify="center" h="40px">
-        <Spinner size="sm" color="blue.400" />
-      </Flex>
-    </>
-  );
-
-  if (!summary) return navBar;
-
-  return (
-    <>
-      {navBar}
-      <Flex
-        px={4} py={2} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
-        align="center" justify="space-between" flexWrap="wrap" gap={2} flexShrink={0}
-      >
-        <HStack spacing={1}>
-          <Text fontSize="xs" fontWeight="black" color="gray.600" fontFamily="mono" letterSpacing="wider">IPQUEST PM</Text>
-          <Text fontSize="xs" color="gray.700" fontFamily="mono">·</Text>
-          <Text fontSize="xs" color="gray.600" fontFamily="mono">
-            {typeof window !== 'undefined' ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
-          </Text>
-        </HStack>
-        <HStack spacing={4} flexWrap="wrap">
-          <VStack spacing={0}>
-            <Text fontSize="md" fontWeight="black" color="white" lineHeight={1}>{summary.total_open}</Text>
-            <Text fontSize="2xs" color="gray.500" fontFamily="mono">OPEN</Text>
-          </VStack>
-          <VStack spacing={0}>
-            <Text fontSize="md" fontWeight="black" color="blue.300" lineHeight={1}>{summary.today_count}</Text>
-            <Text fontSize="2xs" color="gray.500" fontFamily="mono">TODAY</Text>
-          </VStack>
-          <VStack spacing={0}>
-            <Text fontSize="md" fontWeight="black" color={summary.declining_trust_count > 0 ? 'red.400' : 'green.400'} lineHeight={1}>
-              {summary.declining_trust_count}
-            </Text>
-            <Text fontSize="2xs" color="gray.500" fontFamily="mono">DECLINING</Text>
-          </VStack>
-          <VStack spacing={0}>
-            <HStack spacing={1}>
-              <Text fontSize="xs" color="green.400" fontWeight="bold">{summary.readiness.high}</Text>
-              <Text fontSize="xs" color="gray.600">/</Text>
-              <Text fontSize="xs" color="yellow.400" fontWeight="bold">{summary.readiness.medium}</Text>
-              <Text fontSize="xs" color="gray.600">/</Text>
-              <Text fontSize="xs" color="red.400" fontWeight="bold">{summary.readiness.low}</Text>
-            </HStack>
-            <Text fontSize="2xs" color="gray.500" fontFamily="mono">HI/MED/LO</Text>
-          </VStack>
-        </HStack>
-      </Flex>
-    </>
-  );
+  return navBar;
 }
