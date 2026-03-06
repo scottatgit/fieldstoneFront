@@ -774,7 +774,6 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
 
   const clientName   = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'Unknown';
-  const displayTitle = ticket.title_clean || cleanTitle(ticket.title);
 
   const saveIndicator: Record<SaveState, React.ReactNode> = {
     idle:   null,
