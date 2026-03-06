@@ -1,5 +1,5 @@
 "use client";
-import { ChakraProvider, Box, Text, Button, VStack, HStack, Badge } from "@chakra-ui/react";
+import { ChakraProvider, Box, Text, Button, HStack, Badge } from "@chakra-ui/react";
 import theme from "../theme";
 import { useState } from "react";
 import RegisterModal from "../components/RegisterModal";
