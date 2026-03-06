@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { PMProviders } from '../../components/pm/PMProviders';
+import BillingBanner from '../../components/pm/BillingBanner';
 
 export const metadata = {
   title: 'Fieldstone PM | SecondBrain',
@@ -7,5 +8,12 @@ export const metadata = {
 };
 
 export default function PMLayout({ children }: { children: ReactNode }) {
-  return <PMProviders>{children}</PMProviders>;
+  return (
+    <PMProviders>
+      <Suspense fallback={null}>
+        <BillingBanner />
+      </Suspense>
+      {children}
+    </PMProviders>
+  );
 }
