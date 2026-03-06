@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'fieldstone.pro';
+const BASE_DOMAIN    = process.env.NEXT_PUBLIC_BASE_DOMAIN    || 'fieldstone.pro';
 const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'ipquest';
 
 // Detect if Clerk is properly configured
@@ -11,8 +11,7 @@ const hasValidClerkKey =
   !CLERK_KEY.includes('placeholder') &&
   CLERK_KEY.length > 20;
 
-const isDemoMode =
-  process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !hasValidClerkKey;
+const isEnvDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 const isProtectedRoute = createRouteMatcher(['(pm\.*)']);
 
@@ -23,7 +22,7 @@ const isProtectedRoute = createRouteMatcher(['(pm\.*)']);
  * localhost              → DEFAULT_TENANT
  */
 function extractTenant(req: NextRequest): string {
-  const host = req.headers.get('host') || '';
+  const host     = req.headers.get('host') || '';
   const hostname = host.split(':')[0];
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -40,8 +39,22 @@ function extractTenant(req: NextRequest): string {
 }
 
 /**
- * Pass-through middleware — used when Clerk is not configured
- * (local dev, demo mode, missing/placeholder keys)
+ * Returns true if this request should bypass Clerk auth.
+ * Conditions:
+ *  1. NEXT_PUBLIC_DEMO_MODE=true (env flag)
+ *  2. No valid Clerk key configured
+ *  3. Subdomain is 'demo' (demo.fieldstone.pro always bypasses auth)
+ */
+function shouldBypassAuth(req: NextRequest): boolean {
+  if (isEnvDemoMode || !hasValidClerkKey) return true;
+  const host     = req.headers.get('host') || '';
+  const hostname = host.split(':')[0];
+  if (hostname.startsWith('demo.')) return true;
+  return false;
+}
+
+/**
+ * Pass-through middleware — used when auth should be bypassed
  */
 function bypassMiddleware(req: NextRequest): NextResponse {
   const tenant = extractTenant(req);
@@ -70,18 +83,18 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   return NextResponse.next({ request: { headers: requestHeaders } });
 });
 
-// Export the appropriate middleware based on Clerk key availability
+// Export the appropriate middleware based on config
 export default function middleware(req: NextRequest) {
-  if (isDemoMode) {
+  if (shouldBypassAuth(req)) {
     return bypassMiddleware(req);
   }
-  // @ts-expect-error: clerkMiddleware returns compatible handler
+  // @ts-expect-error: clerkMiddleware returns compatible handler type
   return clerkProtectedMiddleware(req);
 }
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)'  ,
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)'  ,
   ],
 };

@@ -645,7 +645,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           <HStack spacing={2}>
             <VStack align='flex-start' spacing={0}>
               <Text fontSize='sm' fontWeight='bold' color='white' fontFamily='mono'>WORK</Text>
-              <Text fontSize='2xs' color='blue.400' fontFamily='mono'>FIELDSTONE WORK</Text>
+              <Text fontSize='2xs' color='blue.400' fontFamily='mono'>SIGNAL WORK</Text>
             </VStack>
           </HStack>
           <HStack spacing={2}>

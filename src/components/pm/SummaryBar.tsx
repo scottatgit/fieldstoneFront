@@ -25,23 +25,33 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
 
   const navBar = (
     <Flex
-      px={3} py={0} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
-      align="stretch" overflowX="auto" flexShrink={0}
-      css={{ '&::-webkit-scrollbar': { display: 'none' } }}
+      px={0} py={0} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
+      align="stretch" flexShrink={0}
       justify="space-between"
+      position="relative"
     >
-      <HStack spacing={0} align="stretch">
+      {/* ── Signal Wordmark — sticky on mobile so it never scrolls away ── */}
+      <Flex
+        align="center" px={4} borderRight="1px solid" borderColor="gray.700"
+        flexShrink={0} bg="gray.900"
+        position={{ base: 'sticky', md: 'relative' }}
+        left={0} zIndex={10}
+        minH="44px"
+      >
+        <Text
+          fontSize="xs" fontWeight="black" fontFamily="mono"
+          letterSpacing="widest" color="blue.400"
+          userSelect="none"
+        >
+          SIGNAL
+        </Text>
+      </Flex>
 
-        {/* ── Signal Wordmark ── */}
-        <Flex align="center" px={4} borderRight="1px solid" borderColor="gray.700" mr={1} flexShrink={0}>
-          <Text
-            fontSize="xs" fontWeight="black" fontFamily="mono"
-            letterSpacing="widest" color="blue.400"
-            userSelect="none"
-          >
-            SIGNAL
-          </Text>
-        </Flex>
+      <Flex
+        flex={1} overflowX="auto" align="stretch"
+        css={{ '&::-webkit-scrollbar': { display: 'none' } }}
+      >
+      <HStack spacing={0} align="stretch" flex={1}>
 
         {/* ── Tickets module tabs ── */}
         {NAV_TABS.map(tab => {
@@ -95,6 +105,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
           </Tooltip>
         ))}
       </HStack>
+      </Flex>
 
       {/* ── Right: summary stats + user button ── */}
       <HStack spacing={4} px={3} flexShrink={0}>

@@ -269,6 +269,25 @@ I can see the context for this ticket.
  * Usage:
  *   const data = await pmFetch('/api/tickets');
  */
+/**
+ * Extract the active tenant from the current hostname at runtime.
+ * ipquest.fieldstone.pro → 'ipquest'
+ * demo.fieldstone.pro    → 'demo'
+ * localhost              → DEFAULT_TENANT
+ */
+export function getActiveTenant(): string {
+  if (typeof window === 'undefined') return DEFAULT_TENANT;
+  const hostname = window.location.hostname;
+  const BASE = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'fieldstone.pro';
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return DEFAULT_TENANT;
+  if (hostname.endsWith(`.${BASE}`)) {
+    const sub = hostname.replace(`.${BASE}`, '');
+    if (['www', 'app'].includes(sub)) return DEFAULT_TENANT;
+    return sub;
+  }
+  return DEFAULT_TENANT;
+}
+
 export async function pmFetch(endpoint: string, apiBase: string, options?: RequestInit): Promise<unknown> {
   if (isDemoMode()) {
     const method = options?.method || 'GET';
@@ -278,8 +297,9 @@ export async function pmFetch(endpoint: string, apiBase: string, options?: Reque
     }
     return demoFetch(endpoint, method, parsedBody);
   }
+  const tenant = getActiveTenant();
   const headers: Record<string, string> = {
-    'x-tenant-id': DEFAULT_TENANT,
+    'x-tenant-id': tenant,
     ...(options?.headers as Record<string, string> || {}),
   };
   const res = await fetch(`${apiBase}${endpoint}`, { ...options, headers });

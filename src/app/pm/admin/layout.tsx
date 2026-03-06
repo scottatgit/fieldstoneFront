@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { PMProviders } from '../../../components/pm/PMProviders';
 
 export const metadata = {
-  title: 'Admin | Fieldstone PM',
+  title: 'Signal Admin',
   description: 'System vitality and operational metrics',
 };
 

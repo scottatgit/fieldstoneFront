@@ -294,9 +294,60 @@ function TicketQueue({
   );
 
   if (!tickets.length) return (
-    <Flex flex={1} align="center" justify="center" direction="column" gap={2}>
-      <Text color="gray.600" fontSize="sm">No tickets in this view</Text>
-      <Text color="gray.700" fontSize="xs" fontFamily="mono">Try a different filter</Text>
+    <Flex flex={1} align="center" justify="center" p={6}>
+      <Box
+        maxW="380px" w="full"
+        bg="gray.900" border="1px solid" borderColor="blue.800"
+        borderRadius="xl" p={6}
+      >
+        <VStack align="stretch" spacing={5}>
+          {/* Header */}
+          <VStack align="start" spacing={1}>
+            <HStack spacing={2}>
+              <Text fontSize="lg" fontWeight="black" fontFamily="mono" color="blue.300" letterSpacing="widest">SIGNAL</Text>
+              <Badge colorScheme="blue" fontSize="2xs" fontFamily="mono">TICKETS</Badge>
+            </HStack>
+            <Text fontSize="xs" color="gray.400">
+              Signal extracts operational intelligence from your service tickets.
+            </Text>
+          </VStack>
+
+          {/* Steps */}
+          <VStack align="stretch" spacing={3}>
+            {[
+              { step: '1', label: 'Connect your ticket inbox', desc: 'Add IMAP credentials in Setup', href: '/pm/setup', action: 'Open Setup →' },
+              { step: '2', label: 'Run ingestion',            desc: 'Pull emails and build ticket queue', href: null, action: null },
+              { step: '3', label: 'Review your first brief',  desc: 'Open any ticket for a full prep brief', href: null, action: null },
+            ].map(({ step, label, desc, href, action }) => (
+              <Flex key={step} align="flex-start" gap={3}
+                p={3} borderRadius="md" bg="gray.800" border="1px solid" borderColor="gray.700">
+                <Box
+                  flexShrink={0} w={6} h={6} borderRadius="full"
+                  bg="blue.900" border="1px solid" borderColor="blue.600"
+                  display="flex" alignItems="center" justifyContent="center">
+                  <Text fontSize="2xs" fontWeight="black" fontFamily="mono" color="blue.300">{step}</Text>
+                </Box>
+                <VStack align="start" spacing={0} flex={1}>
+                  <Text fontSize="xs" fontWeight="bold" color="gray.200">{label}</Text>
+                  <Text fontSize="2xs" color="gray.500">{desc}</Text>
+                  {href && action && (
+                    <Box as="a" href={href} mt={1}
+                      fontSize="2xs" fontFamily="mono" color="blue.400"
+                      _hover={{ color: 'blue.300' }}>
+                      {action}
+                    </Box>
+                  )}
+                </VStack>
+              </Flex>
+            ))}
+          </VStack>
+
+          {/* Sub-note */}
+          <Text fontSize="2xs" color="gray.600" fontFamily="mono" textAlign="center">
+            Once tickets are ingested, they appear here automatically.
+          </Text>
+        </VStack>
+      </Box>
     </Flex>
   );
 

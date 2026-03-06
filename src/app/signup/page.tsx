@@ -10,6 +10,11 @@ export default function SignUpPage() {
       background: '#0f1117',
     }}>
       <SignUp
+        routing="path"
+        path="/signup"
+        signInUrl="/login"
+        afterSignUpUrl="/pm/onboarding"
+        afterSignInUrl="/pm"
         appearance={{
           variables: {
             colorBackground: '#1a1d27',
