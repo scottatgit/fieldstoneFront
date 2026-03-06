@@ -483,9 +483,9 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [loading, setLoading]               = useState(false);
   const [pendingImages, setPendingImages]   = useState<{ b64: string; preview: string }[]>([]);
   const [workingMemory, setWorkingMemory]   = useState<Record<string,string>>({});
-  const [_intelCandidate, _setIntelCandidate] = useState<IntelCandidate | null>(null);
-  const [_intelSaving, _setIntelSaving]       = useState(false);
-  const [_intelSaved, _setIntelSaved]         = useState(false);
+  const [_intelCandidate, setIntelCandidate] = useState<IntelCandidate | null>(null);
+  const [_intelSaving, setIntelSaving]       = useState(false);
+  const [_intelSaved, setIntelSaved]         = useState(false);
   const [sidebarOpen, setSidebarOpen]       = useState(true);
   const [priorIntel, setPriorIntel]         = useState<{ client_intel: IntelEntry[]; tool_intel: IntelEntry[] }>({ client_intel: [], tool_intel: [] });
   const bottomRef = useRef<HTMLDivElement>(null);

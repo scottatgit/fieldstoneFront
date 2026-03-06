@@ -5,7 +5,6 @@ import {
   Textarea, Select, Collapse, useToast, Divider, Checkbox,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useBreakpointValue } from '@chakra-ui/react';
 import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import { ChatPanel } from './ChatPanel';
