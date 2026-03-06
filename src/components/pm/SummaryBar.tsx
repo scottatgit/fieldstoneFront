@@ -3,6 +3,8 @@ import { Flex, HStack, VStack, Text, Spinner, Box } from '@chakra-ui/react';
 import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { UserButton } from '@clerk/nextjs';
+import { isDemoMode } from '../../lib/demoApi';
 
 const NAV_TABS = [
   { label: 'TODAY',  href: '/pm'        },
@@ -14,18 +16,20 @@ const NAV_TABS = [
 
 export function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
   const pathname = usePathname();
+  const demo = isDemoMode();
 
   const navBar = (
     <Flex
       px={3} py={0} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
       align="stretch" overflowX="auto" flexShrink={0}
       css={{ '&::-webkit-scrollbar': { display: 'none' } }}
+      justify="space-between"
     >
       <HStack spacing={0} align="stretch">
         {NAV_TABS.map(tab => {
           const isActive =
             tab.href === '/pm'
-              ? pathname === '/pm'  // exact match for dashboard
+              ? pathname === '/pm'
               : pathname.startsWith(tab.href);
           return (
             <Link key={tab.href} href={tab.href} style={{ textDecoration: 'none' }}>
@@ -47,6 +51,18 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
           );
         })}
       </HStack>
+      {!demo && (
+        <Flex align="center" px={3}>
+          <UserButton
+            afterSignOutUrl="/login"
+            appearance={{
+              elements: {
+                avatarBox: { width: 28, height: 28 },
+              },
+            }}
+          />
+        </Flex>
+      )}
     </Flex>
   );
 

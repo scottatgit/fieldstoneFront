@@ -26,6 +26,10 @@ export function isDemoMode(): boolean {
  * Matches every PM API endpoint and returns pre-seeded demo data.
  * Adds a small simulated network delay so the UI feels live.
  */
+
+/** Default tenant identifier until multi-tenant migration is complete. */
+export const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'ipquest';
+
 export async function demoFetch(endpoint: string, method = 'GET', body?: unknown): Promise<unknown> {
   // Simulated network latency (makes spinners feel real)
   await new Promise(r => setTimeout(r, 120 + Math.random() * 180));
@@ -274,7 +278,11 @@ export async function pmFetch(endpoint: string, apiBase: string, options?: Reque
     }
     return demoFetch(endpoint, method, parsedBody);
   }
-  const res = await fetch(`${apiBase}${endpoint}`, options);
+  const headers: Record<string, string> = {
+    'x-tenant-id': DEFAULT_TENANT,
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  const res = await fetch(`${apiBase}${endpoint}`, { ...options, headers });
   if (!res.ok) throw new Error(`PM API error: ${res.status} ${res.statusText}`);
   return res.json();
 }
