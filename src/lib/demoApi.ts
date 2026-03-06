@@ -18,6 +18,14 @@ import {
  * Works in both browser and server-side Next.js contexts.
  */
 export function isDemoMode(): boolean {
+  // Runtime hostname detection — works without build-time env vars
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname.startsWith('demo.')) return true;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    }
+  }
   return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 }
 
