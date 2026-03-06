@@ -115,19 +115,19 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
           <HStack spacing={3} display={{ base: 'none', lg: 'flex' }}>
             <VStack spacing={0} align="center">
               <Text fontSize="lg" fontWeight="black" color="white" lineHeight={1}>
-                {summary.open_tickets ?? '—'}
+                {summary.total_open ?? '—'}
               </Text>
               <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">OPEN</Text>
             </VStack>
             <VStack spacing={0} align="center">
               <Text fontSize="lg" fontWeight="black" color="orange.400" lineHeight={1}>
-                {summary.high_urgency ?? '—'}
+                {summary.readiness.high ?? '—'}
               </Text>
               <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">URGENT</Text>
             </VStack>
             <VStack spacing={0} align="center">
               <Text fontSize="lg" fontWeight="black" color="blue.400" lineHeight={1}>
-                {summary.scheduled_today ?? '—'}
+                {summary.today_count ?? '—'}
               </Text>
               <Text fontSize="2xs" color="gray.600" fontFamily="mono" letterSpacing="wider">TODAY</Text>
             </VStack>
