@@ -6,7 +6,7 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useBreakpointValue } from '@chakra-ui/react';
-import { Ticket, TicketContext, TicketSignals, TicketContextResponse } from './types';
+import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import { ChatPanel } from './ChatPanel';
 import { PilotPanel } from './PilotPanel';
@@ -383,6 +383,7 @@ function draftToText(d: CloseDraft): string {
 }
 
 // ── WorkingLayer: humanized expectation + visit time + checklist + live draft ─
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   ticket: Ticket; onSaveState: (s: SaveState) => void; onDraftReady?: () => void;
 }) {
@@ -515,7 +516,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const checkedCount = Object.values(checklist).filter(Boolean).length;
 
   // ── Goal 2: Human-readable type labels ───────────────────────────────────
-  const typeLabel: Record<string, string> = {
+  const _typeLabel: Record<string, string> = {
     confirm:  'confirm',
     escalate: 'escalate',
     weaken:   'weaken',
@@ -709,7 +710,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
 export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
   const [viewMode, setViewMode]     = useState<ViewMode>('door');
   const [pilotOpen, setPilotOpen]   = useState(false);
-  const [saveState, setSaveState]   = useState<SaveState>('idle');
+  const [saveState, _setSaveState]   = useState<SaveState>('idle');
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Phase 7C: structured context + signals state ──────────────────────────

@@ -104,7 +104,6 @@ const Funnel = ({ items, selectedIndex }: FunnelProps) => {
   return (
     <mesh>
       <cylinderGeometry args={[2.5, 3.5, 4, 32]} /> {/* Reduced height for a flatter funnel */}
-      {/* @ts-expect-error: Three.js type mismatch */}
       <meshStandardMaterial color="lightblue" wireframe />
 
       {items.map((item, index) => (
@@ -132,7 +131,6 @@ const FunnelImage = ({ position, image, scale, isActive }: FunnelImageProps) => 
   return (
     <mesh position={position} scale={[imageScale, imageScale, imageScale]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[1, 1]} />
-      {/* @ts-expect-error: Three.js type mismatch */}
       <meshBasicMaterial map={new THREE.TextureLoader().load(image)} transparent={true} />
     </mesh>
   );

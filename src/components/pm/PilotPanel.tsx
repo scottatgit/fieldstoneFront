@@ -4,7 +4,6 @@ import {
   Box, VStack, HStack, Text, Textarea, IconButton,
   Flex, Spinner, Badge, Divider, Tooltip, Modal,
   ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
-  useDisclosure,
   useBreakpointValue,
 } from '@chakra-ui/react';
 import { useState, useRef, useEffect, useCallback, KeyboardEvent, ChangeEvent } from 'react';
@@ -70,7 +69,7 @@ interface PilotMessage {
 
 interface PilotChip { label: string; prompt: string; artifact?: string; }
 
-function getChips(ctx: TicketContext | null, ticket: Ticket): PilotChip[] {
+function getChips(ctx: TicketContext | null, _ticket: Ticket): PilotChip[] {
   const chips: PilotChip[] = [
     { label: '📋 5-min checklist',  prompt: 'Give me a concise 5-minute onsite checklist for this situation.' },
     { label: '🔍 Likely causes',    prompt: 'What are the top 3 most likely causes for this issue?' },
@@ -120,11 +119,12 @@ interface IntelCandidate {
   source_ticket?: string | null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function IntelCandidateCard({
-  candidate, ticketKey, onConfirm, onIgnore, saving, saved
+  candidate, _ticketKey, onConfirm, onIgnore, saving, saved
 }: {
   candidate: IntelCandidate;
-  ticketKey: string;
+  _ticketKey: string;
   onConfirm: (c: IntelCandidate) => void;
   onIgnore: () => void;
   saving: boolean;
@@ -258,6 +258,7 @@ function IntelKBPromotion({ entry }: { entry: IntelEntry }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function IntelDetailModal({ entry, isOpen, onClose }: { entry: IntelEntry | null; isOpen: boolean; onClose: () => void }) {
   if (!entry) return null;
   const confColor = entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray';
@@ -482,9 +483,9 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [loading, setLoading]               = useState(false);
   const [pendingImages, setPendingImages]   = useState<{ b64: string; preview: string }[]>([]);
   const [workingMemory, setWorkingMemory]   = useState<Record<string,string>>({});
-  const [intelCandidate, setIntelCandidate] = useState<IntelCandidate | null>(null);
-  const [intelSaving, setIntelSaving]       = useState(false);
-  const [intelSaved, setIntelSaved]         = useState(false);
+  const [_intelCandidate, _setIntelCandidate] = useState<IntelCandidate | null>(null);
+  const [_intelSaving, _setIntelSaving]       = useState(false);
+  const [_intelSaved, _setIntelSaved]         = useState(false);
   const [sidebarOpen, setSidebarOpen]       = useState(true);
   const [priorIntel, setPriorIntel]         = useState<{ client_intel: IntelEntry[]; tool_intel: IntelEntry[] }>({ client_intel: [], tool_intel: [] });
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -587,6 +588,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function saveIntel(candidate: IntelCandidate) {
     setIntelSaving(true);
     try {

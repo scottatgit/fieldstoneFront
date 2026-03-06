@@ -4,7 +4,7 @@ import {
   Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon,
   FormControl, FormLabel, FormHelperText,
   InputGroup, InputRightElement, IconButton,
-  Divider, Spinner, Flex, Select, Switch,
+  Divider, Spinner, Flex, Select,
   useToast,
 } from '@chakra-ui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';

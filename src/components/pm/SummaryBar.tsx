@@ -1,5 +1,5 @@
 'use client';
-import { Flex, HStack, VStack, Text, Spinner, Box } from '@chakra-ui/react';
+import { Flex, HStack, VStack, Text, Spinner } from '@chakra-ui/react';
 import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
