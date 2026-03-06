@@ -75,7 +75,7 @@ export default function middleware(req: NextRequest) {
   if (isDemoMode) {
     return bypassMiddleware(req);
   }
-  // @ts-ignore — clerkMiddleware returns compatible handler
+  // @ts-expect-error — clerkMiddleware returns compatible handler
   return clerkProtectedMiddleware(req);
 }
 
