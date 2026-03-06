@@ -1,4 +1,4 @@
-// @ts-expect-error
+// @ts-expect-error: type mismatch
 import type { Config } from "tailwindcss";
 
 const config: Config = {
