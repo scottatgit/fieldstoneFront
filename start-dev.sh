@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Ensure tailwindcss is installed
+bash "$(dirname "$0")/fix-tailwind.sh"
 # Start Next.js dev server
 # NODE_ENV must be overridden to 'development' because the container
 # runs with NODE_ENV=production which breaks PostCSS/Tailwind in dev mode
