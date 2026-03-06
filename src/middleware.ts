@@ -27,7 +27,8 @@ function extractTenant(req: NextRequest): string {
   if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
     const subdomain = hostname.replace(`.${BASE_DOMAIN}`, '');
     // Ignore www, app, demo as non-tenant subdomains
-    if (['www', 'app', 'demo'].includes(subdomain)) return DEFAULT_TENANT;
+    if (['www', 'app'].includes(subdomain)) return DEFAULT_TENANT;
+    // 'demo' subdomain routes to demo tenant
     return subdomain;
   }
 
