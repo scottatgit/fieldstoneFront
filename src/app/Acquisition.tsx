@@ -1,1088 +1,567 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React from 'react';
 import {
-  Box,
-  Button,
-  Container,
-  Flex,
-  Grid,
-  Heading,
-  Stack,
-  Text,
-  Badge,
-  VStack,
-  HStack,
-  Divider,
+  Box, Button, Container, Flex, Grid, Heading, Stack,
+  Text, Badge, VStack, HStack, Divider,
 } from '@chakra-ui/react';
 import { motion, Variants } from 'framer-motion';
 
-// ---------------------------------------------------------------------------
-// Motion wrappers
-// ---------------------------------------------------------------------------
 const MotionBox = motion(Box as any);
 
-// ---------------------------------------------------------------------------
-// Reusable animation variants
-// ---------------------------------------------------------------------------
 const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 40 },
+  hidden: { opacity: 0, y: 32 },
   visible: (i: number = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, delay: i * 0.12, ease: 'easeOut' },
+    opacity: 1, y: 0,
+    transition: { duration: 0.55, delay: i * 0.1, ease: 'easeOut' },
   }),
 };
 
-const fadeIn: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.8 } },
-};
+const BG       = '#0d1117';
+const BG2      = '#111827';
+const BORDER   = '#1f2937';
+const BLUE     = '#63B3ED';
+const BLUE_DIM = '#1e3a5f';
 
-// ---------------------------------------------------------------------------
-// Data
-// ---------------------------------------------------------------------------
-interface PainPoint {
-  icon: string;
-  title: string;
-  description: string;
-}
-
-const painPoints: PainPoint[] = [
-  {
-    icon: '📋',
-    title: 'Ticket Overload',
-    description: '26 open tickets, no context on which needs attention or what the client actually expects.',
-  },
-  {
-    icon: '🚪',
-    title: 'Walking In Blind',
-    description: 'No site history, no client relationship context — technicians arrive unprepared every time.',
-  },
-  {
-    icon: '🎲',
-    title: 'No Prep',
-    description: 'Technicians improvise instead of execute. Every visit is a gamble with client satisfaction.',
-  },
-];
-
-interface Signal {
-  emoji: string;
-  name: string;
-  description: string;
-  example: string;
-  color: string;
-  bgColor: string;
-}
-
-const signals: Signal[] = [
-  {
-    emoji: '🟢',
-    name: 'Readiness',
-    description: 'Are you prepared to execute?',
-    example: 'HIGH (83/100) — All context in place',
-    color: '#22C55E',
-    bgColor: 'rgba(34,197,94,0.08)',
-  },
-  {
-    emoji: '➡️',
-    name: 'Trust',
-    description: 'Client relationship health',
-    example: 'NEUTRAL — Standard delivery expected',
-    color: '#3B82F6',
-    bgColor: 'rgba(59,130,246,0.08)',
-  },
-  {
-    emoji: '🎯',
-    name: 'Expectation',
-    description: 'What the client expects delivered',
-    example: 'Complete installation before leaving',
-    color: '#A855F7',
-    bgColor: 'rgba(168,85,247,0.08)',
-  },
-  {
-    emoji: '⚠️',
-    name: 'Constraint',
-    description: 'Time and access restrictions',
-    example: 'Lunch 12–1 PM, back by 1:30',
-    color: '#F59E0B',
-    bgColor: 'rgba(245,158,11,0.08)',
-  },
-  {
-    emoji: '🔷',
-    name: 'Decision',
-    description: 'What you must decide on-site',
-    example: '[GO/NO-GO] Verify systems operational',
-    color: '#06B6D4',
-    bgColor: 'rgba(6,182,212,0.08)',
-  },
-];
-
-interface Step {
-  emoji: string;
-  title: string;
-  description: string;
-}
-
-const steps: Step[] = [
-  {
-    emoji: '📥',
-    title: 'Ingest',
-    description: 'Tickets and emails flow in automatically',
-  },
-  {
-    emoji: '📡',
-    title: 'Analyze',
-    description: 'Signal engine scores every open ticket',
-  },
-  {
-    emoji: '📋',
-    title: 'Brief',
-    description: 'Prep brief delivered before every visit',
-  },
-];
-
-interface ComingSoonCard {
-  emoji: string;
-  name: string;
-  description: string;
-}
-
-const comingSoon: ComingSoonCard[] = [
-  {
-    emoji: '🧠',
-    name: 'Signal: Sales',
-    description: 'Client acquisition intelligence',
-  },
-  {
-    emoji: '💰',
-    name: 'Signal: Finance',
-    description: 'Revenue and billing signals',
-  },
-  {
-    emoji: '⚙️',
-    name: 'Signal: Ops',
-    description: 'Resource and scheduling optimization',
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-/** Section wrapper with consistent padding */
-function Section({
-  children,
-  bg = 'transparent',
-  id,
-}: {
-  children: React.ReactNode;
-  bg?: string;
-  id?: string;
-}) {
+function Section({ children, bg = BG, py = 20 }: { children: React.ReactNode; bg?: string; py?: number }) {
   return (
-    <Box as="section" id={id} bg={bg} py={{ base: 16, md: 24 }} px={4}>
-      <Container maxW="6xl">{children}</Container>
+    <Box as="section" bg={bg} py={py}>
+      <Container maxW="6xl" px={{ base: 5, md: 10 }}>
+        {children}
+      </Container>
     </Box>
   );
 }
 
-/** Section heading with optional subtitle */
-function SectionHeading({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
+function BriefMock() {
   return (
-    <MotionBox
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.3 }}
-      variants={fadeIn}
-      mb={12}
-      textAlign="center"
+    <Box
+      bg="#111827" border="1px solid" borderColor={BORDER}
+      borderRadius="xl" p={5} fontFamily="mono"
+      fontSize={{ base: 'xs', md: 'sm' }}
+      boxShadow="0 0 40px rgba(99,179,237,0.08)"
+      maxW="420px" w="full"
     >
-      <Heading
-        as="h2"
-        fontSize={{ base: '2xl', md: '4xl' }}
-        fontWeight="extrabold"
-        color="white"
-        mb={3}
-      >
-        {title}
-      </Heading>
-      {subtitle && (
-        <Text fontSize={{ base: 'md', md: 'lg' }} color="gray.400" maxW="2xl" mx="auto">
-          {subtitle}
+      <HStack mb={4} spacing={2}>
+        <Text fontSize="2xs" fontWeight="black" letterSpacing="widest" color={BLUE}>SIGNAL</Text>
+        <Text fontSize="2xs" color="gray.600">—</Text>
+        <Text fontSize="2xs" color="gray.500">PREP BRIEF</Text>
+      </HStack>
+      <Box mb={4}>
+        <Text fontSize="2xs" fontWeight="bold" color="gray.500" letterSpacing="widest" mb={1}>SITUATION</Text>
+        <Text color="white" fontSize="sm" lineHeight="short">
+          Front desk workstation cannot connect to Eaglesoft server
         </Text>
-      )}
-    </MotionBox>
+      </Box>
+      <Divider borderColor={BORDER} mb={4} />
+      <Box mb={4}>
+        <Text fontSize="2xs" fontWeight="bold" color="gray.500" letterSpacing="widest" mb={1}>EXPECTATION</Text>
+        <Text color="gray.300" fontSize="xs">
+          Restore connectivity before morning patients arrive
+        </Text>
+      </Box>
+      <Box mb={4} bg="red.950" border="1px solid" borderColor="red.900" borderRadius="md" p={3}>
+        <Text fontSize="2xs" fontWeight="bold" color="red.400" letterSpacing="widest" mb={2}>RISK FLAGS</Text>
+        <HStack spacing={2} align="flex-start">
+          <Text color="red.400" fontSize="xs">⚠</Text>
+          <Text color="red.300" fontSize="xs">Potential patient care interruption if not resolved by 8 AM</Text>
+        </HStack>
+      </Box>
+      <Box bg={BLUE_DIM} border="1px solid" borderColor="blue.800" borderRadius="md" p={3}>
+        <HStack mb={1} spacing={2}>
+          <Text fontSize="2xs" fontWeight="bold" color={BLUE} letterSpacing="widest">GLOBAL INTEL</Text>
+          <Badge colorScheme="blue" fontSize="2xs">3 ORGS</Badge>
+        </HStack>
+        <Text color="blue.200" fontSize="xs">
+          Eaglesoft instability after network switch reboot — restart service, verify database path
+        </Text>
+      </Box>
+    </Box>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
-export default function Acquisition() {
-  const howItWorksRef = useRef<HTMLDivElement>(null);
-
-  const scrollToHowItWorks = () => {
-    howItWorksRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+function Nav() {
   return (
     <Box
-      bg="#1a1a1a"
-      minH="100vh"
-      color="white"
-      fontFamily="'-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'}"
+      as="nav" bg={BG} borderBottom="1px solid" borderColor={BORDER}
+      px={{ base: 5, md: 10 }} py={3} position="sticky" top={0} zIndex={100}
     >
-      {/* ================================================================
-          1. HERO
-          ================================================================ */}
-      <Box
-        as="section"
-        position="relative"
-        overflow="hidden"
-        py={{ base: 24, md: 36 }}
-        px={4}
-        bg="linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0d1a2e 100%)"
-      >
-        {/* Background glow */}
-        <Box
-          position="absolute"
-          top="-200px"
-          left="50%"
-          transform="translateX(-50%)"
-          w="800px"
-          h="800px"
-          borderRadius="full"
-          bg="rgba(59,130,246,0.06)"
-          filter="blur(80px)"
-          pointerEvents="none"
-        />
-
-        <Container maxW="4xl" textAlign="center" position="relative">
-          {/* Brand badge */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={0}
-            mb={6}
+      <Flex align="center" justify="space-between" maxW="6xl" mx="auto">
+        <Text fontSize="sm" fontWeight="black" fontFamily="mono" letterSpacing="widest" color={BLUE}>
+          SIGNAL
+        </Text>
+        <HStack spacing={{ base: 3, md: 6 }}>
+          <Text fontSize="xs" color="gray.500" fontFamily="mono" display={{ base: 'none', md: 'block' }}>
+            by Fieldstone
+          </Text>
+          <Button
+            as="a" href="https://demo.fieldstone.pro"
+            size="xs" variant="ghost"
+            color="gray.400" fontFamily="mono" fontSize="xs"
+            _hover={{ color: 'white' }}
           >
-            <Badge
-              px={4}
-              py={1}
-              borderRadius="full"
-              bg="rgba(59,130,246,0.15)"
-              color="#3B82F6"
-              fontSize="sm"
-              fontWeight="semibold"
-              border="1px solid rgba(59,130,246,0.3)"
-              textTransform="none"
-            >
-              Fieldstone · Signal
+            DEMO
+          </Button>
+          <Button
+            as="a" href="/signup"
+            size="sm" colorScheme="blue" fontFamily="mono" fontSize="xs"
+            fontWeight="bold" letterSpacing="wider"
+          >
+            GET STARTED
+          </Button>
+        </HStack>
+      </Flex>
+    </Box>
+  );
+}
+
+function Hero() {
+  return (
+    <Section py={24}>
+      <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={12} alignItems="center">
+        <VStack align="flex-start" spacing={6}>
+          <MotionBox initial="hidden" animate="visible" custom={0} variants={fadeUp}>
+            <Badge colorScheme="blue" fontFamily="mono" fontSize="2xs" letterSpacing="widest" px={3} py={1}>
+              OPERATIONAL INTELLIGENCE
             </Badge>
           </MotionBox>
-
-          {/* Main headline */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={1}
-          >
-            <Heading
-              as="h1"
-              fontSize={{ base: '5xl', md: '8xl' }}
-              fontWeight="900"
-              lineHeight="1"
-              mb={4}
-              bgGradient="linear(to-r, white, #93C5FD)"
-              bgClip="text"
-              letterSpacing="-2px"
-            >
+          <MotionBox initial="hidden" animate="visible" custom={1} variants={fadeUp}>
+            <Heading as="h1" fontSize={{ base: '4xl', md: '5xl', lg: '6xl' }} fontWeight="black" lineHeight={1.05} color="white">
               Signal
             </Heading>
+            <Heading as="h2" fontSize={{ base: 'xl', md: '2xl' }} fontWeight="medium" color="gray.400" mt={2} lineHeight="short">
+              Operational Intelligence<br />for Service Teams
+            </Heading>
           </MotionBox>
-
-          {/* Subtitle */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={2}
-          >
-            <Text
-              fontSize={{ base: 'lg', md: '2xl' }}
-              color="#93C5FD"
-              fontWeight="semibold"
-              mb={6}
-            >
-              Operational Intelligence for Service Teams
-            </Text>
+          <MotionBox initial="hidden" animate="visible" custom={2} variants={fadeUp}>
+            <VStack align="flex-start" spacing={2}>
+              <Text color="gray.200" fontSize={{ base: 'sm', md: 'md' }} fontWeight="medium">
+                Signal turns service tickets into operational intelligence.
+              </Text>
+              <Text color="gray.500" fontSize={{ base: 'sm', md: 'md' }}>Prepare technicians before they arrive,</Text>
+              <Text color="gray.500" fontSize={{ base: 'sm', md: 'md' }}>capture what happens onsite,</Text>
+              <Text color="gray.500" fontSize={{ base: 'sm', md: 'md' }}>and build a growing intelligence network across your organization.</Text>
+            </VStack>
           </MotionBox>
-
-          {/* Description */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={3}
-          >
-            <Text
-              fontSize={{ base: 'md', md: 'lg' }}
-              color="gray.400"
-              maxW="2xl"
-              mx="auto"
-              mb={10}
-              lineHeight={1.8}
-            >
-              Stop walking into onsite visits blind. Signal ingests your tickets,
-              scores 5 intelligence dimensions, and delivers a prep brief
-              before every visit.
-            </Text>
-          </MotionBox>
-
-          {/* CTA Buttons */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={4}
-          >
-            <Stack
-              direction={{ base: 'column', sm: 'row' }}
-              spacing={4}
-              justify="center"
-            >
-              <Button
-                as="a"
-                href="mailto:scotteverett@ipquest.net?subject=Signal Demo Request"
-                size="lg"
-                bg="#3B82F6"
-                color="white"
-                px={8}
-                py={6}
-                fontSize="md"
-                fontWeight="bold"
-                borderRadius="xl"
-                _hover={{
-                  bg: '#2563EB',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 8px 30px rgba(59,130,246,0.4)',
-                }}
-                transition="all 0.2s"
-              >
-                Book a Demo
+          <MotionBox initial="hidden" animate="visible" custom={3} variants={fadeUp}>
+            <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
+              <Button as="a" href="/signup" colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
+                START FREE TRIAL
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                borderColor="rgba(255,255,255,0.3)"
-                color="white"
-                px={8}
-                py={6}
-                fontSize="md"
-                fontWeight="semibold"
-                borderRadius="xl"
-                onClick={scrollToHowItWorks}
-                _hover={{
-                  bg: 'rgba(255,255,255,0.07)',
-                  borderColor: 'white',
-                  transform: 'translateY(-2px)',
-                }}
-                transition="all 0.2s"
-              >
-                See How It Works
-              </Button>
-              <Button
-                as="a"
-                href="/pm"
-                size="lg"
-                bg="#10B981"
-                color="white"
-                px={8}
-                py={6}
-                fontSize="md"
-                fontWeight="bold"
-                borderRadius="xl"
-                _hover={{
-                  bg: '#059669',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 8px 30px rgba(16,185,129,0.4)',
-                }}
-                transition="all 0.2s"
-              >
-                ▶ Try Live Demo
+              <Button as="a" href="https://demo.fieldstone.pro" variant="outline" size="md" borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8} _hover={{ borderColor: BLUE, color: BLUE }}>
+                WATCH DEMO
               </Button>
             </Stack>
           </MotionBox>
+        </VStack>
+        <MotionBox initial="hidden" animate="visible" variants={fadeUp} custom={2} display="flex" justifyContent={{ base: 'center', lg: 'flex-end' }}>
+          <BriefMock />
+        </MotionBox>
+      </Grid>
+    </Section>
+  );
+}
 
-          {/* Metrics strip */}
-          <MotionBox
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={5}
-            mt={16}
-          >
-            <Flex
-              justify="center"
-              gap={{ base: 8, md: 16 }}
-              direction={{ base: 'column', sm: 'row' }}
-              align="center"
-            >
-              {[
-                { value: '5', label: 'Intelligence Signals' },
-                { value: '26', label: 'Tickets Tracked' },
-                { value: '18', label: 'Site Profiles' },
-              ].map((m) => (
-                <Box key={m.label} textAlign="center">
-                  <Text
-                    fontSize="3xl"
-                    fontWeight="900"
-                    color="#3B82F6"
-                    lineHeight={1}
-                  >
-                    {m.value}
-                  </Text>
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    {m.label}
-                  </Text>
-                </Box>
-              ))}
-            </Flex>
-          </MotionBox>
-        </Container>
-      </Box>
-
-      {/* ================================================================
-          2. PROBLEM SECTION
-          ================================================================ */}
-      <Section id="problem" bg="#111111">
-        <SectionHeading
-          title="The Field PM Problem"
-          subtitle="Every day your technicians walk into client sites carrying nothing but a ticket number and hope."
-        />
-        <Grid
-          templateColumns={{ base: '1fr', md: 'repeat(3,1fr)' }}
-          gap={6}
-        >
-          {painPoints.map((p, i) => (
-            <MotionBox
-              key={p.title}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.3 }}
-              variants={fadeUp}
-              custom={i}
-            >
-              <Box
-                bg="#1e1e1e"
-                border="1px solid rgba(255,255,255,0.08)"
-                borderRadius="2xl"
-                p={8}
-                h="full"
-                _hover={{
-                  borderColor: 'rgba(59,130,246,0.4)',
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-                }}
-                transition="all 0.3s"
-              >
-                <Text fontSize="3xl" mb={4}>
-                  {p.icon}
-                </Text>
-                <Heading
-                  as="h3"
-                  fontSize="xl"
-                  fontWeight="bold"
-                  color="white"
-                  mb={3}
-                >
-                  {p.title}
-                </Heading>
-                <Text color="gray.400" lineHeight={1.7}>
-                  {p.description}
-                </Text>
+function Problem() {
+  const bullets = [
+    { icon: '📋', text: 'No site history' },
+    { icon: '🔄', text: 'No recurring issue context' },
+    { icon: '⚠️', text: 'No operational risk signals' },
+    { icon: '🤝', text: 'No shared technician knowledge' },
+  ];
+  return (
+    <Section bg={BG2} py={20}>
+      <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+        <VStack spacing={10} align="center" textAlign="center">
+          <VStack spacing={3}>
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">THE PROBLEM</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">
+              Technicians Walk In Blind
+            </Heading>
+            <Text color="gray.400" maxW="520px" fontSize={{ base: 'sm', md: 'md' }}>
+              Service tickets rarely contain the real operational context. By the time a technician
+              arrives onsite, the critical information is scattered or missing.
+            </Text>
+          </VStack>
+          <Grid templateColumns={{ base: '1fr 1fr', md: 'repeat(4, 1fr)' }} gap={4} w="full" maxW="800px">
+            {bullets.map(({ icon, text }) => (
+              <Box key={text} bg={BG} border="1px solid" borderColor={BORDER} borderRadius="lg" p={5} textAlign="center">
+                <Text fontSize="2xl" mb={2}>{icon}</Text>
+                <Text fontSize="xs" color="gray.400" fontFamily="mono">{text}</Text>
               </Box>
-            </MotionBox>
-          ))}
-        </Grid>
-      </Section>
-
-      {/* ================================================================
-          3. SIGNAL ENGINE
-          ================================================================ */}
-      <Section id="signals">
-        <SectionHeading
-          title="Five Signals. One Brief."
-          subtitle="Every ticket is scored across 5 intelligence dimensions before your technician arrives."
-        />
-        <Grid
-          templateColumns={{ base: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(5,1fr)' }}
-          gap={4}
-        >
-          {signals.map((s, i) => (
-            <MotionBox
-              key={s.name}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.2 }}
-              variants={fadeUp}
-              custom={i}
-            >
-              <Box
-                bg={s.bgColor}
-                border={`1px solid ${s.color}33`}
-                borderRadius="2xl"
-                p={6}
-                h="full"
-                _hover={{
-                  border: `1px solid ${s.color}88`,
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 12px 40px ${s.color}22`,
-                }}
-                transition="all 0.3s"
-              >
-                <Text fontSize="2xl" mb={3}>
-                  {s.emoji}
-                </Text>
-                <Heading
-                  as="h3"
-                  fontSize="lg"
-                  fontWeight="bold"
-                  color={s.color}
-                  mb={2}
-                >
-                  {s.name}
-                </Heading>
-                <Text color="gray.400" fontSize="sm" mb={4} lineHeight={1.6}>
-                  {s.description}
-                </Text>
-                <Divider borderColor="rgba(255,255,255,0.08)" mb={4} />
-                <Box
-                  bg="rgba(0,0,0,0.3)"
-                  borderRadius="lg"
-                  p={3}
-                  border="1px solid rgba(255,255,255,0.06)"
-                >
-                  <Text
-                    fontSize="xs"
-                    color="gray.500"
-                    fontWeight="semibold"
-                    textTransform="uppercase"
-                    letterSpacing="wider"
-                    mb={1}
-                  >
-                    Example Output
-                  </Text>
-                  <Text
-                    fontSize="xs"
-                    color="white"
-                    fontFamily="mono"
-                    lineHeight={1.5}
-                  >
-                    {s.example}
-                  </Text>
-                </Box>
-              </Box>
-            </MotionBox>
-          ))}
-        </Grid>
-      </Section>
-
-      {/* ================================================================
-          4. HOW IT WORKS
-          ================================================================ */}
-      <Section id="how-it-works" bg="#111111">
-        <Box ref={howItWorksRef}>
-          <SectionHeading
-            title="3 Steps to Smarter Visits"
-            subtitle="From raw ticket to actionable prep brief in minutes."
-          />
-          <Flex
-            direction={{ base: 'column', md: 'row' }}
-            gap={0}
-            align="center"
-            justify="center"
-          >
-            {steps.map((step, i) => (
-              <React.Fragment key={step.title}>
-                <MotionBox
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.3 }}
-                  variants={fadeUp}
-                  custom={i}
-                  flex="1"
-                  maxW={{ base: 'full', md: '280px' }}
-                >
-                  <Box
-                    bg="#1e1e1e"
-                    border="1px solid rgba(255,255,255,0.08)"
-                    borderRadius="2xl"
-                    p={8}
-                    textAlign="center"
-                    _hover={{
-                      borderColor: 'rgba(59,130,246,0.4)',
-                      transform: 'translateY(-4px)',
-                    }}
-                    transition="all 0.3s"
-                  >
-                    <Box
-                      w={16}
-                      h={16}
-                      borderRadius="full"
-                      bg="rgba(59,130,246,0.12)"
-                      border="2px solid rgba(59,130,246,0.3)"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      mx="auto"
-                      mb={5}
-                    >
-                      <Text fontSize="2xl">{step.emoji}</Text>
-                    </Box>
-                    <Badge
-                      bg="rgba(59,130,246,0.15)"
-                      color="#3B82F6"
-                      fontSize="xs"
-                      fontWeight="bold"
-                      px={3}
-                      py={1}
-                      borderRadius="full"
-                      mb={3}
-                      textTransform="none"
-                    >
-                      Step {i + 1}
-                    </Badge>
-                    <Heading
-                      as="h3"
-                      fontSize="xl"
-                      fontWeight="bold"
-                      color="white"
-                      mb={2}
-                    >
-                      {step.title}
-                    </Heading>
-                    <Text color="gray.400" fontSize="sm" lineHeight={1.7}>
-                      {step.description}
-                    </Text>
-                  </Box>
-                </MotionBox>
-
-                {/* Arrow connector */}
-                {i < steps.length - 1 && (
-                  <Box
-                    display={{ base: 'none', md: 'flex' }}
-                    alignItems="center"
-                    px={2}
-                    color="#3B82F6"
-                    fontSize="2xl"
-                    flexShrink={0}
-                  >
-                    →
-                  </Box>
-                )}
-              </React.Fragment>
             ))}
-          </Flex>
-        </Box>
-      </Section>
+          </Grid>
+          <Box bg={BLUE_DIM} border="1px solid" borderColor="blue.700" borderRadius="lg" px={8} py={4}>
+            <Text color={BLUE} fontFamily="mono" fontSize="sm" fontWeight="bold">
+              Signal fixes this by extracting intelligence from every ticket.
+            </Text>
+          </Box>
+        </VStack>
+      </MotionBox>
+    </Section>
+  );
+}
 
-      {/* ================================================================
-          5. SAMPLE PREP BRIEF
-          ================================================================ */}
-      <Section id="brief-preview">
-        <SectionHeading
-          title="See the Output"
-          subtitle="This is what your technician receives before every onsite visit."
-        />
-        <MotionBox
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          variants={fadeUp}
-          maxW="3xl"
-          mx="auto"
-        >
-          <Box
-            bg="#0d0d0d"
-            border="1px solid rgba(59,130,246,0.3)"
-            borderRadius="2xl"
-            overflow="hidden"
-            boxShadow="0 24px 80px rgba(0,0,0,0.6)"
-          >
-            {/* Terminal header bar */}
-            <Flex
-              bg="#161616"
-              px={5}
-              py={3}
-              align="center"
-              justify="space-between"
-              borderBottom="1px solid rgba(255,255,255,0.06)"
-            >
-              <HStack spacing={2}>
-                <Box w={3} h={3} borderRadius="full" bg="#FF5F57" />
-                <Box w={3} h={3} borderRadius="full" bg="#FEBC2E" />
-                <Box w={3} h={3} borderRadius="full" bg="#28C840" />
-              </HStack>
-              <Badge
-                bg="rgba(59,130,246,0.2)"
-                color="#3B82F6"
-                fontSize="xs"
-                fontWeight="bold"
-                px={3}
-                py={1}
-                borderRadius="full"
-                textTransform="none"
-              >
-                LIVE OUTPUT — Powered by Signal
-              </Badge>
-              <Text fontSize="xs" color="gray.600" fontFamily="mono">
-                !brief
-              </Text>
-            </Flex>
+function WhatSignalDoes() {
+  const cols = [
+    {
+      icon: '📋', title: 'Prepare the Visit',
+      lead: 'Signal generates an operational brief before the technician arrives.',
+      items: ['Situation', 'Expectation', 'Constraints', 'Risk Signals', 'Client Context'],
+    },
+    {
+      icon: '🤖', title: 'Assist the Work',
+      lead: 'Pilot helps technicians solve problems on-site.',
+      items: ['Likely causes', '5-minute checklist', 'Questions to ask', 'Closing note draft', 'Internal documentation'],
+    },
+    {
+      icon: '🧠', title: 'Build Operational Memory',
+      lead: "Every ticket becomes part of the organization's intelligence network.",
+      items: ['Recurring problems', 'Tool instability', 'Site patterns', 'Operational signals'],
+    },
+  ];
+  return (
+    <Section py={20}>
+      <VStack spacing={12}>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} w="full">
+          <VStack spacing={3} textAlign="center">
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">WHAT SIGNAL DOES</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">
+              Signal Extracts Intelligence from Every Ticket
+            </Heading>
+          </VStack>
+        </MotionBox>
+        <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={6} w="full">
+          {cols.map(({ icon, title, lead, items }, i) => (
+            <MotionBox key={title} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={i} variants={fadeUp}>
+              <Box h="full" bg={BG2} border="1px solid" borderColor={BORDER} borderRadius="xl" p={6}
+                _hover={{ borderColor: 'blue.700', boxShadow: '0 0 20px rgba(99,179,237,0.06)' }} transition="all 0.2s">
+                <VStack align="flex-start" spacing={4} h="full">
+                  <Text fontSize="2xl">{icon}</Text>
+                  <VStack align="flex-start" spacing={1}>
+                    <Text fontSize="sm" fontWeight="black" color="white" fontFamily="mono">{title}</Text>
+                    <Text fontSize="xs" color="gray.400">{lead}</Text>
+                  </VStack>
+                  <Divider borderColor={BORDER} />
+                  <VStack align="flex-start" spacing={1} flex={1}>
+                    {items.map(item => (
+                      <HStack key={item} spacing={2}>
+                        <Box w="4px" h="4px" borderRadius="full" bg={BLUE} flexShrink={0} mt="2px" />
+                        <Text fontSize="xs" color="gray.400" fontFamily="mono">{item}</Text>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </VStack>
+              </Box>
+            </MotionBox>
+          ))}
+        </Grid>
+      </VStack>
+    </Section>
+  );
+}
 
-            {/* Brief content */}
-            <Box p={8} fontFamily="mono">
-              {/* Header */}
-              <Text
-                color="#3B82F6"
-                fontWeight="bold"
-                fontSize={{ base: 'sm', md: 'md' }}
-                mb={1}
-              >
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-              </Text>
-              <Text color="white" fontWeight="900" fontSize={{ base: 'lg', md: 'xl' }} mb={1}>
-                🧠 SIGNAL — PREP BRIEF
-              </Text>
-              <Text color="gray.500" fontSize="sm" mb={1}>
-                Site: Knox Square Dental
-              </Text>
-              <Text color="gray.500" fontSize="sm" mb={1}>
-                Ticket: NETWORK ISSUE — Intermittent drops reported
-              </Text>
-              <Text color="gray.600" fontSize="xs" mb={4}>
-                Generated: Tue Feb 25 2026 · 08:14 AM
-              </Text>
-              <Text color="#3B82F6" fontSize="sm" mb={6}>
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-              </Text>
-
-              {/* Signal rows */}
-              <VStack spacing={4} align="stretch">
-                <SignalRow
-                  emoji="🟢"
-                  label="READINESS"
-                  value="HIGH (83/100)"
-                  detail="All context in place — prior visit notes available"
-                  color="#22C55E"
-                />
-                <SignalRow
-                  emoji="➡️"
-                  label="TRUST"
-                  value="NEUTRAL"
-                  detail="Standard delivery expected — no escalation history"
-                  color="#3B82F6"
-                />
-                <SignalRow
-                  emoji="🎯"
-                  label="EXPECTATION"
-                  value="INSTALL"
-                  detail="Complete network switch installation before leaving"
-                  color="#A855F7"
-                />
-                <SignalRow
-                  emoji="⚠️"
-                  label="CONSTRAINT"
-                  value="TIME WINDOW"
-                  detail="Lunch 12–1 PM • Must be clear by 1:30 PM"
-                  color="#F59E0B"
-                />
-                <SignalRow
-                  emoji="🔷"
-                  label="DECISION"
-                  value="[GO/NO-GO]"
-                  detail="Verify all imaging systems operational before sign-off"
-                  color="#06B6D4"
-                />
-              </VStack>
-
-              {/* Footer */}
-              <Text color="#3B82F6" fontSize="sm" mt={6} mb={2}>
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-              </Text>
-              <Text color="gray.600" fontSize="xs">
-                Powered by Fieldstone · Signal
-              </Text>
+function Platform() {
+  const modules = [
+    { tag: 'LIVE', tagColor: 'green', name: 'Signal: Tickets', desc: 'Operational intelligence for service tickets. Prep briefs, Pilot AI, and growing intel network.' },
+    { tag: 'COMING SOON', tagColor: 'gray', name: 'Signal: Ops', desc: 'Operational command center for service organizations. Scheduling, dispatch, and capacity.' },
+    { tag: 'COMING SOON', tagColor: 'gray', name: 'Signal: Sales', desc: 'Turn service signals into sales opportunities. Surface recurring issues that need upgrades.' },
+  ];
+  return (
+    <Section bg={BG2} py={20}>
+      <VStack spacing={12}>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} w="full">
+          <VStack spacing={3} textAlign="center">
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">PLATFORM</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">The Signal Platform</Heading>
+            <Box fontFamily="mono" fontSize="xs" color="gray.500" bg={BG} border="1px solid" borderColor={BORDER}
+              borderRadius="md" px={6} py={4} textAlign="left" display="inline-block">
+              <Text color="gray.400">Fieldstone Platform</Text>
+              <Text ml={3} color="gray.500">{'\u2514\u2500 '}<Text as="span" color={BLUE}>Signal</Text></Text>
+              <Text ml={9} color="gray.500">{'\u251C\u2500 '}<Text as="span" color="green.400">Tickets</Text><Text as="span" color="green.700"> ← live</Text></Text>
+              <Text ml={9} color="gray.600">{'\u251C\u2500 Ops '}<Text as="span" color="gray.700">(coming soon)</Text></Text>
+              <Text ml={9} color="gray.600">{'\u2514\u2500 Sales '}<Text as="span" color="gray.700">(coming soon)</Text></Text>
             </Box>
+          </VStack>
+        </MotionBox>
+        <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={5} w="full">
+          {modules.map(({ tag, tagColor, name, desc }, i) => (
+            <MotionBox key={name} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={i} variants={fadeUp}>
+              <Box h="full" bg={BG} border="1px solid" borderColor={tagColor === 'green' ? 'green.800' : BORDER} borderRadius="xl" p={6}>
+                <VStack align="flex-start" spacing={3}>
+                  <Badge colorScheme={tagColor} fontFamily="mono" fontSize="2xs" letterSpacing="widest">{tag}</Badge>
+                  <Text fontWeight="black" color="white" fontFamily="mono" fontSize="sm">{name}</Text>
+                  <Text fontSize="xs" color="gray.500">{desc}</Text>
+                </VStack>
+              </Box>
+            </MotionBox>
+          ))}
+        </Grid>
+      </VStack>
+    </Section>
+  );
+}
+
+function HowItWorks() {
+  const steps = [
+    'Connect your ticket inbox',
+    'Signal ingests ticket emails',
+    'AI extracts operational intelligence',
+    'Technicians receive a prep brief',
+    'Work is captured onsite',
+    'Signal builds organizational intelligence',
+  ];
+  return (
+    <Section py={20}>
+      <VStack spacing={12}>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} w="full">
+          <VStack spacing={3} textAlign="center">
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">HOW IT WORKS</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">Six Steps to Operational Intelligence</Heading>
+          </VStack>
+        </MotionBox>
+        <Box maxW="480px" w="full">
+          <VStack align="stretch" spacing={0}>
+            {steps.map((step, i) => (
+              <MotionBox key={step} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={i * 0.5} variants={fadeUp}>
+                <VStack align="stretch" spacing={0}>
+                  <Flex align="center" gap={4} py={3}>
+                    <Box flexShrink={0} w={8} h={8} borderRadius="full"
+                      bg={i === 0 ? 'blue.800' : BG2} border="1px solid"
+                      borderColor={i === 0 ? BLUE : BORDER}
+                      display="flex" alignItems="center" justifyContent="center">
+                      <Text fontSize="2xs" fontWeight="black" fontFamily="mono" color={i === 0 ? BLUE : 'gray.500'}>
+                        {String(i + 1).padStart(2, '0')}
+                      </Text>
+                    </Box>
+                    <Text fontSize="sm" color={i === 0 ? 'white' : 'gray.400'} fontWeight={i === 0 ? 'medium' : 'normal'}>{step}</Text>
+                  </Flex>
+                  {i < steps.length - 1 && <Box ml="15px" w="2px" h="16px" bg={BORDER} />}
+                </VStack>
+              </MotionBox>
+            ))}
+          </VStack>
+        </Box>
+      </VStack>
+    </Section>
+  );
+}
+
+function IntelNetwork() {
+  return (
+    <Section bg={BG2} py={20}>
+      <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={12} alignItems="center">
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+          <VStack align="flex-start" spacing={5}>
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">GLOBAL INTELLIGENCE</Text>
+            <Heading fontSize={{ base: '2xl', md: '3xl' }} color="white" fontWeight="black" lineHeight="short">
+              A Network That Learns From Every Service Visit
+            </Heading>
+            <Text color="gray.400" fontSize="sm">
+              Signal detects patterns across environments. When multiple organizations see the same
+              tool instability or recurring issue, Signal surfaces it as global intelligence —
+              injected into every relevant brief automatically.
+            </Text>
+            <VStack align="flex-start" spacing={2}>
+              {[
+                'Cross-organization pattern detection',
+                'Tool and software instability tracking',
+                'Anonymized — no client data shared',
+                'Automatically injected into prep briefs',
+              ].map(item => (
+                <HStack key={item} spacing={2}>
+                  <Text color="green.400" fontSize="xs">✓</Text>
+                  <Text fontSize="xs" color="gray.400">{item}</Text>
+                </HStack>
+              ))}
+            </VStack>
+          </VStack>
+        </MotionBox>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} custom={1} variants={fadeUp}
+          display="flex" justifyContent={{ base: 'flex-start', lg: 'flex-end' }}>
+          <Box bg={BLUE_DIM} border="1px solid" borderColor="blue.700" borderRadius="xl" p={6} maxW="360px" w="full" fontFamily="mono">
+            <HStack mb={3} spacing={2}>
+              <Text fontSize="2xs" fontWeight="bold" color={BLUE} letterSpacing="widest">GLOBAL INTEL</Text>
+              <Badge colorScheme="blue" fontSize="2xs">3 ORGS AFFECTED</Badge>
+            </HStack>
+            <Text color="blue.200" fontSize="sm" fontWeight="medium" mb={3}>
+              Eaglesoft instability detected across multiple organizations after network switch reboot.
+            </Text>
+            <Divider borderColor="blue.800" mb={3} />
+            <Text fontSize="2xs" color="blue.400" fontWeight="bold" letterSpacing="widest" mb={2}>RECOMMENDED FIX</Text>
+            <VStack align="flex-start" spacing={1}>
+              <Text fontSize="xs" color="blue.300">{'\u2192'} Restart Eaglesoft service</Text>
+              <Text fontSize="xs" color="blue.300">{'\u2192'} Verify database path</Text>
+              <Text fontSize="xs" color="blue.300">{'\u2192'} Check Windows Event Log</Text>
+            </VStack>
           </Box>
         </MotionBox>
-      </Section>
+      </Grid>
+    </Section>
+  );
+}
 
-      {/* ================================================================
-          6. COMING SOON
-          ================================================================ */}
-      <Section id="coming-soon" bg="#111111">
-        <SectionHeading
-          title="The Signal Platform"
-          subtitle="Signal is the first Fieldstone module. More operational intelligence builds are coming."
-        />
-        <Grid
-          templateColumns={{ base: '1fr', md: 'repeat(3,1fr)' }}
-          gap={6}
-          maxW="4xl"
-          mx="auto"
-        >
-          {comingSoon.map((c, i) => (
-            <MotionBox
-              key={c.name}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.3 }}
-              variants={fadeUp}
-              custom={i}
-            >
-              <Box
-                bg="#1a1a1a"
-                border="1px solid rgba(255,255,255,0.06)"
-                borderRadius="2xl"
-                p={8}
-                textAlign="center"
-                opacity={0.65}
-                filter="blur(0.3px)"
-                _hover={{ opacity: 0.8, filter: 'blur(0px)' }}
-                transition="all 0.3s"
-                position="relative"
-                overflow="hidden"
-              >
-                {/* Coming soon overlay badge */}
-                <Badge
-                  position="absolute"
-                  top={4}
-                  right={4}
-                  bg="rgba(255,255,255,0.06)"
-                  color="gray.400"
-                  fontSize="xs"
-                  fontWeight="semibold"
-                  px={3}
-                  py={1}
-                  borderRadius="full"
-                  border="1px solid rgba(255,255,255,0.1)"
-                  textTransform="none"
-                >
-                  Coming Soon
-                </Badge>
-                <Text fontSize="3xl" mb={4}>
-                  {c.emoji}
-                </Text>
-                <Heading
-                  as="h3"
-                  fontSize="xl"
-                  fontWeight="bold"
-                  color="gray.300"
-                  mb={2}
-                >
-                  {c.name}
-                </Heading>
-                <Text color="gray.600" fontSize="sm">
-                  {c.description}
-                </Text>
+function WhoItsFor() {
+  const audiences = [
+    { icon: '🏢', title: 'Managed Service Providers', desc: 'Give every technician the context they need before they arrive. Build an intelligence layer across your entire client base.' },
+    { icon: '🖥️', title: 'Internal IT Service Teams', desc: 'Stop losing institutional knowledge when techs move on. Signal captures and organizes everything your team learns.' },
+    { icon: '🔧', title: 'Field Technicians', desc: 'Walk into every site prepared. Signal tells you what to expect, what went wrong before, and what to watch for.' },
+  ];
+  return (
+    <Section py={20}>
+      <VStack spacing={12}>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} w="full">
+          <VStack spacing={3} textAlign="center">
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">WHO IT&#39;S FOR</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">Built for Service Organizations</Heading>
+          </VStack>
+        </MotionBox>
+        <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={6} w="full">
+          {audiences.map(({ icon, title, desc }, i) => (
+            <MotionBox key={title} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={i} variants={fadeUp}>
+              <Box h="full" bg={BG2} border="1px solid" borderColor={BORDER} borderRadius="xl" p={6} textAlign="center">
+                <VStack spacing={4}>
+                  <Text fontSize="3xl">{icon}</Text>
+                  <Text fontWeight="black" color="white" fontSize="sm">{title}</Text>
+                  <Text fontSize="xs" color="gray.500">{desc}</Text>
+                </VStack>
               </Box>
             </MotionBox>
           ))}
         </Grid>
-      </Section>
+      </VStack>
+    </Section>
+  );
+}
 
-      {/* ================================================================
-          7. CTA FOOTER
-          ================================================================ */}
-      <Box
-        as="section"
-        py={{ base: 20, md: 32 }}
-        px={4}
-        bg="linear-gradient(135deg, #0d1a2e 0%, #1a1a1a 100%)"
-        position="relative"
-        overflow="hidden"
-      >
-        {/* Glow */}
-        <Box
-          position="absolute"
-          bottom="-150px"
-          left="50%"
-          transform="translateX(-50%)"
-          w="600px"
-          h="600px"
-          borderRadius="full"
-          bg="rgba(59,130,246,0.08)"
-          filter="blur(80px)"
-          pointerEvents="none"
-        />
+function Pricing() {
+  const features = [
+    'Signal: Tickets',
+    'Intel Network',
+    'Pilot AI Assistant',
+    'Mobile Workspace',
+    '14-day free trial',
+    'No credit card required',
+  ];
+  return (
+    <Section bg={BG2} py={20}>
+      <VStack spacing={10}>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} w="full">
+          <VStack spacing={3} textAlign="center">
+            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color={BLUE} letterSpacing="widest">PRICING</Text>
+            <Heading fontSize={{ base: '3xl', md: '4xl' }} color="white" fontWeight="black">Simple, Transparent Pricing</Heading>
+          </VStack>
+        </MotionBox>
+        <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} custom={1} variants={fadeUp}>
+          <Box bg={BG} border="1px solid" borderColor="blue.700" borderRadius="2xl" p={10}
+            maxW="400px" w="full" textAlign="center" boxShadow="0 0 40px rgba(99,179,237,0.08)">
+            <VStack spacing={5}>
+              <Badge colorScheme="blue" fontFamily="mono" fontSize="xs" letterSpacing="widest" px={3} py={1}>STARTER</Badge>
+              <VStack spacing={0}>
+                <HStack align="flex-end" spacing={1}>
+                  <Text fontSize="5xl" fontWeight="black" color="white" lineHeight={1}>$49</Text>
+                  <Text fontSize="sm" color="gray.400" mb={2}>/technician/month</Text>
+                </HStack>
+                <Text fontSize="xs" color="gray.600" fontFamily="mono">billed monthly</Text>
+              </VStack>
+              <Divider borderColor={BORDER} />
+              <VStack align="flex-start" spacing={2} w="full">
+                {features.map(f => (
+                  <HStack key={f} spacing={3}>
+                    <Text color="green.400" fontSize="sm">✓</Text>
+                    <Text fontSize="sm" color="gray.300">{f}</Text>
+                  </HStack>
+                ))}
+              </VStack>
+              <Button as="a" href="/signup" colorScheme="blue" w="full" size="md"
+                fontFamily="mono" fontWeight="bold" letterSpacing="wider" mt={2}>
+                START FREE TRIAL
+              </Button>
+            </VStack>
+          </Box>
+        </MotionBox>
+      </VStack>
+    </Section>
+  );
+}
 
-        <Container maxW="3xl" textAlign="center" position="relative">
-          <MotionBox
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.3 }}
-            variants={fadeUp}
-          >
-            <Text
-              fontSize="sm"
-              color="#3B82F6"
-              fontWeight="semibold"
-              textTransform="uppercase"
-              letterSpacing="wider"
-              mb={4}
-            >
-              Fieldstone
-            </Text>
-            <Heading
-              as="h2"
-              fontSize={{ base: '3xl', md: '5xl' }}
-              fontWeight="900"
-              color="white"
-              mb={5}
-              lineHeight={1.1}
-            >
-              Ready to stop walking in blind?
+function FinalCTA() {
+  return (
+    <Section py={24}>
+      <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+        <VStack spacing={8} textAlign="center">
+          <VStack spacing={4}>
+            <Heading fontSize={{ base: '2xl', md: '3xl', lg: '4xl' }} color="white" fontWeight="black" lineHeight="short" maxW="600px">
+              Your Service Organization Already Has Signals.
             </Heading>
-            <Text
-              color="gray.400"
-              fontSize={{ base: 'md', md: 'lg' }}
-              mb={10}
-              maxW="xl"
-              mx="auto"
-              lineHeight={1.8}
-            >
-              Join field service teams using Signal to walk into every
-              client visit prepared, confident, and in control.
-            </Text>
-            <Button
-              as="a"
-              href="mailto:scotteverett@ipquest.net?subject=Signal Demo Request"
-              size="lg"
-              bg="#3B82F6"
-              color="white"
-              px={12}
-              py={7}
-              fontSize="lg"
-              fontWeight="bold"
-              borderRadius="2xl"
-              _hover={{
-                bg: '#2563EB',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 16px 50px rgba(59,130,246,0.5)',
-              }}
-              transition="all 0.25s"
-              mb={12}
-            >
-              Book a Demo →
+            <Heading fontSize={{ base: '2xl', md: '3xl', lg: '4xl' }} color={BLUE} fontWeight="black" lineHeight="short">
+              Signal Helps You See Them.
+            </Heading>
+          </VStack>
+          <Stack direction={{ base: 'column', sm: 'row' }} spacing={4} justify="center">
+            <Button as="a" href="/signup" colorScheme="blue" size="lg"
+              fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={10}>
+              START FREE TRIAL
             </Button>
-            <Button
-              as="a"
-              href="/pm"
-              size="lg"
-              bg="#10B981"
-              color="white"
-              px={12}
-              py={7}
-              fontSize="lg"
-              fontWeight="bold"
-              borderRadius="2xl"
-              _hover={{
-                bg: '#059669',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 16px 50px rgba(16,185,129,0.4)',
-              }}
-              transition="all 0.25s"
-              mb={6}
-            >
-              ▶ Try Live Demo
+            <Button as="a" href="mailto:demo@fieldstone.pro" variant="outline" size="lg"
+              borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold"
+              letterSpacing="wider" px={10} _hover={{ borderColor: BLUE, color: BLUE }}>
+              REQUEST DEMO
             </Button>
+          </Stack>
+          <Text fontSize="xs" color="gray.600" fontFamily="mono">
+            14-day free trial · No credit card required · Setup in minutes
+          </Text>
+        </VStack>
+      </MotionBox>
+    </Section>
+  );
+}
 
-            <Divider borderColor="rgba(255,255,255,0.06)" mb={8} />
-
-            <HStack justify="center" spacing={3}>
-              <Box
-                w={6}
-                h={6}
-                borderRadius="md"
-                bg="#3B82F6"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Text fontSize="xs" fontWeight="900" color="white">
-                  F
-                </Text>
-              </Box>
-              <Text color="gray.600" fontSize="sm">
-                Powered by{' '}
-                <Text as="span" color="gray.400" fontWeight="semibold">
-                  Fieldstone
-                </Text>
+function Footer() {
+  return (
+    <Box bg={BG2} borderTop="1px solid" borderColor={BORDER} py={8}>
+      <Container maxW="6xl" px={{ base: 5, md: 10 }}>
+        <Flex direction={{ base: 'column', md: 'row' }} justify="space-between"
+          align={{ base: 'flex-start', md: 'center' }} gap={4}>
+          <VStack align="flex-start" spacing={1}>
+            <Text fontSize="xs" fontWeight="black" fontFamily="mono" letterSpacing="widest" color={BLUE}>SIGNAL</Text>
+            <Text fontSize="2xs" color="gray.600" fontFamily="mono">by Fieldstone</Text>
+          </VStack>
+          <HStack spacing={6} flexWrap="wrap">
+            {[
+              { label: 'Dashboard', href: '/pm' },
+              { label: 'Demo', href: 'https://demo.fieldstone.pro' },
+              { label: 'Sign Up', href: '/signup' },
+              { label: 'Contact', href: 'mailto:hello@fieldstone.pro' },
+            ].map(({ label, href }) => (
+              <Text key={label} as="a" href={href} fontSize="xs" color="gray.500"
+                fontFamily="mono" _hover={{ color: 'gray.300' }} transition="color 0.15s">
+                {label}
               </Text>
-            </HStack>
-          </MotionBox>
-        </Container>
-      </Box>
+            ))}
+          </HStack>
+          <Text fontSize="2xs" color="gray.700" fontFamily="mono">© 2026 Fieldstone · Signal</Text>
+        </Flex>
+      </Container>
     </Box>
   );
 }
 
-// ---------------------------------------------------------------------------
-// SignalRow — used in the prep brief preview
-// ---------------------------------------------------------------------------
-interface SignalRowProps {
-  emoji: string;
-  label: string;
-  value: string;
-  detail: string;
-  color: string;
-}
-
-function SignalRow({ emoji, label, value, detail, color }: SignalRowProps) {
+export default function Acquisition() {
   return (
-    <Box
-      bg="rgba(255,255,255,0.03)"
-      border="1px solid rgba(255,255,255,0.06)"
-      borderLeft={`3px solid ${color}`}
-      borderRadius="lg"
-      p={4}
-    >
-      <Flex
-        direction={{ base: 'column', sm: 'row' }}
-        align={{ base: 'flex-start', sm: 'center' }}
-        justify="space-between"
-        gap={2}
-        mb={1}
-      >
-        <HStack spacing={2}>
-          <Text fontSize="sm">{emoji}</Text>
-          <Text fontSize="xs" color="gray.500" fontWeight="bold" letterSpacing="wider">
-            {label}
-          </Text>
-        </HStack>
-        <Text
-          fontSize="xs"
-          fontWeight="900"
-          color={color}
-          fontFamily="mono"
-          letterSpacing="wide"
-        >
-          {value}
-        </Text>
-      </Flex>
-      <Text fontSize="xs" color="gray.500" fontFamily="mono" lineHeight={1.6}>
-        {detail}
-      </Text>
+    <Box bg={BG} minH="100vh">
+      <Nav />
+      <Hero />
+      <Problem />
+      <WhatSignalDoes />
+      <Platform />
+      <HowItWorks />
+      <IntelNetwork />
+      <WhoItsFor />
+      <Pricing />
+      <FinalCTA />
+      <Footer />
     </Box>
   );
 }
