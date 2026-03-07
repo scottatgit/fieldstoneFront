@@ -130,6 +130,7 @@ interface IntelCandidate {
   confidence: 'low' | 'medium' | 'high';
   tags: string[];
   source_ticket?: string | null;
+  source?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -596,6 +597,7 @@ function tryParseStructured(content: string): StructuredData | null {
 
 export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
   const storageKey = `pilot_chat_${ticket.ticket_key}`;
+  const autoIntelKey = `pilot_auto_intel_shown_${ticket.ticket_key}`; // Phase 27
   const [messages, setMessages] = useState<PilotMessage[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -697,6 +699,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           artifact_type: artifactType || null,
           chip_type: chipType || null,
           working_memory: workingMemory,
+          auto_intel_shown: (typeof window !== 'undefined' ? localStorage.getItem(autoIntelKey) === 'true' : false),
         });
         const headers = { 'Content-Type': 'application/json' };
 
@@ -728,6 +731,16 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
               const chunk = line.slice(5).replace(/\n/g, '\n');
               if (chunk === '[DONE]') break;
               if (chunk.startsWith('[ERROR]')) { responseText = chunk; break; }
+              // Phase 27: auto-intel SSE frame
+              if (chunk.startsWith('[INTEL]:')) {
+                try {
+                  const ic = JSON.parse(chunk.slice(8)) as IntelCandidate;
+                  setIntelCandidate(ic);
+                  setIntelSaved(false);
+                  if (typeof window !== 'undefined') localStorage.setItem(autoIntelKey, 'true');
+                } catch { /* ignore */ }
+                continue;
+              }
               accumulated += chunk;
               // Update message content live
               setMessages((prev) => prev.map((m) =>
@@ -764,6 +777,8 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         if (data.intel_candidate) {
           setIntelCandidate(data.intel_candidate);
           setIntelSaved(false);
+          if (data.intel_candidate.source === 'auto' && typeof window !== 'undefined')
+            localStorage.setItem(autoIntelKey, 'true'); // p27
         }
         // Phase 25: structured data from API
         if (data.structured_data) {
