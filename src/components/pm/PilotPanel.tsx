@@ -560,10 +560,62 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           responseText = `Based on **${sit}** for ${client}:\n\n1. Start with a visual check of all affected hardware\n2. Verify connectivity at the switch/router level before touching workstations\n3. Check for recent changes — software updates, moved equipment, or new devices\n\nAsk: *"Has anything changed in the office recently?"* — this question surfaces 60% of root causes.`;
         }
       } else {
+        const payload = JSON.stringify({
+          message: msg,
+          transcript: buildTranscript(messages),
+          images: imgs,
+          artifact_type: artifactType || null,
+          working_memory: workingMemory,
+        });
+        const headers = { 'Content-Type': 'application/json' };
+
+        // ── Streaming via SSE (Phase 24A) ─────────────────────────────────
+        const streamUrl = `${PM_API}/api/tickets/${ticket.ticket_key}/work/pilot/chat-stream`;
+        const streamRes = await fetch(streamUrl, { method: 'POST', headers, body: payload });
+
+        if (streamRes.ok && streamRes.body) {
+          // Add placeholder assistant message immediately
+          const streamId = uid();
+          setMessages((prev) => [...prev, {
+            id: streamId, role: 'assistant', content: '', timestamp: new Date(), artifact: artifactType,
+          }]);
+          setLoading(false); // stop spinner — message bubble is live
+
+          const reader = streamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+          let accumulated = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split('
+');
+            buf = lines.pop() ?? '';
+            for (const line of lines) {
+              if (!line.startsWith('data:')) continue;
+              const chunk = line.slice(5).replace(/\n/g, '
+');
+              if (chunk === '[DONE]') break;
+              if (chunk.startsWith('[ERROR]')) { responseText = chunk; break; }
+              accumulated += chunk;
+              // Update message content live
+              setMessages((prev) => prev.map((m) =>
+                m.id === streamId ? { ...m, content: accumulated } : m
+              ));
+            }
+          }
+          // Final state sync
+          setWorkingMemory((prev) => extractFacts(accumulated, prev));
+          return; // skip the bottom setMessages call
+        }
+
+        // ── Fallback: non-streaming ───────────────────────────────────────
         const res = await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/work/pilot/chat`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg, transcript: buildTranscript(messages), images: imgs, artifact_type: artifactType || null, working_memory: workingMemory }),
+          headers,
+          body: payload,
         });
         if (!res.ok) throw new Error(`API ${res.status}`);
         const data = await res.json();
@@ -691,8 +743,8 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
                   <Text fontSize='2xs' color='blue.500' fontFamily='mono'>WORK</Text>
                   {m.artifact && (
                     <Badge fontSize='2xs'
-                      colorScheme={m.artifact === 'closing' ? 'green' : m.artifact === 'internal' ? 'blue' : 'purple'}>
-                      {m.artifact === 'closing' ? 'CLIENT NOTE' : m.artifact === 'internal' ? 'INTERNAL' : 'KB ENTRY'}
+                      colorScheme={m.artifact === 'closing' ? 'green' : m.artifact === 'internal' ? 'blue' : m.artifact === 'kb' ? 'purple' : 'orange'}>
+                      {m.artifact === 'closing' ? 'CLIENT NOTE' : m.artifact === 'internal' ? 'INTERNAL' : m.artifact === 'kb' ? 'KB ENTRY' : 'INTEL'}
                     </Badge>
                   )}
                 </HStack>
