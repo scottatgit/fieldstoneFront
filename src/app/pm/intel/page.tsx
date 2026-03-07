@@ -188,6 +188,17 @@ function IntelPageKBPromotion({ entry, onUpdate }: {
   );
 }
 
+
+
+interface TrendItem {
+  pattern: string;
+  tool_id: string | null;
+  occurrences: number;
+  clients: number;
+  first_seen: string;
+  last_seen: string;
+  trend_status: 'normal' | 'emerging' | 'outbreak';
+}
 export default function IntelDashboard() {
   const [events, setEvents]         = useState<OutbreakEvent[]>([]);
   const [tools,  setTools]           = useState<ToolRow[]>([]);
@@ -200,6 +211,8 @@ export default function IntelDashboard() {
   const [intelSort, setIntelSort]       = useState<'recent'|'confidence'>('recent');
   const [selectedIntel, setSelectedIntel] = useState<IntelEntry | null>(null);
   const [filterOptions, setFilterOptions] = useState<{ client_keys: string[]; tool_ids: string[] }>({ client_keys: [], tool_ids: [] });
+  const [trends, setTrends]               = useState<TrendItem[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
   const { isOpen: detailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
 
   const fetchIntel = useCallback(async () => {
@@ -215,6 +228,14 @@ export default function IntelDashboard() {
     } catch { /* silent */ } finally { setIntelLoading(false); }
   }, [intelFilter]);
 
+
+  const fetchTrends = useCallback(async () => {
+    setTrendsLoading(true);
+    try {
+      const res = await pmFetch('/api/intel/trends', API);
+      setTrends((res as any)?.items ?? []);
+    } catch { /* silent */ } finally { setTrendsLoading(false); }
+  }, []);
   const fetchAll = useCallback(async () => {
     try {
       const [evRes, trRes] = await Promise.allSettled([
@@ -240,6 +261,7 @@ export default function IntelDashboard() {
   }, [fetchAll]);
 
   useEffect(() => { fetchIntel(); }, [fetchIntel]);
+  useEffect(() => { fetchTrends(); }, [fetchTrends]);
 
   useEffect(() => {
     pmFetch('/api/intel/filter-options', API)
@@ -325,6 +347,9 @@ export default function IntelDashboard() {
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
             🧠 Intel Entries ({intelEntries.length})
+          </Tab>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+            📊 Trends {trends.filter(t => t.trend_status !== 'normal').length > 0 ? `(${trends.filter(t => t.trend_status !== 'normal').length})` : ''}
           </Tab>
         </TabList>
 
@@ -605,6 +630,65 @@ export default function IntelDashboard() {
                   }
                 </VStack>
               </Box>
+            )}
+          </TabPanel>
+
+          {/* Phase 28: Trends */}
+          <TabPanel px={0}>
+            {trendsLoading ? (
+              <Flex justify="center" py={8}><Spinner color="blue.400" /></Flex>
+            ) : trends.length === 0 ? (
+              <Flex py={12} align="center" justify="center" direction="column" gap={2}>
+                <Text fontSize="3xl">📊</Text>
+                <Text color="gray.400" fontWeight="medium">No pattern trends yet</Text>
+                <Text fontSize="xs" color="gray.500">Trends appear after multiple intel entries are saved</Text>
+              </Flex>
+            ) : (
+              <VStack align="stretch" spacing={3} mt={2}>
+                {trends.map((t, i) => (
+                  <Box key={i}
+                    bg="gray.800" rounded="lg" p={4}
+                    borderLeft="4px solid"
+                    borderColor={
+                      t.trend_status === 'outbreak' ? 'red.400' :
+                      t.trend_status === 'emerging' ? 'orange.400' : 'gray.600'
+                    }
+                  >
+                    <Flex justify="space-between" align="flex-start" wrap="wrap" gap={2}>
+                      <Box flex={1}>
+                        <HStack mb={1} spacing={2}>
+                          {t.trend_status === 'outbreak' && (
+                            <Badge colorScheme="red" fontSize="xs">🚨 OUTBREAK</Badge>
+                          )}
+                          {t.trend_status === 'emerging' && (
+                            <Badge colorScheme="orange" fontSize="xs">⚠️ EMERGING</Badge>
+                          )}
+                          {t.trend_status === 'normal' && (
+                            <Badge colorScheme="gray" fontSize="xs">normal</Badge>
+                          )}
+                          {t.tool_id && (
+                            <Badge colorScheme="blue" fontSize="xs">{t.tool_id}</Badge>
+                          )}
+                        </HStack>
+                        <Text fontWeight="semibold" color="white" fontSize="sm" mb={1}>
+                          {t.pattern}
+                        </Text>
+                      </Box>
+                      <VStack align="flex-end" spacing={0} minW="80px">
+                        <Text fontSize="lg" fontWeight="bold" color="white">{t.occurrences}</Text>
+                        <Text fontSize="xs" color="gray.400">occurrences</Text>
+                      </VStack>
+                    </Flex>
+                    <HStack mt={2} spacing={4} fontSize="xs" color="gray.400">
+                      <Text>👥 {t.clients} client{t.clients !== 1 ? 's' : ''}</Text>
+                      <Text>📅 Last: {t.last_seen || '—'}</Text>
+                      {t.first_seen && t.first_seen !== t.last_seen && (
+                        <Text>First: {t.first_seen}</Text>
+                      )}
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
             )}
           </TabPanel>
         </TabPanels>
