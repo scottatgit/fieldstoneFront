@@ -616,7 +616,8 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
   const [_intelSaved, setIntelSaved]         = useState(false);
   const [sidebarOpen, setSidebarOpen]       = useState(true);
   const [priorIntel, setPriorIntel]         = useState<{ client_intel: IntelEntry[]; tool_intel: IntelEntry[] }>({ client_intel: [], tool_intel: [] });
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef        = useRef<HTMLDivElement>(null);
+  const sendHadImages    = useRef<boolean>(false);  // Phase 26: track if last send had images
   const fileRef   = useRef<HTMLInputElement>(null);
   const isMobile  = useBreakpointValue({ base: true, md: false });
 
@@ -662,6 +663,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
     const msg = text.trim();
     if (!msg && pendingImages.length === 0) return;
     const imgs = pendingImages.map((p) => p.b64);
+    sendHadImages.current = imgs.length > 0;  // Phase 26: track for loading text
     setPendingImages([]);
     setInput('');
     setLoading(true);
@@ -953,7 +955,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           {loading && (
             <HStack spacing={2} pl={1}>
               <Spinner size='xs' color='blue.400' />
-              <Text fontSize='xs' color='gray.500' fontFamily='mono'>Pilot thinking…</Text>
+              <Text fontSize='xs' color='gray.500' fontFamily='mono'>{sendHadImages.current ? 'Analyzing image…' : 'Pilot thinking…'}</Text>
             </HStack>
           )}
           <div ref={bottomRef} />
