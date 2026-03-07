@@ -58,6 +58,18 @@ function renderMd(text: string): string {
     .replace(/\n/g, '<br/>');
 }
 
+// Phase 25 structured output types
+interface LikelihoodCause {
+  cause: string;
+  probability: 'high' | 'medium' | 'low';
+  first_step: string;
+}
+interface LikelyCausesData  { type: 'likely_causes'; causes: LikelihoodCause[]; }
+interface ChecklistData     { type: 'checklist'; steps: string[]; }
+interface QuestionItem      { question: string; reason: string; }
+interface QuestionsData     { type: 'questions'; items: QuestionItem[]; }
+type StructuredData = LikelyCausesData | ChecklistData | QuestionsData;
+
 interface PilotMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -65,18 +77,20 @@ interface PilotMessage {
   images?: string[];
   timestamp: Date;
   artifact?: 'closing' | 'internal' | 'kb' | 'intel';
+  chip_type?: string;
+  structured_data?: StructuredData | null;
 }
 
-interface PilotChip { label: string; prompt: string; artifact?: string; }
+interface PilotChip { label: string; prompt: string; artifact?: string; chip_type?: string; }
 
 function getChips(ctx: TicketContext | null, _ticket: Ticket): PilotChip[] {
   const chips: PilotChip[] = [
-    { label: '📋 5-min checklist',  prompt: 'Give me a concise 5-minute onsite checklist for this situation.' },
-    { label: '🔍 Likely causes',    prompt: 'What are the top 3 most likely causes for this issue?' },
-    { label: '❓ Questions to ask', prompt: 'What are the most important questions I should ask the client onsite?' },
-    { label: '✉️ Closing note',     prompt: 'Generate a professional client-facing closing note based on the context and our conversation.' },
-    { label: '📝 Internal note',    prompt: 'Generate a detailed internal technician note for ConnectWise based on the context and our conversation.' },
-    { label: '🧠 KB entry',         prompt: 'Generate a knowledge base entry capturing what was learned about this environment and issue.' },
+    { label: '📋 5-min checklist',  prompt: 'Give me a concise 5-minute onsite checklist for this situation.', chip_type: 'checklist' },
+    { label: '🔍 Likely causes',    prompt: 'What are the top 3 most likely causes for this issue?', chip_type: 'likely_causes' },
+    { label: '❓ Questions to ask', prompt: 'What are the most important questions I should ask the client onsite?', chip_type: 'questions' },
+    { label: '✉️ Closing note',     prompt: 'Generate a professional client-facing closing note based on the context and our conversation.', artifact: 'closing' },
+    { label: '📝 Internal note',    prompt: 'Generate a detailed internal technician note for ConnectWise based on the context and our conversation.', artifact: 'internal' },
+    { label: '🧠 KB entry',         prompt: 'Generate a knowledge base entry capturing what was learned about this environment and issue.', artifact: 'kb' },
   ];
   if (ctx?.clinical_workflow_impact) {
     chips.unshift({ label: '🏥 Clinical impact', prompt: 'What clinical workflows might be affected and what is the fallback protocol?' });
@@ -84,8 +98,7 @@ function getChips(ctx: TicketContext | null, _ticket: Ticket): PilotChip[] {
   if (ctx?.emotion_tone === 'frustrated') {
     chips.unshift({ label: '🤝 Client relations', prompt: 'This client appears frustrated. How should I approach the conversation to rebuild trust?' });
   }
-  // Always include Intel proposal chip
-  chips.unshift({ label: '🔍 Use prior intel', prompt: 'Review the prior intel for this site and tool, then suggest the most relevant next steps for this visit.' });
+  // Intel proposal chip — no 'Use prior intel' (already injected in context sidebar)
   chips.unshift({ label: '🧠 Propose Intel entry', prompt: 'Propose an Intel entry based on what we have discussed and the ticket context.', artifact: 'intel' });
   return chips.slice(0, 8);
 }
@@ -466,6 +479,121 @@ function ContextSidebar({ ticket, ctx, signals, priorIntel, onPinIntel }: { tick
   );
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 25 — Structured output renderers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CauseCards({ data }: { data: LikelyCausesData }) {
+  const probColor = (p: string) =>
+    p === 'high' ? '#FC8181' : p === 'medium' ? '#F6E05E' : '#68D391';
+  return (
+    <VStack align="stretch" spacing={2} w="full">
+      <Text fontSize="2xs" fontWeight="bold" color="gray.400" fontFamily="mono"
+        textTransform="uppercase" letterSpacing="wider" mb={1}>LIKELY CAUSES</Text>
+      {data.causes.map((c, i) => (
+        <Box key={i} bg="gray.900" border="1px solid" borderColor="gray.700"
+          borderRadius="md" p={3}>
+          <HStack align="flex-start" spacing={2} mb={1}>
+            <Text fontSize="xs" color="blue.300" fontWeight="bold" flexShrink={0}>
+              {i + 1}.
+            </Text>
+            <Text fontSize="xs" color="white" fontWeight="semibold" lineHeight="short">
+              {c.cause}
+            </Text>
+          </HStack>
+          <HStack spacing={2} mb={1.5} pl={4}>
+            <Box
+              px={1.5} py={0.5} borderRadius="sm" fontSize="2xs" fontFamily="mono"
+              fontWeight="bold" color="gray.900"
+              bg={probColor(c.probability)}>
+              {c.probability.toUpperCase()}
+            </Box>
+          </HStack>
+          <HStack align="flex-start" spacing={1.5} pl={4}>
+            <Text fontSize="2xs" color="gray.500" flexShrink={0}>→</Text>
+            <Text fontSize="xs" color="gray.300" lineHeight="short">{c.first_step}</Text>
+          </HStack>
+        </Box>
+      ))}
+    </VStack>
+  );
+}
+
+function ChecklistComponent({ data, msgId }: { data: ChecklistData; msgId: string }) {
+  const [checked, setChecked] = React.useState<Record<number, boolean>>({});
+  const toggle = (i: number) => setChecked((p) => ({ ...p, [i]: !p[i] }));
+  const done = Object.values(checked).filter(Boolean).length;
+  return (
+    <VStack align="stretch" spacing={1.5} w="full">
+      <HStack justify="space-between" mb={1}>
+        <Text fontSize="2xs" fontWeight="bold" color="gray.400" fontFamily="mono"
+          textTransform="uppercase" letterSpacing="wider">5-MINUTE CHECKLIST</Text>
+        <Text fontSize="2xs" color={done === data.steps.length ? 'green.400' : 'gray.500'}
+          fontFamily="mono">{done}/{data.steps.length}</Text>
+      </HStack>
+      {data.steps.map((step, i) => (
+        <Box key={`${msgId}-${i}`}
+          as="button" onClick={() => toggle(i)} textAlign="left" w="full"
+          bg={checked[i] ? 'gray.900' : 'gray.800'}
+          border="1px solid" borderColor={checked[i] ? 'gray.700' : 'gray.600'}
+          borderRadius="md" px={3} py={2} cursor="pointer"
+          _hover={{ borderColor: 'blue.600' }} transition="all 0.1s">
+          <HStack spacing={2.5} align="flex-start">
+            <Box
+              w={4} h={4} borderRadius="sm" border="1px solid"
+              borderColor={checked[i] ? 'green.500' : 'gray.500'}
+              bg={checked[i] ? 'green.500' : 'transparent'}
+              flexShrink={0} mt={0.5}
+              display="flex" alignItems="center" justifyContent="center">
+              {checked[i] && <Text fontSize="2xs" color="white" lineHeight={1}>✓</Text>}
+            </Box>
+            <Text fontSize="xs" color={checked[i] ? 'gray.500' : 'gray.200'}
+              lineHeight="short"
+              textDecoration={checked[i] ? 'line-through' : 'none'}>
+              {step}
+            </Text>
+          </HStack>
+        </Box>
+      ))}
+    </VStack>
+  );
+}
+
+function QuestionsList({ data }: { data: QuestionsData }) {
+  return (
+    <VStack align="stretch" spacing={2} w="full">
+      <Text fontSize="2xs" fontWeight="bold" color="gray.400" fontFamily="mono"
+        textTransform="uppercase" letterSpacing="wider" mb={1}>QUESTIONS TO ASK</Text>
+      {data.items.map((item, i) => (
+        <Box key={i} bg="gray.900" border="1px solid" borderColor="gray.700"
+          borderRadius="md" p={3}>
+          <Text fontSize="xs" color="white" fontWeight="semibold" lineHeight="short" mb={1.5}>
+            • {item.question}
+          </Text>
+          <HStack align="flex-start" spacing={1.5}>
+            <Text fontSize="2xs" color="blue.500" flexShrink={0} fontFamily="mono">WHY</Text>
+            <Text fontSize="2xs" color="gray.400" lineHeight="short" fontStyle="italic">
+              {item.reason}
+            </Text>
+          </HStack>
+        </Box>
+      ))}
+    </VStack>
+  );
+}
+
+// Helper: try parse structured data from message content
+function tryParseStructured(content: string): StructuredData | null {
+  try {
+    const m = content.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]) as StructuredData;
+    if ('type' in parsed && ['likely_causes','checklist','questions'].includes(parsed.type)) return parsed;
+  } catch { /* ignore */ }
+  return null;
+}
+
 export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: TicketContext | null; signals?: TicketSignals | null }) {
   const storageKey = `pilot_chat_${ticket.ticket_key}`;
   const [messages, setMessages] = useState<PilotMessage[]>(() => {
@@ -530,7 +658,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
     send(pinMsg);
   }
 
-  async function send(text: string, artifactType?: 'closing' | 'internal' | 'kb' | 'intel') {
+  async function send(text: string, artifactType?: 'closing' | 'internal' | 'kb' | 'intel', chipType?: string) {
     const msg = text.trim();
     if (!msg && pendingImages.length === 0) return;
     const imgs = pendingImages.map((p) => p.b64);
@@ -565,6 +693,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
           transcript: buildTranscript(messages),
           images: imgs,
           artifact_type: artifactType || null,
+          chip_type: chipType || null,
           working_memory: workingMemory,
         });
         const headers = { 'Content-Type': 'application/json' };
@@ -590,13 +719,11 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
             const { done, value } = await reader.read();
             if (done) break;
             buf += decoder.decode(value, { stream: true });
-            const lines = buf.split('
-');
+            const lines = buf.split('\n');
             buf = lines.pop() ?? '';
             for (const line of lines) {
               if (!line.startsWith('data:')) continue;
-              const chunk = line.slice(5).replace(/\n/g, '
-');
+              const chunk = line.slice(5).replace(/\n/g, '\n');
               if (chunk === '[DONE]') break;
               if (chunk.startsWith('[ERROR]')) { responseText = chunk; break; }
               accumulated += chunk;
@@ -606,7 +733,19 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
               ));
             }
           }
-          // Final state sync
+          // Final state sync — try to parse structured JSON for chip types
+          let streamStructured: StructuredData | null = null;
+          if (chipType && ['likely_causes', 'checklist', 'questions'].includes(chipType)) {
+            try {
+              const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
+              if (jsonMatch) streamStructured = JSON.parse(jsonMatch[0]) as StructuredData;
+            } catch { /* fallback to markdown */ }
+          }
+          if (streamStructured) {
+            setMessages((prev) => prev.map((m) =>
+              m.id === streamId ? { ...m, structured_data: streamStructured, chip_type: chipType } : m
+            ));
+          }
           setWorkingMemory((prev) => extractFacts(accumulated, prev));
           return; // skip the bottom setMessages call
         }
@@ -623,6 +762,17 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         if (data.intel_candidate) {
           setIntelCandidate(data.intel_candidate);
           setIntelSaved(false);
+        }
+        // Phase 25: structured data from API
+        if (data.structured_data) {
+          setMessages((prev) => [...prev, {
+            id: uid(), role: 'assistant', content: responseText,
+            timestamp: new Date(), artifact: artifactType,
+            chip_type: chipType, structured_data: data.structured_data as StructuredData,
+          }]);
+          setWorkingMemory((prev) => extractFacts(responseText, prev));
+          setLoading(false);
+          return;
         }
       }
       setWorkingMemory((prev) => extractFacts(responseText, prev));
@@ -724,7 +874,7 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
         <HStack px={2} py={1.5} spacing={1.5} flexWrap='wrap' borderBottom='1px solid'
           borderColor='gray.800' flexShrink={0}>
           {chips.map((chip) => (
-            <Box key={chip.label} as='button' onClick={() => send(chip.prompt, chip.artifact as 'closing' | 'internal' | 'kb' | 'intel' | undefined)}
+            <Box key={chip.label} as='button' onClick={() => send(chip.prompt, chip.artifact as 'closing' | 'internal' | 'kb' | 'intel' | undefined, chip.chip_type)}
               px={2} py={0.5} fontSize='2xs' fontFamily='mono' color='gray.300'
               bg='gray.800' borderRadius='sm' border='1px solid' borderColor='gray.700' whiteSpace='nowrap'
               _hover={{ bg: 'gray.700', color: 'white', borderColor: 'blue.600' }}
@@ -758,24 +908,40 @@ export function PilotPanel({ ticket, ctx, signals }: { ticket: Ticket; ctx: Tick
                   ))}
                 </HStack>
               )}
-              <Box
-                bg={m.role === 'user' ? 'blue.900' : 'gray.800'}
-                border='1px solid'
-                borderColor={m.role === 'user' ? 'blue.700' :
-                  m.artifact === 'closing' ? 'green.800' :
-                  m.artifact === 'internal' ? 'blue.800' :
-                  m.artifact === 'kb' ? 'purple.800' : 'gray.700'}
-                borderRadius={m.role === 'user' ? 'lg' : 'md'}
-                px={3} py={2}
-                sx={{
-                  fontSize: 'xs', color: 'gray.200', lineHeight: 'tall',
-                  ul: { pl: 3, my: 1 }, li: { mb: 0.5 },
-                  strong: { color: 'white' },
-                  code: { bg: 'gray.900', color: 'green.300', px: 1, borderRadius: 'sm', fontFamily: 'mono' },
-                  blockquote: { borderLeft: '2px solid', borderColor: 'blue.600', pl: 2, color: 'gray.400', fontStyle: 'italic' },
-                }}
-                dangerouslySetInnerHTML={{ __html: renderMd(m.content) }}
-              />
+              {(() => {
+                // Phase 25: try structured render first
+                const sd = m.structured_data ?? (m.chip_type ? tryParseStructured(m.content) : null);
+                if (sd) {
+                  return (
+                    <Box bg='gray.850' border='1px solid' borderColor='gray.700'
+                      borderRadius='md' px={3} py={3}>
+                      {sd.type === 'likely_causes' && <CauseCards data={sd} />}
+                      {sd.type === 'checklist' && <ChecklistComponent data={sd} msgId={m.id} />}
+                      {sd.type === 'questions' && <QuestionsList data={sd} />}
+                    </Box>
+                  );
+                }
+                return (
+                  <Box
+                    bg={m.role === 'user' ? 'blue.900' : 'gray.800'}
+                    border='1px solid'
+                    borderColor={m.role === 'user' ? 'blue.700' :
+                      m.artifact === 'closing' ? 'green.800' :
+                      m.artifact === 'internal' ? 'blue.800' :
+                      m.artifact === 'kb' ? 'purple.800' : 'gray.700'}
+                    borderRadius={m.role === 'user' ? 'lg' : 'md'}
+                    px={3} py={2}
+                    sx={{
+                      fontSize: 'xs', color: 'gray.200', lineHeight: 'tall',
+                      ul: { pl: 3, my: 1 }, li: { mb: 0.5 },
+                      strong: { color: 'white' },
+                      code: { bg: 'gray.900', color: 'green.300', px: 1, borderRadius: 'sm', fontFamily: 'mono' },
+                      blockquote: { borderLeft: '2px solid', borderColor: 'blue.600', pl: 2, color: 'gray.400', fontStyle: 'italic' },
+                    }}
+                    dangerouslySetInnerHTML={{ __html: renderMd(m.content) }}
+                  />
+                );
+              })()}
               {m.artifact && (
                 <Box as='button'
                   onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(m.content); }}
