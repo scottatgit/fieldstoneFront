@@ -430,6 +430,16 @@ I can see the context for this ticket.
   if (endpoint === '/api/billing/portal' && method === 'POST') {
     return { portal_url: 'https://billing.stripe.com/demo' };
   }
+  // Phase 35C — Blocker 2: Recovery endpoint mock
+  if (endpoint.includes('/billing/create-subscription') && method === 'POST') {
+    const tid = endpoint.split('/api/admin/tenants/')[1]?.split('/')[0];
+    return {
+      status: 'already_configured',
+      stripe_customer_id: 'cus_demo123',
+      stripe_subscription_id: 'sub_demo456',
+      tenant_id: tid ?? 'demo',
+    };
+  }
   if (endpoint === '/api/admin/tenants/acmedental/billing') {
     return {
       name: 'Acme Dental', plan: 'pro', billing_status: 'active',
