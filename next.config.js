@@ -32,11 +32,11 @@ module.exports = {
       rules.push(
         {
           source: '/api/:path*',
-          destination: 'https://api.kreationation.com/api/:path*',
+          destination: 'https://api.brandie.cc/api/:path*',
         },
         {
           source: '/uploads/:path*',
-          destination: 'https://api.kreationation.com/uploads/:path*',
+          destination: 'https://api.brandie.cc/uploads/:path*',
         }
       );
 
