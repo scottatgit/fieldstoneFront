@@ -15,6 +15,7 @@ import { useRef } from 'react';
 import { SummaryBar } from '../../../../components/pm/SummaryBar';
 import type { Summary } from '../../../../components/pm/types';
 import { isDemoMode, demoFetch } from '../../../../lib/demoApi';
+import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_PM_API_URL || '/pm-api';
 
@@ -29,6 +30,10 @@ interface Tenant {
   created_at: string;
   clerk_org_id: string | null;
   stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+  suspended_by: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -82,7 +87,7 @@ export default function ClientsPage() {
 
   // Create form state
   const [form, setForm] = useState({ name: '', subdomain: '', plan: 'starter' });
-  const [editForm, setEditForm] = useState({ name: '', plan: '', billing_status: '' });
+  const [editForm, setEditForm] = useState({ name: '', plan: '', billing_status: '', trial_ends_at: '' as string | null });
   const [saving, setSaving] = useState(false);
 
   const adminHeaders = {
@@ -145,7 +150,7 @@ export default function ClientsPage() {
 
   function startEdit(t: Tenant) {
     setAction(t);
-    setEditForm({ name: t.name, plan: t.plan, billing_status: t.billing_status });
+    setEditForm({ name: t.name, plan: t.plan, billing_status: t.billing_status, trial_ends_at: t.trial_ends_at?.slice(0, 10) ?? '' });
     openEdit();
   }
 
@@ -153,10 +158,13 @@ export default function ClientsPage() {
     if (!actionTenant) return;
     setSaving(true);
     try {
+      const patchBody = Object.fromEntries(
+        Object.entries(editForm).filter(([, v]) => v !== null && v !== '')
+      );
       const res = await fetch(`${API_BASE}/api/admin/tenants/${actionTenant.id}`, {
         method: 'PATCH',
         headers: adminHeaders,
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(patchBody),
       });
       if (!res.ok) throw new Error('Update failed');
       toast({ title: 'Tenant updated', status: 'success', duration: 2500 });
@@ -236,6 +244,7 @@ export default function ClientsPage() {
                   <Th color="gray.400" borderColor="gray.700">Status</Th>
                   <Th color="gray.400" borderColor="gray.700">Trial Ends</Th>
                   <Th color="gray.400" borderColor="gray.700">Created</Th>
+                  <Th color="gray.400" borderColor="gray.700">Users</Th>
                   <Th color="gray.400" borderColor="gray.700">Actions</Th>
                 </Tr>
               </Thead>
@@ -246,7 +255,13 @@ export default function ClientsPage() {
                     opacity={t.billing_status === 'suspended' ? 0.6 : 1}
                   >
                     <Td borderColor="gray.700">
-                      <Text fontWeight="semibold" fontSize="sm" color="gray.100">{t.name}</Text>
+                      <Link href={`/pm/admin/clients/${t.id}`} style={{ textDecoration: 'none' }}>
+                        <Text fontWeight="semibold" fontSize="sm" color="blue.200"
+                          _hover={{ color: 'blue.400', textDecoration: 'underline' }}
+                          cursor="pointer">
+                          {t.name}
+                        </Text>
+                      </Link>
                       <Text fontSize="2xs" color="gray.500" fontFamily="mono">{t.id}</Text>
                     </Td>
                     <Td borderColor="gray.700">
@@ -259,6 +274,11 @@ export default function ClientsPage() {
                     </Td>
                     <Td borderColor="gray.700">
                       <Text fontSize="xs" color="gray.500">{fmtDate(t.created_at)}</Text>
+                    </Td>
+                    <Td borderColor="gray.700">
+                      <Link href={`/pm/admin/clients/${t.id}`} style={{ textDecoration: 'none' }}>
+                        <Text fontSize="xs" color="gray.500" _hover={{ color: 'blue.400' }}>—</Text>
+                      </Link>
                     </Td>
                     <Td borderColor="gray.700">
                       <HStack spacing={1}>
@@ -409,6 +429,16 @@ export default function ClientsPage() {
                   </Select>
                 </FormControl>
               )}
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.300">Trial Ends At</FormLabel>
+                <Input
+                  bg="gray.800" border="1px solid" borderColor="gray.600"
+                  color="white" size="sm"
+                  type="date"
+                  value={editForm.trial_ends_at ?? ''}
+                  onChange={e => setEditForm(f => ({ ...f, trial_ends_at: e.target.value }))}
+                />
+              </FormControl>
             </VStack>
           </ModalBody>
           <ModalFooter gap={2}>

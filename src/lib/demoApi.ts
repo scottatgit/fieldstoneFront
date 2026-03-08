@@ -274,35 +274,40 @@ I can see the context for this ticket.
           plan: 'internal', billing_status: 'internal',
           trial_ends_at: null,
           created_at: '2026-03-06T02:35:35.000Z',
-          clerk_org_id: null, stripe_customer_id: null,
+          clerk_org_id: null, stripe_customer_id: null, stripe_subscription_id: null,
+          suspension_reason: null, suspended_at: null, suspended_by: null,
         },
         {
           id: 'demo', name: 'Fieldstone Demo', subdomain: 'demo',
           plan: 'demo', billing_status: 'demo',
           trial_ends_at: null,
           created_at: '2026-03-06T02:52:19.000Z',
-          clerk_org_id: null, stripe_customer_id: null,
+          clerk_org_id: null, stripe_customer_id: null, stripe_subscription_id: null,
+          suspension_reason: null, suspended_at: null, suspended_by: null,
         },
         {
           id: 'tower', name: 'Fieldstone', subdomain: 'tower',
           plan: 'starter', billing_status: 'trial',
           trial_ends_at: '2026-03-20T19:43:04.000Z',
           created_at: '2026-03-06T19:43:04.000Z',
-          clerk_org_id: 'org_tower_1772826183935', stripe_customer_id: null,
+          clerk_org_id: 'org_tower_1772826183935', stripe_customer_id: null, stripe_subscription_id: null,
+          suspension_reason: null, suspended_at: null, suspended_by: null,
         },
         {
           id: 'acmedental', name: 'Acme Dental Group', subdomain: 'acmedental',
           plan: 'pro', billing_status: 'active',
           trial_ends_at: null,
           created_at: '2026-02-15T10:00:00.000Z',
-          clerk_org_id: 'org_acme_demo', stripe_customer_id: 'cus_demo_acme',
+          clerk_org_id: 'org_acme_demo', stripe_customer_id: 'cus_demo_acme', stripe_subscription_id: 'sub_demo_acme_001',
+          suspension_reason: null, suspended_at: null, suspended_by: null,
         },
         {
           id: 'brightsmiledds', name: 'BrightSmile DDS', subdomain: 'brightsmiledds',
           plan: 'starter', billing_status: 'suspended',
           trial_ends_at: '2026-02-28T00:00:00.000Z',
           created_at: '2026-02-01T08:00:00.000Z',
-          clerk_org_id: null, stripe_customer_id: null,
+          clerk_org_id: null, stripe_customer_id: null, stripe_subscription_id: null,
+          suspension_reason: 'Non-payment for 45 days', suspended_at: '2026-02-28T00:00:00.000Z', suspended_by: 'admin',
         },
       ],
     };
@@ -312,6 +317,101 @@ I can see the context for this ticket.
     return { id: 'demo-new', name: _b['name'] ?? 'New', subdomain: _b['subdomain'] ?? 'new',
              plan: _b['plan'] ?? 'starter', billing_status: 'trial',
              trial_ends_at: '2026-03-21T00:00:00.000Z', created_at: new Date().toISOString() };
+  }
+  // ── Phase 35A: Admin Tenant Detail mocks ────────────────────────────────────
+  if (endpoint === '/api/admin/tenants/acmedental' && method === 'GET') {
+    return {
+      id: 'acmedental', name: 'Acme Dental Group', subdomain: 'acmedental',
+      plan: 'pro', billing_status: 'active',
+      trial_starts_at: null, trial_ends_at: null,
+      created_at: '2026-02-15T10:00:00.000Z',
+      updated_at: '2026-03-01T14:22:00.000Z',
+      clerk_org_id: 'org_acme_demo',
+      stripe_customer_id: 'cus_demo_acme',
+      stripe_subscription_id: 'sub_demo_acme_001',
+      suspension_reason: null, suspended_at: null, suspended_by: null,
+      setup: {
+        has_org: true,
+        imap_connected: true,
+        ai_configured: true,
+        notifications_configured: false,
+        first_ingestion_at: '2026-02-16T09:15:00.000Z',
+        activation_state: 'active' as const,
+        setup_completion_pct: 80,
+      },
+    };
+  }
+  if (endpoint === '/api/admin/tenants/acmedental/users') {
+    const now = Date.now();
+    return {
+      total_users: 4,
+      active_last_30_days: 3,
+      pilot_count: 1,
+      billable_seat_candidate_count: 2,
+      role_breakdown: { tenant_admin: 1, technician: 2, assistant: 1 },
+      items: [
+        {
+          id: 'u-acme-1', name: 'Dr. Karen Acme', email: 'karen@acmedental.com',
+          role: 'tenant_admin', assigned_to_alias: 'Karen',
+          last_active_at: new Date(now - 2 * 3600000).toISOString(),
+          has_clerk_user: true, active_last_30d: true,
+        },
+        {
+          id: 'u-acme-2', name: 'James Wright', email: 'james@acmedental.com',
+          role: 'technician', assigned_to_alias: 'James',
+          last_active_at: new Date(now - 18 * 3600000).toISOString(),
+          has_clerk_user: true, active_last_30d: true,
+        },
+        {
+          id: 'u-acme-3', name: 'Maria Santos', email: 'maria@acmedental.com',
+          role: 'technician', assigned_to_alias: 'Maria',
+          last_active_at: new Date(now - 72 * 3600000).toISOString(),
+          has_clerk_user: true, active_last_30d: true,
+        },
+        {
+          id: 'u-acme-pilot', name: 'Pilot', email: null,
+          role: 'assistant', assigned_to_alias: 'Pilot',
+          last_active_at: new Date(now - 3600000).toISOString(),
+          has_clerk_user: false, active_last_30d: true,
+        },
+      ],
+    };
+  }
+  if (endpoint === '/api/admin/tenants/acmedental/usage') {
+    return {
+      ticket_count: 143,
+      intel_count: 27,
+      outbreak_count: 1,
+      last_user_activity_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+      last_ticket_created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
+      latest_ingestion_at: new Date(Date.now() - 6 * 3600000).toISOString(),
+      tenant_state_summary: 'active' as const,
+    };
+  }
+  if (endpoint === '/api/admin/tenants/acmedental/ingestion') {
+    const base = Date.now();
+    return {
+      total: 5,
+      items: [
+        { ticket_id: 'TKT-8821', status: 'completed', error: null, started_at: new Date(base - 6*3600000).toISOString(), completed_at: new Date(base - 6*3600000 + 4200).toISOString(), created_at: new Date(base - 6*3600000).toISOString(), duration_ms: 4200 },
+        { ticket_id: 'TKT-8820', status: 'completed', error: null, started_at: new Date(base - 12*3600000).toISOString(), completed_at: new Date(base - 12*3600000 + 3800).toISOString(), created_at: new Date(base - 12*3600000).toISOString(), duration_ms: 3800 },
+        { ticket_id: 'TKT-8819', status: 'failed', error: '[ask_json] Empty response from AI (caller=ai_extract_structured:TKT-8819)', started_at: new Date(base - 18*3600000).toISOString(), completed_at: null, created_at: new Date(base - 18*3600000).toISOString(), duration_ms: null },
+        { ticket_id: 'TKT-8818', status: 'completed', error: null, started_at: new Date(base - 24*3600000).toISOString(), completed_at: new Date(base - 24*3600000 + 5100).toISOString(), created_at: new Date(base - 24*3600000).toISOString(), duration_ms: 5100 },
+        { ticket_id: 'TKT-8817', status: 'completed', error: null, started_at: new Date(base - 30*3600000).toISOString(), completed_at: new Date(base - 30*3600000 + 3200).toISOString(), created_at: new Date(base - 30*3600000).toISOString(), duration_ms: 3200 },
+      ],
+    };
+  }
+  if (endpoint === '/api/admin/tenants/acmedental' && method === 'PATCH') {
+    return {
+      id: 'acmedental', name: 'Acme Dental Group', subdomain: 'acmedental',
+      plan: (body as Record<string,unknown>)?.plan ?? 'pro',
+      billing_status: (body as Record<string,unknown>)?.billing_status ?? 'active',
+      trial_ends_at: (body as Record<string,unknown>)?.trial_ends_at ?? null,
+      stripe_customer_id: 'cus_demo_acme',
+      stripe_subscription_id: 'sub_demo_acme_001',
+      suspension_reason: null, suspended_at: null, suspended_by: null,
+      updated_at: new Date().toISOString(),
+    };
   }
   if (endpoint.match(/\/api\/admin\/tenants\/[^/]+\/suspend/)) {
     return { billing_status: 'suspended', message: 'Demo: tenant toggled.' };
