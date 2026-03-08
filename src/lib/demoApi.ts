@@ -369,6 +369,35 @@ I can see the context for this ticket.
     return { ticket_key: key, risk_score: 0, risk_level: 'normal', tool_ids: [], patterns: [] };
   }
 
+  // ── Phase 33: Setup endpoints ─────────────────────────────────────────────
+  if (endpoint === '/api/setup/status') {
+    return {
+      organization: true,
+      imap_connected: false,
+      ai_configured: true,
+      first_ingestion_complete: true,
+      first_ingestion_at: '2026-03-01T10:00:00',
+      imap_config: {},
+      ai_config: { provider: 'openai', model: 'gpt-4o-mini' },
+      notification_config: {},
+    };
+  }
+  if (endpoint === '/api/setup/imap/test' && method === 'POST') {
+    return { status: 'ok', message: 'Connected to imap.gmail.com. INBOX has 142 messages.' };
+  }
+  if (endpoint === '/api/setup/imap/save' && method === 'POST') {
+    return { status: 'ok', message: 'IMAP configuration saved.' };
+  }
+  if (endpoint === '/api/setup/ai/save' && method === 'POST') {
+    return { status: 'ok', message: 'AI configuration saved.' };
+  }
+  if (endpoint === '/api/setup/notifications/save' && method === 'POST') {
+    return { status: 'ok', message: 'Notification settings saved.' };
+  }
+  if (endpoint === '/api/ingest/run' && method === 'POST') {
+    return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
+  }
+
   // ── Fallback ──────────────────────────────────────────────────────────────
   console.warn('[demoApi] Unmatched endpoint:', endpoint);
   return {};

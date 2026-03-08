@@ -106,6 +106,31 @@ const SECTIONS: { title: string; icon: string; fields: FieldDef[] }[] = [
       { key: 'GITHUB_TOKEN', label: 'Personal Access Token', secret: true, placeholder: 'github_pat_...', helper: 'Required for repo sync' },
     ],
   },
+  {
+    title: 'Notifications',
+    icon: '\U0001f514',
+    fields: [
+      { key: 'slack_webhook',       label: 'Slack Webhook URL',   placeholder: 'https://hooks.slack.com/services/...' },
+      { key: 'discord_webhook',     label: 'Discord Webhook URL', placeholder: 'https://discord.com/api/webhooks/...' },
+      { key: 'email_alerts',        label: 'Alert Email Address', placeholder: 'ops@yourcompany.com' },
+      { key: '_notif_events',       label: 'Notify on Events',    type: 'heading' as const },
+      { key: 'notify_outbreak',     label: 'Outbreak Detected',   placeholder: 'true' },
+      { key: 'notify_trial_ending', label: 'Trial Ending',        placeholder: 'true' },
+      { key: 'notify_suspended',    label: 'Tenant Suspended',    placeholder: 'true' },
+      { key: 'notify_pattern',      label: 'Pattern Emerging',    placeholder: 'true' },
+    ],
+  },
+  {
+    title: 'Platform',
+    icon: '\U0001f3e2',
+    fields: [
+      { key: '_platform_info',   label: 'Tenant Information', type: 'heading' as const, helper: 'Contact support to change plan or subdomain' },
+      { key: 'TENANT_NAME',     label: 'Organization Name',  placeholder: 'Your organization name' },
+      { key: 'TENANT_SUBDOMAIN',label: 'Subdomain',          placeholder: 'yourcompany.fieldstone.pro', helper: 'Read-only' },
+      { key: 'TENANT_PLAN',     label: 'Plan',               placeholder: 'starter', helper: 'Read-only' },
+      { key: 'TENANT_TRIAL',    label: 'Trial Ends',         placeholder: 'N/A', helper: 'Read-only' },
+    ],
+  },
 ];
 
 // ─── Single field row ─────────────────────────────────────────────────────────
@@ -295,6 +320,58 @@ function OAuthConnectButton({ provider, onSuccess }: { provider: string; onSucce
 }
 
 // ─── Main SetupPanel ──────────────────────────────────────────────────────────
+// ─── Setup Status Panel ────────────────────────────────────────────────────
+interface SetupStatus {
+  organization: boolean;
+  imap_connected: boolean;
+  ai_configured: boolean;
+  first_ingestion_complete: boolean;
+}
+
+function SetupStatusPanel({ status, loading }: { status: SetupStatus | null; loading: boolean }) {
+  const steps: { key: keyof SetupStatus; label: string }[] = [
+    { key: 'organization',             label: 'Organization created' },
+    { key: 'imap_connected',           label: 'Ticket inbox connected' },
+    { key: 'first_ingestion_complete', label: 'First ingestion run' },
+    { key: 'ai_configured',            label: 'AI configured' },
+  ];
+  const completed = status ? steps.filter(s => status[s.key]).length : 0;
+  const pct = Math.round((completed / steps.length) * 100);
+  return (
+    <Box mx={4} mt={4} mb={2} p={4} bg="gray.800" borderRadius="md"
+      border="1px solid" borderColor={pct === 100 ? 'green.600' : 'blue.700'}>
+      <HStack justify="space-between" mb={3}>
+        <Text fontSize="xs" fontFamily="mono" color="blue.300"
+          textTransform="uppercase" letterSpacing="wider" fontWeight="bold">
+          ⚡ Signal Activation
+        </Text>
+        {loading ? <Spinner size="xs" color="blue.400" /> : (
+          <Badge colorScheme={pct === 100 ? 'green' : 'blue'} fontSize="10px" fontFamily="mono">
+            {completed}/{steps.length} COMPLETE
+          </Badge>
+        )}
+      </HStack>
+      <Box bg="gray.700" borderRadius="full" h="4px" mb={3}>
+        <Box bg={pct === 100 ? 'green.400' : 'blue.400'} borderRadius="full"
+          h="4px" w={pct + '%'} transition="width 0.4s ease" />
+      </Box>
+      <VStack spacing={1} align="stretch">
+        {steps.map(step => (
+          <HStack key={step.key} spacing={2}>
+            <Text fontSize="xs" color={status?.[step.key] ? 'green.400' : 'gray.500'}>
+              {status?.[step.key] ? '✓' : '○'}
+            </Text>
+            <Text fontSize="xs" fontFamily="mono"
+              color={status?.[step.key] ? 'white' : 'gray.500'}>
+              {step.label}
+            </Text>
+          </HStack>
+        ))}
+      </VStack>
+    </Box>
+  );
+}
+
 export function SetupPanel() {
   const toast   = useToast();
   const [settings, setSettings] = useState<SettingsMap>({});
@@ -303,6 +380,19 @@ export function SetupPanel() {
   const [aiTest,  setAiTest]    = useState<TestResult>({ status: 'idle', message: '' });
   const [emailTest, setEmailTest] = useState<TestResult>({ status: 'idle', message: '' });
   const [aiUsage, setAiUsage]   = useState<any>(null);
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [ingestRunning, setIngestRunning] = useState(false);
+
+  const loadSetupStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const res = await fetch(`${PM_API}/api/setup/status`);
+      const data = await res.json();
+      setSetupStatus(data);
+    } catch { /* ignore */ }
+    finally { setStatusLoading(false); }
+  }, []);
 
   // Load settings
   const loadSettings = useCallback(async () => {
@@ -327,10 +417,29 @@ export function SetupPanel() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadSettings(); loadAiUsage(); }, [loadSettings, loadAiUsage]);
+  useEffect(() => { loadSettings(); loadAiUsage(); loadSetupStatus(); }, [loadSettings, loadAiUsage, loadSetupStatus]);
 
   const handleChange = (key: string, val: string) => {
     setSettings(prev => ({ ...prev, [key]: val }));
+  };
+
+  const handleRunIngest = async () => {
+    setIngestRunning(true);
+    try {
+      const res = await fetch(`${PM_API}/api/ingest/run`, { method: 'POST' });
+      const data = await res.json();
+      toast({
+        title: data.status === 'started' ? '🚀 Ingestion Started' : '⚠ Error',
+        description: data.message,
+        status: data.status === 'started' ? 'info' : 'error',
+        duration: 5000,
+      });
+      if (data.status === 'started') setTimeout(() => loadSetupStatus(), 8000);
+    } catch (e) {
+      toast({ title: 'Ingestion failed', description: String(e), status: 'error', duration: 4000 });
+    } finally {
+      setIngestRunning(false);
+    }
   };
 
   // Save
@@ -426,6 +535,9 @@ export function SetupPanel() {
         </HStack>
       </Flex>
 
+      {/* Setup Activation Status */}
+      <SetupStatusPanel status={setupStatus} loading={statusLoading} />
+
       {/* Scrollable body */}
       <Box flex={1} overflowY="auto" p={4}
         css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748' } }}
@@ -517,6 +629,21 @@ export function SetupPanel() {
                         </Text>
                       </HStack>
                       <TestBadge result={emailTest} />
+                      <Box mt={3}>
+                        <Divider borderColor="gray.700" mb={3} />
+                        <HStack spacing={3}>
+                          <Button
+                            size="sm" colorScheme="orange"
+                            onClick={handleRunIngest}
+                            isLoading={ingestRunning}
+                            loadingText="Running..."
+                            fontFamily="mono" fontSize="xs" letterSpacing="wider"
+                          >
+                            🚀 RUN FIRST INGESTION
+                          </Button>
+                          <Text fontSize="xs" color="gray.600">Scans inbox and imports tickets</Text>
+                        </HStack>
+                      </Box>
                     </Box>
                   )}
                 </VStack>
