@@ -31,7 +31,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
   const demo       = isDemoMode();
   const { user }   = useUser();
   // Admin: Clerk role === 'admin', or demo mode (showcase)
-  const isAdmin    = demo || (user?.publicMetadata?.role as string | undefined) === 'admin';
+  const isAdmin    = (user?.publicMetadata?.role as string | undefined) === 'admin';
 
   const navBar = (
     <Flex

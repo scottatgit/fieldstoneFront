@@ -91,13 +91,6 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
-  // Forward role to backend so API can enforce admin guards without re-verifying JWT
-  if (isAdminRoute(req)) {
-    // @ts-expect-error: publicMetadata typed loosely by Clerk SDK
-    const fwdRole = (auth().sessionClaims?.publicMetadata?.role as string) || '';
-    if (fwdRole) requestHeaders.set('x-user-role', fwdRole);
-  }
-
   if (isProtectedRoute(req)) {
     const { userId } = auth();
     if (!userId) {
