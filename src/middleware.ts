@@ -53,11 +53,31 @@ function shouldBypassAuth(req: NextRequest): boolean {
   return false;
 }
 
+const ADMIN_ROUTES = ['/pm/admin'];
+const ADMIN_TENANT  = 'ipquest';
+
+/**
+ * Returns true if this request is for an admin-only route.
+ */
+function isAdminRoute(req: NextRequest): boolean {
+  const { pathname } = req.nextUrl;
+  return ADMIN_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
+}
+
 /**
  * Pass-through middleware — used when auth should be bypassed
  */
 function bypassMiddleware(req: NextRequest): NextResponse {
   const tenant = extractTenant(req);
+
+  // Block non-admin tenants from /pm/admin/* routes
+  if (isAdminRoute(req) && tenant !== ADMIN_TENANT) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/pm';
+    url.searchParams.set('error', 'admin_required');
+    return NextResponse.redirect(url);
+  }
+
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
   return NextResponse.next({ request: { headers: requestHeaders } });
@@ -68,6 +88,15 @@ function bypassMiddleware(req: NextRequest): NextResponse {
  */
 const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   const tenant = extractTenant(req);
+
+  // Block non-admin tenants from /pm/admin/* routes (same guard as bypassMiddleware)
+  if (isAdminRoute(req) && tenant !== ADMIN_TENANT) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/pm';
+    url.searchParams.set('error', 'admin_required');
+    return NextResponse.redirect(url);
+  }
+
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
 

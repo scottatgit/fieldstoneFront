@@ -4,16 +4,21 @@ import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { isDemoMode } from '../../lib/demoApi';
+import { isDemoMode, getActiveTenant } from '../../lib/demoApi';
 
-const NAV_TABS = [
+const BASE_TABS = [
   { label: 'TODAY',  href: '/pm'        },
   { label: 'INTEL',  href: '/pm/intel'  },
   { label: 'SETUP',  href: '/pm/setup'  },
   { label: 'DOCS',   href: '/pm/docs'   },
   { label: 'ADMIN',  href: '/pm/admin'  },
+];
+
+const ADMIN_TABS = [
   { label: 'CLIENTS', href: '/pm/admin/clients' },
 ];
+
+const ADMIN_TENANT = 'ipquest';
 
 const COMING_SOON_MODULES = [
   { label: 'OPS',   tag: 'Coming Soon' },
@@ -55,7 +60,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
       <HStack spacing={0} align="stretch" flex={1}>
 
         {/* ── Tickets module tabs ── */}
-        {NAV_TABS.map(tab => {
+        {[...BASE_TABS, ...((() => { try { return getActiveTenant() === ADMIN_TENANT ? ADMIN_TABS : []; } catch { return []; } })())].map(tab => {
           const isActive =
             tab.href === '/pm'
               ? pathname === '/pm'
