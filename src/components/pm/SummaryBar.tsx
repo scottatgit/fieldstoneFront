@@ -12,6 +12,7 @@ const NAV_TABS = [
   { label: 'SETUP',  href: '/pm/setup'  },
   { label: 'DOCS',   href: '/pm/docs'   },
   { label: 'ADMIN',  href: '/pm/admin'  },
+  { label: 'CLIENTS', href: '/pm/admin/clients' },
 ];
 
 const COMING_SOON_MODULES = [

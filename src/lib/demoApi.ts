@@ -265,6 +265,64 @@ I can see the context for this ticket.
     return { pilot_system_description: 'You are Pilot, a field technician copilot for dental IT environments. Be concise, practical, and step-oriented. Assume the technician is onsite and time-pressured.' };
   }
 
+  // ── Phase 31: Admin tenant management ───────────────────────────────────────
+  if (endpoint === '/api/admin/tenants' && method === 'GET') {
+    return {
+      tenants: [
+        {
+          id: 'ipquest', name: 'IPQuest', subdomain: 'ipquest',
+          plan: 'internal', billing_status: 'internal',
+          trial_ends_at: null,
+          created_at: '2026-03-06T02:35:35.000Z',
+          clerk_org_id: null, stripe_customer_id: null,
+        },
+        {
+          id: 'demo', name: 'Fieldstone Demo', subdomain: 'demo',
+          plan: 'demo', billing_status: 'demo',
+          trial_ends_at: null,
+          created_at: '2026-03-06T02:52:19.000Z',
+          clerk_org_id: null, stripe_customer_id: null,
+        },
+        {
+          id: 'tower', name: 'Fieldstone', subdomain: 'tower',
+          plan: 'starter', billing_status: 'trial',
+          trial_ends_at: '2026-03-20T19:43:04.000Z',
+          created_at: '2026-03-06T19:43:04.000Z',
+          clerk_org_id: 'org_tower_1772826183935', stripe_customer_id: null,
+        },
+        {
+          id: 'acmedental', name: 'Acme Dental Group', subdomain: 'acmedental',
+          plan: 'pro', billing_status: 'active',
+          trial_ends_at: null,
+          created_at: '2026-02-15T10:00:00.000Z',
+          clerk_org_id: 'org_acme_demo', stripe_customer_id: 'cus_demo_acme',
+        },
+        {
+          id: 'brightsmiledds', name: 'BrightSmile DDS', subdomain: 'brightsmiledds',
+          plan: 'starter', billing_status: 'suspended',
+          trial_ends_at: '2026-02-28T00:00:00.000Z',
+          created_at: '2026-02-01T08:00:00.000Z',
+          clerk_org_id: null, stripe_customer_id: null,
+        },
+      ],
+    };
+  }
+  if (endpoint === '/api/admin/tenants' && method === 'POST') {
+    const _b = (body ?? {}) as Record<string, string>;
+    return { id: 'demo-new', name: _b['name'] ?? 'New', subdomain: _b['subdomain'] ?? 'new',
+             plan: _b['plan'] ?? 'starter', billing_status: 'trial',
+             trial_ends_at: '2026-03-21T00:00:00.000Z', created_at: new Date().toISOString() };
+  }
+  if (endpoint.match(/\/api\/admin\/tenants\/[^/]+\/suspend/)) {
+    return { billing_status: 'suspended', message: 'Demo: tenant toggled.' };
+  }
+  if (endpoint.match(/\/api\/admin\/tenants\/[^/]+/) && method === 'PATCH') {
+    return { id: 'demo', ...(body as Record<string, unknown>) };
+  }
+  if (endpoint.match(/\/api\/admin\/tenants\/[^/]+/) && method === 'DELETE') {
+    return { deleted: 'demo', message: 'Demo: tenant deleted.' };
+  }
+
   // ── Phase 30: Ticket risk intelligence ──────────────────────────────────────
   if (endpoint.match(/\/api\/tickets\/[^/]+\/risk/)) {
     const keyMatch = endpoint.match(/tickets\/([^/]+)/);
