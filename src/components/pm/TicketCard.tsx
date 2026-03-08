@@ -1,11 +1,29 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { Box, Badge, Flex, HStack, VStack, Text } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
+import { isDemoMode, demoFetch } from '../../lib/demoApi';
 
 const MotionBox = motion(Box as any);
 
+// ── Risk types ───────────────────────────────────────────────────────────────
+interface RiskPattern {
+  pattern: string;
+  tool_id: string | null;
+  trend_status: 'emerging' | 'outbreak';
+  occurrences: number;
+  clients: number;
+}
+
+interface TicketRisk {
+  risk_score: number;
+  risk_level: 'normal' | 'watch' | 'high';
+  patterns: RiskPattern[];
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function cleanTitle(raw: string | null | undefined): string {
   if (!raw) return '';
   let t = raw.replace(/[\r\n]+/g, ' ').trim();
@@ -17,10 +35,8 @@ function cleanTitle(raw: string | null | undefined): string {
 
 function formatVisitTime(raw: string | null | undefined): string {
   if (!raw) return '';
-  // 'Mon 2/9/2026 3:00:00 PM' -> 'Mon Feb 9 · 3pm'
   const m = raw.match(/(\w+)\s+(\d+)\/(\d+)\/\d+\s+(\d+):\d+:\d+\s+(AM|PM)/i);
   if (m) return `${m[1]} ${m[2]}/${m[3]} · ${m[4]}${m[5].toLowerCase()}`;
-  // ISO: 2026-03-02T10:30:00
   const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (iso) {
     const d = new Date(raw);
@@ -29,6 +45,52 @@ function formatVisitTime(raw: string | null | undefined): string {
   return raw.slice(0, 16);
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_PM_API_URL || '/pm-api';
+
+// ── Risk banner ──────────────────────────────────────────────────────────────
+function RiskBanner({ risk }: { risk: TicketRisk }) {
+  if (risk.risk_score < 30 || risk.patterns.length === 0) return null;
+
+  const isHigh    = risk.risk_level === 'high';
+  const isOutbreak = risk.patterns.some(p => p.trend_status === 'outbreak');
+  const topPattern = risk.patterns[0];
+
+  const borderColor = isHigh ? 'red.600'    : 'orange.600';
+  const bgColor     = isHigh ? 'red.900'    : 'orange.900';
+  const textColor   = isHigh ? 'red.200'    : 'orange.200';
+  const badgeColor  = isHigh ? 'red'        : 'orange';
+  const label       = isOutbreak ? '🚨 OUTBREAK PATTERN' : '⚠️ PATTERN DETECTED';
+
+  return (
+    <Box
+      border="1px solid"
+      borderColor={borderColor}
+      bg={bgColor}
+      borderRadius="sm"
+      px={2}
+      py={1.5}
+    >
+      <Flex justify="space-between" align="center" mb={0.5}>
+        <Text fontSize="2xs" fontWeight="bold" color={textColor} letterSpacing="wide">
+          {label}
+        </Text>
+        <Badge fontSize="2xs" colorScheme={badgeColor} variant="solid">
+          {risk.risk_score}
+        </Badge>
+      </Flex>
+      <Text fontSize="2xs" color={textColor} opacity={0.85} noOfLines={1}>
+        {topPattern.pattern}
+      </Text>
+      <HStack spacing={2} mt={0.5}>
+        <Text fontSize="2xs" color={textColor} opacity={0.7}>
+          {topPattern.occurrences} occurrences · {topPattern.clients} clients
+        </Text>
+      </HStack>
+    </Box>
+  );
+}
+
+// ── Main card ────────────────────────────────────────────────────────────────
 interface TicketCardProps {
   ticket: Ticket;
   onClick: (ticket: Ticket) => void;
@@ -36,19 +98,52 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
+  const [risk, setRisk] = useState<TicketRisk | null>(null);
+
+  // Lazy-load risk data on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchRisk() {
+      try {
+        let data: unknown;
+        if (isDemoMode()) {
+          data = await demoFetch(`/api/tickets/${ticket.ticket_key}/risk`);
+        } else {
+          const res = await fetch(`${API_BASE}/api/tickets/${ticket.ticket_key}/risk`);
+          if (!res.ok) return;
+          data = await res.json();
+        }
+        if (!cancelled && data && typeof data === 'object') {
+          const r = data as TicketRisk;
+          if (r.risk_score >= 30) setRisk(r);
+        }
+      } catch {
+        // silent — risk banner is non-critical
+      }
+    }
+    fetchRisk();
+    return () => { cancelled = true; };
+  }, [ticket.ticket_key]);
+
   const clientName   = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'Unknown';
   const displayTitle = ticket.situation?.trim() || ticket.title_clean || cleanTitle(ticket.title);
   const isDeclining  = (ticket.trust_score ?? 100) < 40;
   const isLowReady   = (ticket.readiness_score ?? 100) < 50;
-
-  // Effective visit time: PM-set takes priority, fallback to email Date Assigned
-  const visitTime = ticket.effective_visit_time || ticket.visit_datetime || ticket.appointment_at;
+  const visitTime    = ticket.effective_visit_time || ticket.visit_datetime || ticket.appointment_at;
   const visitDisplay = formatVisitTime(visitTime);
-
-  // Contact info
   const contactName  = ticket.contact_name || null;
   const contactPhone = ticket.contact_phone || null;
   const assignedTo   = ticket.assigned_to || null;
+
+  // If risk is high, override card border
+  const hasHighRisk = risk && risk.risk_level === 'high';
+  const hasWatchRisk = risk && risk.risk_level === 'watch';
+  const borderColor = isSelected ? 'blue.500'
+    : hasHighRisk   ? 'red.600'
+    : hasWatchRisk  ? 'orange.600'
+    : isDeclining   ? 'red.800'
+    : isLowReady    ? 'yellow.900'
+    : 'gray.700';
 
   return (
     <MotionBox
@@ -61,7 +156,7 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
       cursor="pointer"
       bg={isSelected ? 'blue.900' : 'gray.800'}
       border="1px solid"
-      borderColor={isSelected ? 'blue.500' : isDeclining ? 'red.800' : isLowReady ? 'yellow.900' : 'gray.700'}
+      borderColor={borderColor}
       borderRadius="md"
       p={3}
       _hover={{ borderColor: isSelected ? 'blue.400' : 'gray.500', bg: isSelected ? 'blue.900' : 'gray.750' }}
@@ -83,7 +178,7 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
           <TrustDot score={ticket.trust_score} />
         </Flex>
 
-        {/* Row 2: Visit time (prominent) */}
+        {/* Row 2: Visit time */}
         {visitDisplay && (
           <HStack spacing={1}>
             <Text fontSize="2xs" color="blue.300" fontFamily="mono" fontWeight="bold">
@@ -119,7 +214,10 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
           {displayTitle}
         </Text>
 
-        {/* Row 5: Signals + tech badge */}
+        {/* Row 5: Risk banner (Phase 30) */}
+        {risk && risk.risk_score >= 30 && <RiskBanner risk={risk} />}
+
+        {/* Row 6: Signals + tech badge */}
         <Flex justify="space-between" align="center" wrap="wrap" gap={1}>
           <HStack spacing={1}>
             <DecisionBadge signal={ticket.decision_signal} />

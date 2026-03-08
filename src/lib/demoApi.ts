@@ -265,6 +265,52 @@ I can see the context for this ticket.
     return { pilot_system_description: 'You are Pilot, a field technician copilot for dental IT environments. Be concise, practical, and step-oriented. Assume the technician is onsite and time-pressured.' };
   }
 
+  // ── Phase 30: Ticket risk intelligence ──────────────────────────────────────
+  if (endpoint.match(/\/api\/tickets\/[^/]+\/risk/)) {
+    const keyMatch = endpoint.match(/tickets\/([^/]+)/);
+    const key = keyMatch ? keyMatch[1] : '';
+    // Simulate risk for Eaglesoft-related tickets
+    const eaglesoftTickets = ['4114075', '4270854', '4198231'];
+    const watchTickets     = ['4301122', '4088900'];
+    if (eaglesoftTickets.includes(key)) {
+      return {
+        ticket_key:  key,
+        risk_score:  72,
+        risk_level:  'high',
+        tool_ids:    ['eaglesoft'],
+        patterns: [
+          {
+            pattern:      'eaglesoft service crash after power event',
+            tool_id:      'eaglesoft',
+            trend_status: 'emerging',
+            occurrences:  7,
+            clients:      4,
+            last_seen:    '2026-03-05',
+          },
+        ],
+      };
+    }
+    if (watchTickets.includes(key)) {
+      return {
+        ticket_key:  key,
+        risk_score:  38,
+        risk_level:  'watch',
+        tool_ids:    ['windows'],
+        patterns: [
+          {
+            pattern:      'windows update breaks workstation connectivity',
+            tool_id:      'windows',
+            trend_status: 'emerging',
+            occurrences:  4,
+            clients:      3,
+            last_seen:    '2026-03-03',
+          },
+        ],
+      };
+    }
+    return { ticket_key: key, risk_score: 0, risk_level: 'normal', tool_ids: [], patterns: [] };
+  }
+
   // ── Fallback ──────────────────────────────────────────────────────────────
   console.warn('[demoApi] Unmatched endpoint:', endpoint);
   return {};
