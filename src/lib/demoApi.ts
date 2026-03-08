@@ -416,6 +416,42 @@ I can see the context for this ticket.
   if (endpoint.match(/\/api\/admin\/tenants\/[^/]+\/suspend/)) {
     return { billing_status: 'suspended', message: 'Demo: tenant toggled.' };
   }
+
+  // ── Phase 35B: Billing mocks ─────────────────────────────────────────────
+  if (endpoint === '/api/billing/status') {
+    return {
+      tenant: 'demo', name: 'Demo Workspace', plan: 'pro',
+      billing_status: 'active', trial_ends_at: null, days_remaining: null,
+      stripe_customer_id: null, has_subscription: true,
+      current_seat_count: 2, billable_seats: 2, total_active_seats: 3,
+      stripe_configured: false,
+    };
+  }
+  if (endpoint === '/api/billing/portal' && method === 'POST') {
+    return { portal_url: 'https://billing.stripe.com/demo' };
+  }
+  if (endpoint === '/api/admin/tenants/acmedental/billing') {
+    return {
+      name: 'Acme Dental', plan: 'pro', billing_status: 'active',
+      trial_ends_at: null, stripe_customer_id: 'cus_demo123',
+      stripe_subscription_id: 'sub_demo456', current_seat_count: 2,
+      last_seat_sync_at: new Date(Date.now() - 3600000).toISOString(),
+      seats: {
+        total_active: 3, admin_count: 1, technician_count: 2,
+        free_seats: 1, billable_seats: 2,
+        users: [
+          { id: 'u1', name: 'Karen Admin', role: 'tenant_admin', last_active_at: new Date(Date.now() - 1800000).toISOString() },
+          { id: 'u2', name: 'Mike Tech', role: 'technician', last_active_at: new Date(Date.now() - 7200000).toISOString() },
+          { id: 'u3', name: 'Sara Tech', role: 'technician', last_active_at: new Date(Date.now() - 86400000).toISOString() },
+        ],
+      },
+      recent_events: [
+        { event_type: 'seat_sync', stripe_event_id: null, payload: JSON.stringify({ from: 1, to: 2 }), created_at: new Date(Date.now() - 3600000).toISOString() },
+        { event_type: 'subscription_created', stripe_event_id: 'evt_demo1', payload: JSON.stringify({ billable_seats: 1 }), created_at: new Date(Date.now() - 86400000 * 14).toISOString() },
+      ],
+      stripe_configured: false,
+    };
+  }
   if (endpoint.match(/\/api\/admin\/tenants\/[^/]+/) && method === 'PATCH') {
     return { id: 'demo', ...(body as Record<string, unknown>) };
   }

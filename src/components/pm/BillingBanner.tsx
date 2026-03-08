@@ -68,7 +68,7 @@ export default function BillingBanner() {
   if (isDemo) return null;
   if (!status) return null;
 
-  const isExempt = ['internal', 'demo', 'active'].includes(status.billing_status);
+  const isExempt = ['internal', 'demo', 'active'].includes(status.billing_status);  // suspended/past_due always show banner
   const showBanner =
     status.billing_status === 'trial' &&
     status.days_remaining !== null &&
@@ -79,6 +79,7 @@ export default function BillingBanner() {
     status.days_remaining <= 0;
   const showPastDue   = status.billing_status === 'past_due';
   const showCancelled = status.billing_status === 'cancelled';
+  const showSuspended = status.billing_status === 'suspended';
 
   if (isExempt && !toast) return null;
 
@@ -142,6 +143,19 @@ export default function BillingBanner() {
           >
             {upgrading ? 'Loading\u2026' : 'Reactivate \u2192'}
           </button>
+        </div>
+      )}
+
+      {/* Suspended */}
+      {showSuspended && (
+        <div className="w-full px-4 py-2 text-sm flex items-center justify-between gap-3 bg-red-900/80 text-red-100 border-b border-red-700">
+          <span>&#x26D4; Account suspended. Contact support to restore access.</span>
+          <a
+            href="mailto:support@fieldstone.pro"
+            className="shrink-0 bg-white text-gray-900 font-semibold text-xs px-3 py-1.5 rounded hover:bg-gray-100 transition"
+          >
+            Contact Support &#x2192;
+          </a>
         </div>
       )}
     </>

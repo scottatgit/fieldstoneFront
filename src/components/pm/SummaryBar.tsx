@@ -8,11 +8,12 @@ import { isDemoMode } from '../../lib/demoApi';
 import { useUser } from '@clerk/nextjs';
 
 const BASE_TABS = [
-  { label: 'TODAY',  href: '/pm'        },
-  { label: 'INTEL',  href: '/pm/intel'  },
-  { label: 'TEAM',   href: '/pm/team'   },
-  { label: 'SETUP',  href: '/pm/setup'  },
-  { label: 'DOCS',   href: '/pm/docs'   },
+  { label: 'TODAY',   href: '/pm'          },
+  { label: 'INTEL',   href: '/pm/intel'    },
+  { label: 'TEAM',    href: '/pm/team'     },
+  { label: 'BILLING', href: '/pm/billing', demoHide: true },
+  { label: 'SETUP',   href: '/pm/setup'   },
+  { label: 'DOCS',    href: '/pm/docs'    },
 ];
 
 const ADMIN_TABS = [
@@ -63,7 +64,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
       <HStack spacing={0} align="stretch" flex={1}>
 
         {/* ── Tickets module tabs ── */}
-        {[...BASE_TABS, ...(isAdmin ? ADMIN_TABS : [])].map(tab => {
+        {[...BASE_TABS.filter(t => !('demoHide' in t) || (!demo || !t.demoHide)), ...(isAdmin ? ADMIN_TABS : [])].map(tab => {
           const isActive =
             tab.href === '/pm'
               ? pathname === '/pm'

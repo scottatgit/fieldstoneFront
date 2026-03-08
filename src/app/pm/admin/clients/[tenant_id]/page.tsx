@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Flex, Heading, Text, Button, Badge, Spinner, VStack, HStack,
-  Grid, GridItem, Divider, Progress,
+  Grid, GridItem, SimpleGrid, Divider, Progress,
   Table, Thead, Tbody, Tr, Th, Td,
   Modal, ModalOverlay, ModalContent, ModalHeader,
   ModalBody, ModalFooter, ModalCloseButton,
@@ -93,6 +93,34 @@ interface IngestionJob {
 interface TenantIngestion {
   items: IngestionJob[];
   total: number;
+}
+
+interface BillingEvent {
+  event_type: string;
+  stripe_event_id: string | null;
+  payload: string | null;
+  created_at: string;
+}
+
+interface TenantBillingAdmin {
+  name: string;
+  plan: string;
+  billing_status: string;
+  trial_ends_at: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  current_seat_count: number;
+  last_seat_sync_at: string | null;
+  seats: {
+    total_active: number;
+    admin_count: number;
+    technician_count: number;
+    free_seats: number;
+    billable_seats: number;
+    users: Array<{ id: string; name: string; role: string; last_active_at: string | null }>;
+  };
+  recent_events: BillingEvent[];
+  stripe_configured: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -272,6 +300,8 @@ export default function TenantDetailPage() {
   const [users,     setUsers]     = useState<TenantUsers | null>(null);
   const [usage,     setUsage]     = useState<TenantUsage | null>(null);
   const [ingestion, setIngestion] = useState<TenantIngestion | null>(null);
+  const [billingAdmin, setBillingAdmin] = useState<TenantBillingAdmin | null>(null);
+  const [syncingSeats, setSyncingSeats] = useState(false);
 
   const [loadingDetail,    setLoadingDetail]    = useState(true);
   const [loadingUsers,     setLoadingUsers]     = useState(true);
@@ -303,11 +333,12 @@ export default function TenantDetailPage() {
     setLoadingUsage(true);  setLoadingIngestion(true);
     setNotFound(false);
 
-    const [d, u, us, ing] = await Promise.allSettled([
+    const [d, u, us, ing, bil] = await Promise.allSettled([
       adminFetch(`/api/admin/tenants/${tenantId}`),
       adminFetch(`/api/admin/tenants/${tenantId}/users`),
       adminFetch(`/api/admin/tenants/${tenantId}/usage`),
       adminFetch(`/api/admin/tenants/${tenantId}/ingestion`),
+      adminFetch(`/api/admin/tenants/${tenantId}/billing`).catch(() => null),
     ]);
 
     if (d.status === 'fulfilled') {
@@ -327,12 +358,31 @@ export default function TenantDetailPage() {
     setLoadingUsage(false);
 
     if (ing.status === 'fulfilled') setIngestion(ing.value as TenantIngestion);
+    if (bil && bil.status === 'fulfilled') setBillingAdmin(bil.value as TenantBillingAdmin);
     setLoadingIngestion(false);
   }, [tenantId, toast]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
+  const syncSeats = async () => {
+    setSyncingSeats(true);
+    try {
+      const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+      await fetch(`${ADMIN_BASE}/api/admin/tenants/${tenantId}/billing/sync-seats`, {
+        method: 'POST',
+        headers: { 'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_KEY || '', 'x-tenant-id': tenantId },
+      });
+      // Reload billing
+      const updated = await adminFetch(`/api/admin/tenants/${tenantId}/billing`);
+      setBillingAdmin(updated as TenantBillingAdmin);
+    } catch (e) {
+      toast({ title: 'Sync failed', description: String(e), status: 'error', duration: 3000 });
+    } finally {
+      setSyncingSeats(false);
+    }
+  };
+
   function startEdit() {
     if (!detail) return;
     setEditForm({
@@ -810,6 +860,135 @@ export default function TenantDetailPage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+
+      {/* ── Phase 35B: Billing ──────────────────────────────────────────── */}
+      <Box mt={6}>
+        <Divider borderColor="gray.700" my={4} />
+        <Flex justify="space-between" align="center" mb={3}>
+          <Heading size="xs" color="gray.400">Billing &amp; Seats</Heading>
+          <Button
+            size="xs" colorScheme="blue" variant="outline"
+            isLoading={syncingSeats}
+            onClick={syncSeats}
+          >
+            Sync Seats
+          </Button>
+        </Flex>
+
+        {billingAdmin ? (
+          <>
+            {/* Summary row */}
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} mb={4}>
+              <Box bg="gray.800" borderRadius="md" p={3}>
+                <Text fontSize="xs" color="gray.500">Status</Text>
+                <Badge colorScheme={
+                  billingAdmin.billing_status === 'active' ? 'green' :
+                  billingAdmin.billing_status === 'trial'  ? 'blue'  :
+                  billingAdmin.billing_status === 'past_due' ? 'orange' : 'red'
+                } mt={1}>
+                  {billingAdmin.billing_status}
+                </Badge>
+              </Box>
+              <Box bg="gray.800" borderRadius="md" p={3}>
+                <Text fontSize="xs" color="gray.500">Billable Seats</Text>
+                <Text fontWeight="bold" color="blue.300">{billingAdmin.seats?.billable_seats ?? '—'}</Text>
+              </Box>
+              <Box bg="gray.800" borderRadius="md" p={3}>
+                <Text fontSize="xs" color="gray.500">Synced Count</Text>
+                <Text fontWeight="bold" color="white">{billingAdmin.current_seat_count ?? '—'}</Text>
+              </Box>
+              <Box bg="gray.800" borderRadius="md" p={3}>
+                <Text fontSize="xs" color="gray.500">Last Sync</Text>
+                <Text fontSize="xs" color="gray.400">
+                  {billingAdmin.last_seat_sync_at
+                    ? new Date(billingAdmin.last_seat_sync_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : '—'}
+                </Text>
+              </Box>
+            </SimpleGrid>
+
+            {/* Active Users Table */}
+            {billingAdmin.seats?.users && billingAdmin.seats.users.length > 0 && (
+              <Box mb={4}>
+                <Text fontSize="xs" color="gray.500" mb={2}>Active Billable Users (last 30d)</Text>
+                <Box overflowX="auto">
+                  <Table size="sm" variant="unstyled">
+                    <Thead>
+                      <Tr>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Name</Th>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Role</Th>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Last Active</Th>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Billable</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {billingAdmin.seats.users.map(u => (
+                        <Tr key={u.id} _hover={{ bg: 'gray.800' }}>
+                          <Td px={2} py={1} fontSize="xs" color="white">{u.name}</Td>
+                          <Td px={2} py={1}>
+                            <Badge fontSize="2xs" colorScheme={u.role === 'tenant_admin' ? 'purple' : 'blue'}>
+                              {u.role === 'tenant_admin' ? 'Admin' : 'Tech'}
+                            </Badge>
+                          </Td>
+                          <Td px={2} py={1} fontSize="xs" color="gray.400">
+                            {u.last_active_at
+                              ? new Date(u.last_active_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              : '—'}
+                          </Td>
+                          <Td px={2} py={1}>
+                            <Badge fontSize="2xs" colorScheme="green">Yes</Badge>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
+              </Box>
+            )}
+
+            {/* Recent Billing Events */}
+            {billingAdmin.recent_events && billingAdmin.recent_events.length > 0 && (
+              <Box>
+                <Text fontSize="xs" color="gray.500" mb={2}>Recent Billing Events</Text>
+                <Box overflowX="auto">
+                  <Table size="sm" variant="unstyled">
+                    <Thead>
+                      <Tr>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Event</Th>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Date</Th>
+                        <Th color="gray.500" fontSize="2xs" px={2}>Payload</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {billingAdmin.recent_events.map((ev, i) => (
+                        <Tr key={i} _hover={{ bg: 'gray.800' }}>
+                          <Td px={2} py={1}>
+                            <Badge fontSize="2xs" colorScheme={
+                              ev.event_type.includes('error') ? 'red' :
+                              ev.event_type.includes('sync') ? 'blue' : 'gray'
+                            }>
+                              {ev.event_type}
+                            </Badge>
+                          </Td>
+                          <Td px={2} py={1} fontSize="xs" color="gray.400">
+                            {ev.created_at ? new Date(ev.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                          </Td>
+                          <Td px={2} py={1} fontSize="xs" color="gray.500" maxW="200px" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                            {ev.payload || '—'}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
+              </Box>
+            )}
+          </>
+        ) : (
+          <Text fontSize="xs" color="gray.600">No billing data available.</Text>
+        )}
+      </Box>
 
       {/* ── Suspend / Restore Confirm ── */}
       <AlertDialog isOpen={isSuspendOpen} leastDestructiveRef={cancelRef} onClose={closeSuspend} isCentered>
