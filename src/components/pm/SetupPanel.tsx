@@ -511,7 +511,7 @@ export function SetupPanel() {
             ⚙️ SETUP
           </Text>
           <Text fontSize="xs" color="gray.500" fontFamily="mono">
-            Configure SecondBrain connections & AI
+            Configure Signal connections & AI
           </Text>
         </VStack>
         <HStack spacing={3}>
