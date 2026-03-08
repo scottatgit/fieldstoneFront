@@ -394,7 +394,31 @@ I can see the context for this ticket.
   if (endpoint === '/api/setup/notifications/save' && method === 'POST') {
     return { status: 'ok', message: 'Notification settings saved.' };
   }
-  if (endpoint === '/api/ingest/run' && method === 'POST') {
+  
+  // Team members
+  if (endpoint === '/api/tenant/users' && method === 'GET') {
+    return {
+      total_users: 5,
+      active_last_30_days: 4,
+      items: [
+        { id: 'u1', tenant_id: 'demo', name: 'Mike Johnson', email: 'mike@ipquest.com', role: 'technician', assigned_to_alias: 'Mike', last_active_at: new Date(Date.now() - 2 * 3600000).toISOString(), created_at: '2025-01-15T09:00:00' },
+        { id: 'u2', tenant_id: 'demo', name: 'Sara Patel', email: 'sara@ipquest.com', role: 'technician', assigned_to_alias: 'Sara', last_active_at: new Date(Date.now() - 26 * 3600000).toISOString(), created_at: '2025-02-01T09:00:00' },
+        { id: 'u3', tenant_id: 'demo', name: 'John Rivera', email: 'john@ipquest.com', role: 'technician', assigned_to_alias: 'John', last_active_at: new Date(Date.now() - 72 * 3600000).toISOString(), created_at: '2025-03-10T09:00:00' },
+        { id: 'u4', tenant_id: 'demo', name: 'Owner', email: 'owner@ipquest.com', role: 'tenant_admin', assigned_to_alias: 'Owner', last_active_at: new Date(Date.now() - 1800000).toISOString(), created_at: '2024-12-01T09:00:00' },
+        { id: 'u-pilot', tenant_id: 'demo', name: 'Pilot', email: null, role: 'assistant', assigned_to_alias: 'Pilot', last_active_at: new Date().toISOString(), created_at: '2024-12-01T09:00:00' },
+      ],
+    };
+  }
+  if (endpoint.startsWith('/api/tenant/users/') && method === 'PATCH') {
+    return { ok: true };
+  }
+  if (endpoint.startsWith('/api/tenant/users/') && method === 'DELETE') {
+    return { ok: true };
+  }
+  if (endpoint === '/api/tenant/users' && method === 'POST') {
+    return { id: 'u-new', tenant_id: 'demo', name: 'New Member', role: 'technician', created_at: new Date().toISOString() };
+  }
+if (endpoint === '/api/ingest/run' && method === 'POST') {
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 

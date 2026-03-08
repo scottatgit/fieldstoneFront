@@ -10,6 +10,7 @@ import { useUser } from '@clerk/nextjs';
 const BASE_TABS = [
   { label: 'TODAY',  href: '/pm'        },
   { label: 'INTEL',  href: '/pm/intel'  },
+  { label: 'TEAM',   href: '/pm/team'   },
   { label: 'SETUP',  href: '/pm/setup'  },
   { label: 'DOCS',   href: '/pm/docs'   },
 ];
