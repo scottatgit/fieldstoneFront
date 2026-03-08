@@ -1,25 +1,27 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { PMProviders } from '../../../components/pm/PMProviders';
-import { getActiveTenant } from '../../../lib/demoApi';
-
-const ADMIN_TENANT = 'ipquest';
+import { isDemoMode } from '../../../lib/demoApi';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
+  const router   = useRouter();
+  const { user, isLoaded } = useUser();
 
   useEffect(() => {
-    // Client-side guard — belt-and-suspenders alongside middleware
-    try {
-      const tenant = getActiveTenant();
-      if (tenant !== ADMIN_TENANT) {
-        router.replace('/pm?error=admin_required');
-      }
-    } catch {
-      // window not available during SSR — middleware handles server-side
+    // Demo mode — allow admin UI for showcase purposes
+    if (isDemoMode()) return;
+
+    // Wait for Clerk to load
+    if (!isLoaded) return;
+
+    // Clerk active — check role claim
+    const role = user?.publicMetadata?.role as string | undefined;
+    if (role !== 'admin') {
+      router.replace('/pm?error=admin_required');
     }
-  }, [router]);
+  }, [isLoaded, user, router]);
 
   return <PMProviders>{children}</PMProviders>;
 }

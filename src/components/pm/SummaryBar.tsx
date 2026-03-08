@@ -4,21 +4,20 @@ import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { isDemoMode, getActiveTenant } from '../../lib/demoApi';
+import { isDemoMode } from '../../lib/demoApi';
+import { useUser } from '@clerk/nextjs';
 
 const BASE_TABS = [
   { label: 'TODAY',  href: '/pm'        },
   { label: 'INTEL',  href: '/pm/intel'  },
   { label: 'SETUP',  href: '/pm/setup'  },
   { label: 'DOCS',   href: '/pm/docs'   },
-  { label: 'ADMIN',  href: '/pm/admin'  },
 ];
 
 const ADMIN_TABS = [
-  { label: 'CLIENTS', href: '/pm/admin/clients' },
+  { label: 'ADMIN',   href: '/pm/admin'         },
+  { label: 'CLIENTS', href: '/pm/admin/clients'  },
 ];
-
-const ADMIN_TENANT = 'ipquest';
 
 const COMING_SOON_MODULES = [
   { label: 'OPS',   tag: 'Coming Soon' },
@@ -26,8 +25,11 @@ const COMING_SOON_MODULES = [
 ];
 
 export function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
-  const pathname = usePathname();
-  const demo = isDemoMode();
+  const pathname   = usePathname();
+  const demo       = isDemoMode();
+  const { user }   = useUser();
+  // Admin: Clerk role === 'admin', or demo mode (showcase)
+  const isAdmin    = demo || (user?.publicMetadata?.role as string | undefined) === 'admin';
 
   const navBar = (
     <Flex
@@ -60,7 +62,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
       <HStack spacing={0} align="stretch" flex={1}>
 
         {/* ── Tickets module tabs ── */}
-        {[...BASE_TABS, ...((() => { try { return getActiveTenant() === ADMIN_TENANT ? ADMIN_TABS : []; } catch { return []; } })())].map(tab => {
+        {[...BASE_TABS, ...(isAdmin ? ADMIN_TABS : [])].map(tab => {
           const isActive =
             tab.href === '/pm'
               ? pathname === '/pm'
