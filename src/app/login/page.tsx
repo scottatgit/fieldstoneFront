@@ -33,7 +33,7 @@ export default function LoginPage() {
 
       <SignIn
         signUpUrl="/signup"
-        fallbackRedirectUrl="/pm"
+        fallbackRedirectUrl="/pm/redirect"
         appearance={{
           variables: {
             colorBackground: '#111827',

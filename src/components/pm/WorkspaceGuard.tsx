@@ -43,7 +43,7 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/user/workspaces', {
           headers: { Authorization: 'Bearer ' + token },
         });
-        if (res.ok === false) { setChecking(false); return; }
+        if (res.ok === false) { window.location.href = '/pm/onboarding'; return; }
         const data = await res.json();
         const list: Workspace[] = Array.isArray(data) ? data : ((data as { workspaces?: Workspace[] }).workspaces ?? []);
         if (cancelled) return;
