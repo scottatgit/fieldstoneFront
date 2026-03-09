@@ -11,7 +11,6 @@ interface Props {
   onBack: () => void;
 }
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
   const [name,      setName]      = useState('');
@@ -27,7 +26,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
     setLoading(true); setError('');
     try {
       const jwt = await getToken();
-      const res = await fetch(`${API}/api/tenants/create`, {
+      const res = await fetch(`/api/tenants/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({ name: name.trim(), subdomain: slug, organizationId: `org_${slug}_${Date.now()}`, plan: 'starter' }),

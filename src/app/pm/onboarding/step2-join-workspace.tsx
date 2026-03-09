@@ -12,7 +12,6 @@ interface Props {
   onBack: () => void;
 }
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 interface InviteMeta {
   tenant_name: string;
@@ -36,7 +35,7 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
   async function loadInvite(t: string) {
     setLoading(true); setError(''); setMeta(null);
     try {
-      const res = await fetch(`${API}/api/invite/${t}`);
+      const res = await fetch(`/api/invite/${t}`);
       if (res.status === 410) { setError('This invite has expired or has already been used.'); return; }
       if (res.status === 404) { setError('Invite not found. Check the link and try again.'); return; }
       if (!res.ok) { setError('Could not load invite.'); return; }
@@ -51,7 +50,7 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
     setJoining(true); setError('');
     try {
       const jwt = await getToken();
-      const res = await fetch(`${API}/api/invite/${t}/accept`, {
+      const res = await fetch(`/api/invite/${t}/accept`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}` },
       });

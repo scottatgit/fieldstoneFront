@@ -9,7 +9,6 @@ import {
 import { ChakraProvider } from '@chakra-ui/react';
 import pmTheme from '@/components/pm/pmTheme';
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
 interface InviteMeta {
   tenant_name: string;
@@ -32,7 +31,7 @@ export default function InvitePage() {
   // Fetch invite metadata
   useEffect(() => {
     if (!token) return;
-    fetch(`${API}/api/invite/${token}`)
+    fetch(`/api/invite/${token}`)
       .then(async r => {
         if (r.status === 410) { setError('This invite has expired or has already been used.'); return; }
         if (r.status === 404) { setError('Invite not found.'); return; }
@@ -56,7 +55,7 @@ export default function InvitePage() {
     setJoining(true);
     try {
       const jwt = await getToken();
-      const res = await fetch(`${API}/api/invite/${token}/accept`, {
+      const res = await fetch(`/api/invite/${token}/accept`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}` },
       });
