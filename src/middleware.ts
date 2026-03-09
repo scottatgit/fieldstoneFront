@@ -10,6 +10,11 @@ const hasValidClerkKey =
   !CLERK_KEY.includes('placeholder') &&
   CLERK_KEY.length > 20;
 
+const RESERVED_SLUGS = new Set([
+  'www', 'app', 'admin', 'demo', 'api',
+]);
+
+
 const isEnvDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 const isProtectedRoute = createRouteMatcher(['(pm\\.*)'  ]);
@@ -31,6 +36,20 @@ function extractTenant(req: NextRequest): string {
   }
 
   return DEFAULT_TENANT;
+}
+
+
+/** Extract raw subdomain slug (not resolved to tenant_id). Returns null for reserved/localhost. */
+function extractSlug(req: NextRequest): string | null {
+  const host     = req.headers.get('host') || '';
+  const hostname = host.split(':')[0];
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return null;
+  if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
+    const subdomain = hostname.replace(`.${BASE_DOMAIN}`, '');
+    if (RESERVED_SLUGS.has(subdomain)) return null;
+    return subdomain;
+  }
+  return null;
 }
 
 /** Returns true if auth should be bypassed (demo / dev / no Clerk key). */
@@ -66,6 +85,8 @@ function bypassMiddleware(req: NextRequest): NextResponse {
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
+  const slug = extractSlug(req);
+  if (slug) requestHeaders.set('x-tenant-slug', slug);
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
@@ -116,6 +137,8 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
+  const slug = extractSlug(req);
+  if (slug) requestHeaders.set('x-tenant-slug', slug);
   return NextResponse.next({ request: { headers: requestHeaders } });
 });
 
