@@ -1,6 +1,7 @@
 import { ReactNode, Suspense } from 'react';
 import { PMProviders } from '../../components/pm/PMProviders';
 import BillingBanner from '../../components/pm/BillingBanner';
+import { WorkspaceGuard } from '../../components/pm/WorkspaceGuard';
 
 export const metadata = {
   title: 'Signal | Fieldstone',
@@ -13,7 +14,9 @@ export default function PMLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <BillingBanner />
       </Suspense>
-      {children}
+      <WorkspaceGuard>
+        {children}
+      </WorkspaceGuard>
     </PMProviders>
   );
 }
