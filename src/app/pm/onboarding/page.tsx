@@ -1,154 +1,107 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Box, VStack, HStack, Heading, Text, Input, Button,
-  FormControl, FormLabel, FormHelperText, FormErrorMessage,
-  Alert, AlertIcon, AlertDescription, Badge, Divider,
-} from '@chakra-ui/react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
+import { Box, VStack, Spinner, Text } from '@chakra-ui/react';
 
-const API_URL = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+import { Step1PathSelect }       from './step1-path-select';
+import { Step2CreateWorkspace }  from './step2-create-workspace';
+import { Step2JoinWorkspace }    from './step2-join-workspace';
+import { Step3NextSteps }        from './step3-next-steps';
 
-export default function SetupPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ organizationId: '', name: '', subdomain: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState<{ subdomain: string; url: string } | null>(null);
+type Step = 'path-select' | 'create' | 'join' | 'next-steps';
 
-  const subdomainValid = /^[a-z0-9-]{2,30}$/.test(form.subdomain);
-  const subdomainError = form.subdomain.length > 0 && !subdomainValid
-    ? 'Subdomain must be 2–30 lowercase letters, numbers, or hyphens' : '';
+function OnboardingInner() {
+  const searchParams = useSearchParams();
+  const { getToken } = useAuth();
 
-  function set(field: string, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
-    setError('');
-  }
+  const inviteToken = searchParams.get('invite');
 
-  async function handleSubmit() {
-    if (!form.name || !form.subdomain || !subdomainValid) return;
-    setLoading(true);
-    setError('');
-    try {
-      const orgId = form.organizationId || `org_${form.subdomain}_${Date.now()}`;
-      const res = await fetch(`${API_URL}/api/tenants/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: orgId,
-          name: form.name,
-          subdomain: form.subdomain.toLowerCase(),
-          plan: 'starter',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to create tenant');
-      setSuccess({ subdomain: data.subdomain, url: data.dashboard_url });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setLoading(false);
+  // If invite token in URL — start on join step
+  const [step, setStep] = useState<Step>(inviteToken ? 'join' : 'path-select');
+
+  // Keep invite token in state in case user navigates back then forward
+  const [activeToken, setActiveToken] = useState<string | null>(inviteToken);
+
+  // Sync if URL param changes (e.g. user arrives mid-session)
+  useEffect(() => {
+    if (inviteToken) {
+      setActiveToken(inviteToken);
+      setStep('join');
     }
-  }
+  }, [inviteToken]);
 
-  if (success) {
-    return (
-      <Box minH="100vh" bg="gray.950" display="flex" alignItems="center" justifyContent="center" p={4}>
-        <VStack spacing={6} maxW="480px" w="full" bg="gray.900"
-          border="1px solid" borderColor="green.700" borderRadius="xl" p={8} textAlign="center">
-          <Text fontSize="3xl">✅</Text>
-          <Heading size="lg" color="green.300">Organization ready</Heading>
-          <Text color="gray.400">
-            <strong style={{ color: 'white' }}>{form.name}</strong> is live on Signal.
-          </Text>
-          <Box bg="gray.800" borderRadius="lg" p={4} w="full">
-            <Text fontSize="xs" color="gray.500" mb={1}>YOUR DASHBOARD</Text>
-            <Text color="cyan.300" fontFamily="mono" fontSize="sm">{success.url}</Text>
-          </Box>
-          <Divider borderColor="gray.700" />
-          <VStack spacing={2} w="full">
-            <Button colorScheme="blue" w="full" onClick={() => router.push('/pm')}>Open Dashboard →</Button>
-            <Button variant="ghost" color="gray.400" size="sm"
-              onClick={() => { setSuccess(null); setForm({ organizationId: '', name: '', subdomain: '' }); }}>
-              Create another
-            </Button>
-          </VStack>
-        </VStack>
-      </Box>
-    );
+  function handleGetToken() {
+    return getToken();
   }
 
   return (
-    <Box minH="100vh" bg="gray.950" display="flex" alignItems="center" justifyContent="center" p={4}>
-      <VStack spacing={8} maxW="480px" w="full">
-        <VStack spacing={2} textAlign="center">
-          <HStack>
-            <Text fontSize="2xl" fontWeight="bold" color="white" letterSpacing="wider">SIGNAL</Text>
-            <Badge colorScheme="blue" fontSize="xs">SETUP</Badge>
-          </HStack>
-          <Text color="gray.400" fontSize="sm">Welcome to Signal. Create your organization to get started.</Text>
-        </VStack>
+    <Box
+      minH="100svh"
+      bg="gray.950"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      p={4}
+    >
+      <Box
+        w="full"
+        maxW="480px"
+        bg="gray.900"
+        border="1px solid"
+        borderColor="gray.700"
+        borderRadius="xl"
+        p={{ base: 6, md: 8 }}
+      >
+        {step === 'path-select' && (
+          <Step1PathSelect
+            onCreate={() => setStep('create')}
+            onJoin={() => setStep('join')}
+          />
+        )}
 
-        <Box w="full" bg="gray.900" border="1px solid" borderColor="gray.700" borderRadius="xl" p={6}>
-          <VStack spacing={5}>
-            <FormControl isRequired>
-              <FormLabel color="gray.300" fontSize="sm">Organization Name</FormLabel>
-              <Input placeholder="IPQuest Technologies"
-                value={form.name} onChange={e => set('name', e.target.value)}
-                bg="gray.800" borderColor="gray.600" color="white"
-                _placeholder={{ color: 'gray.500' }} _focus={{ borderColor: 'blue.400' }} />
-            </FormControl>
+        {step === 'create' && (
+          <Step2CreateWorkspace
+            getToken={handleGetToken}
+            onSuccess={() => setStep('next-steps')}
+            onBack={() => setStep('path-select')}
+          />
+        )}
 
-            <FormControl isRequired isInvalid={!!subdomainError}>
-              <FormLabel color="gray.300" fontSize="sm">Subdomain</FormLabel>
-              <HStack>
-                <Input placeholder="ipquest"
-                  value={form.subdomain}
-                  onChange={e => set('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  bg="gray.800" borderColor="gray.600" color="white"
-                  _placeholder={{ color: 'gray.500' }} _focus={{ borderColor: 'blue.400' }} flex={1} />
-                <Text color="gray.500" fontSize="sm" whiteSpace="nowrap">.fieldstone.pro</Text>
-              </HStack>
-              {subdomainError
-                ? <FormErrorMessage>{subdomainError}</FormErrorMessage>
-                : form.subdomain && subdomainValid && (
-                  <FormHelperText color="green.400" fontSize="xs">✓ {form.subdomain}.fieldstone.pro</FormHelperText>
-                )}
-            </FormControl>
+        {step === 'join' && (
+          <Step2JoinWorkspace
+            inviteToken={activeToken}
+            getToken={handleGetToken}
+            onSuccess={() => setStep('next-steps')}
+            onBack={() => {
+              setActiveToken(null);
+              setStep('path-select');
+            }}
+          />
+        )}
 
-            <FormControl>
-              <FormLabel color="gray.300" fontSize="sm">Clerk Org ID <Text as="span" color="gray.500" fontSize="xs">(optional in dev)</Text></FormLabel>
-              <Input placeholder="org_abc123"
-                value={form.organizationId} onChange={e => set('organizationId', e.target.value)}
-                bg="gray.800" borderColor="gray.600" color="white"
-                _placeholder={{ color: 'gray.500' }} _focus={{ borderColor: 'blue.400' }} />
-            </FormControl>
+        {step === 'next-steps' && (
+          <Step3NextSteps />
+        )}
+      </Box>
+    </Box>
+  );
+}
 
-            {error && (
-              <Alert status="error" borderRadius="md" bg="red.900" borderColor="red.700">
-                <AlertIcon />
-                <AlertDescription fontSize="sm" color="red.200">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button colorScheme="blue" w="full" size="lg"
-              isLoading={loading} loadingText="Creating..."
-              isDisabled={!form.name || !form.subdomain || !subdomainValid}
-              onClick={handleSubmit}>
-              Create Organization →
-            </Button>
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
+          <VStack spacing={3}>
+            <Spinner color="blue.400" size="lg" />
+            <Text fontSize="xs" color="gray.500" fontFamily="mono">Loading...</Text>
           </VStack>
         </Box>
-
-        <HStack spacing={6} color="gray.600" fontSize="xs" justify="center">
-          <VStack spacing={0}><Text color="white" fontWeight="bold">1</Text><Text>Account</Text></VStack>
-          <Text>→</Text>
-          <VStack spacing={0}><Text color="blue.400" fontWeight="bold">2</Text><Text color="blue.400">Setup</Text></VStack>
-          <Text>→</Text>
-          <VStack spacing={0}><Text>3</Text><Text>Dashboard</Text></VStack>
-        </HStack>
-      </VStack>
-    </Box>
+      }
+    >
+      <OnboardingInner />
+    </Suspense>
   );
 }
