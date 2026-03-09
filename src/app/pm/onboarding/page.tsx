@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Box, VStack, Spinner, Text } from '@chakra-ui/react';
 
@@ -13,18 +13,25 @@ import { Step3NextSteps }        from './step3-next-steps';
 type Step = 'path-select' | 'create' | 'join' | 'next-steps';
 
 function OnboardingInner() {
-  const searchParams = useSearchParams();
-  const { getToken } = useAuth();
+  const searchParams              = useSearchParams();
+  const router                    = useRouter();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
 
   const inviteToken = searchParams.get('invite');
 
-  // If invite token in URL — start on join step
-  const [step, setStep] = useState<Step>(inviteToken ? 'join' : 'path-select');
-
-  // Keep invite token in state in case user navigates back then forward
+  const [step,        setStep]        = useState<Step>(inviteToken ? 'join' : 'path-select');
   const [activeToken, setActiveToken] = useState<string | null>(inviteToken);
 
-  // Sync if URL param changes (e.g. user arrives mid-session)
+  // Redirect to login if not authenticated once Clerk has loaded
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      const returnUrl = encodeURIComponent(
+        `/pm/onboarding${inviteToken ? `?invite=${inviteToken}` : ''}`
+      );
+      router.replace(`/login?redirect_url=${returnUrl}`);
+    }
+  }, [isLoaded, isSignedIn, inviteToken, router]);
+
   useEffect(() => {
     if (inviteToken) {
       setActiveToken(inviteToken);
@@ -32,8 +39,18 @@ function OnboardingInner() {
     }
   }, [inviteToken]);
 
-  function handleGetToken() {
-    return getToken();
+  // Show spinner while Clerk loads or while redirecting
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
+        <VStack spacing={3}>
+          <Spinner color="blue.400" size="lg" />
+          <Text fontSize="xs" color="gray.500" fontFamily="mono">
+            {!isLoaded ? 'Loading...' : 'Redirecting to login...'}
+          </Text>
+        </VStack>
+      </Box>
+    );
   }
 
   return (
@@ -63,7 +80,7 @@ function OnboardingInner() {
 
         {step === 'create' && (
           <Step2CreateWorkspace
-            getToken={handleGetToken}
+            getToken={getToken}
             onSuccess={() => setStep('next-steps')}
             onBack={() => setStep('path-select')}
           />
@@ -72,7 +89,7 @@ function OnboardingInner() {
         {step === 'join' && (
           <Step2JoinWorkspace
             inviteToken={activeToken}
-            getToken={handleGetToken}
+            getToken={getToken}
             onSuccess={() => setStep('next-steps')}
             onBack={() => {
               setActiveToken(null);

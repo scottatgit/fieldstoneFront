@@ -11,28 +11,56 @@ interface Props {
   onBack: () => void;
 }
 
-
 export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
-  const [name,      setName]      = useState('');
-  const [subdomain, setSubdomain] = useState('');
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState('');
+  const [name,           setName]           = useState('');
+  const [subdomain,      setSubdomain]      = useState('');
+  const [userEditedSlug, setUserEditedSlug] = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const [error,          setError]          = useState('');
 
-  const slug = subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  // Generate slug from any string
+  function toSlug(val: string) {
+    return val.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  const slug      = toSlug(subdomain);
   const slugValid = /^[a-z0-9-]{2,30}$/.test(slug);
+
+  function handleNameChange(val: string) {
+    setName(val);
+    // Auto-fill subdomain from name UNLESS user has manually edited it
+    if (!userEditedSlug) {
+      setSubdomain(toSlug(val));
+    }
+  }
+
+  function handleSubdomainChange(val: string) {
+    setUserEditedSlug(true);
+    setSubdomain(val);
+  }
 
   async function handleCreate() {
     if (!name.trim() || !slugValid) return;
     setLoading(true); setError('');
     try {
       const jwt = await getToken();
+      if (!jwt) {
+        setError('You must be signed in to create a workspace. Please log in and try again.');
+        return;
+      }
       const res = await fetch(`/api/tenants/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({ name: name.trim(), subdomain: slug, organizationId: `org_${slug}_${Date.now()}`, plan: 'starter' }),
+        body: JSON.stringify({
+          name:           name.trim(),
+          subdomain:      slug,
+          organizationId: `org_${slug}_${Date.now()}`,
+          plan:           'starter',
+        }),
       });
       const data = await res.json();
       if (res.status === 409) { setError('That subdomain is already taken. Try another.'); return; }
+      if (res.status === 401 || res.status === 403) { setError('Session expired — please refresh and sign in again.'); return; }
       if (!res.ok) { setError(data.detail || 'Failed to create workspace.'); return; }
       // Redirect to new subdomain
       if (typeof window !== 'undefined') {
@@ -65,7 +93,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
             size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
             placeholder="Acme Dental"
             value={name}
-            onChange={e => { setName(e.target.value); if (!subdomain) setSubdomain(e.target.value); }}
+            onChange={e => handleNameChange(e.target.value)}
           />
         </FormControl>
 
@@ -75,9 +103,9 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
             size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
             placeholder="acme-dental"
             value={subdomain}
-            onChange={e => setSubdomain(e.target.value)}
+            onChange={e => handleSubdomainChange(e.target.value)}
           />
-          {slug && (
+          {subdomain && (
             <Text fontSize="2xs" color={slugValid ? 'blue.400' : 'red.400'} fontFamily="mono" mt={1}>
               {slugValid ? `✓ fieldstone.pro → ${slug}.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
             </Text>
