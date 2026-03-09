@@ -153,7 +153,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
               afterSignOutUrl="/login"
               appearance={{
                 elements: {
-                  avatarBox: { width: 28, height: 28 },
+                  avatarBox: { width: 36, height: 36 },
                 },
               }}
             />

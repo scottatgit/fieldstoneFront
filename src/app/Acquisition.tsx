@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useUser, UserButton } from '@clerk/nextjs';
 import {
   Box, Button, Container, Flex, Grid, Heading, Stack,
   Text, Badge, VStack, HStack, Divider,
@@ -81,6 +82,7 @@ function BriefMock() {
 }
 
 function Nav() {
+  const { isSignedIn, isLoaded } = useUser();
   return (
     <Box
       as="nav" bg={BG} borderBottom="1px solid" borderColor={BORDER}
@@ -102,13 +104,52 @@ function Nav() {
           >
             DEMO
           </Button>
-          <Button
-            as="a" href="/signup"
-            size="sm" colorScheme="blue" fontFamily="mono" fontSize="xs"
-            fontWeight="bold" letterSpacing="wider"
-          >
-            GET STARTED
-          </Button>
+          {isLoaded && isSignedIn ? (
+            <HStack spacing={3}>
+              <Button
+                as="a" href="/pm"
+                size="sm"
+                bg={BLUE} color="gray.900"
+                fontFamily="mono" fontSize="xs"
+                fontWeight="bold" letterSpacing="wider"
+                _hover={{ bg: '#90cdf4' }}
+                px={5}
+              >
+                DASHBOARD
+              </Button>
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: { avatarBox: { width: 32, height: 32 } },
+                }}
+              />
+            </HStack>
+          ) : (
+            <HStack spacing={3}>
+              <Button
+                as="a" href="/login"
+                size="sm" variant="outline"
+                borderColor="gray.600" color="gray.300"
+                fontFamily="mono" fontSize="xs"
+                fontWeight="bold" letterSpacing="wider"
+                _hover={{ borderColor: BLUE, color: BLUE }}
+                px={5}
+              >
+                SIGN IN
+              </Button>
+              <Button
+                as="a" href="/signup"
+                size="sm"
+                bg={BLUE} color="gray.900"
+                fontFamily="mono" fontSize="xs"
+                fontWeight="bold" letterSpacing="wider"
+                _hover={{ bg: '#90cdf4' }}
+                px={5}
+              >
+                GET STARTED
+              </Button>
+            </HStack>
+          )}
         </HStack>
       </Flex>
     </Box>
