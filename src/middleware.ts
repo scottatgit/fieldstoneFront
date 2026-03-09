@@ -84,7 +84,6 @@ function bypassMiddleware(req: NextRequest): NextResponse {
   }
 
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-tenant-id', tenant);
   const slug = extractSlug(req);
   if (slug) requestHeaders.set('x-tenant-slug', slug);
   return NextResponse.next({ request: { headers: requestHeaders } });
@@ -136,7 +135,6 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   }
 
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-tenant-id', tenant);
   const slug = extractSlug(req);
   if (slug) requestHeaders.set('x-tenant-slug', slug);
   return NextResponse.next({ request: { headers: requestHeaders } });
