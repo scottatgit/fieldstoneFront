@@ -76,12 +76,37 @@ function bypassMiddleware(req: NextRequest): NextResponse {
  */
 const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   const tenant = extractTenant(req);
+  const { pathname } = req.nextUrl;
 
-  if (isAdminRoute(req)) {
-    const { sessionClaims } = auth();
+  // Gate protected routes — redirect to login if not authenticated
+  if (isProtectedRoute(req)) {
+    const { userId, sessionClaims } = auth();
+    if (!userId) {
+      const loginUrl = new URL('/login', req.url);
+      return NextResponse.redirect(loginUrl);
+    }
+
     // @ts-expect-error: publicMetadata typed loosely by Clerk SDK
     const role = sessionClaims?.publicMetadata?.role as string | undefined;
-    if (role !== 'admin') {
+    // @ts-expect-error: publicMetadata typed loosely by Clerk SDK
+    const tenantId = sessionClaims?.publicMetadata?.tenant_id as string | undefined;
+
+    // Role-aware redirect: admin lands on /pm/admin, no tenant goes to onboarding
+    if (pathname === '/pm') {
+      if (role === 'admin') {
+        const url = req.nextUrl.clone();
+        url.pathname = '/pm/admin';
+        return NextResponse.redirect(url);
+      }
+      if (!tenantId) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/pm/onboarding';
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Admin route guard — non-admins blocked
+    if (isAdminRoute(req) && role !== 'admin') {
       const url = req.nextUrl.clone();
       url.pathname = '/pm';
       url.searchParams.set('error', 'admin_required');
@@ -91,14 +116,6 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-id', tenant);
-  if (isProtectedRoute(req)) {
-    const { userId } = auth();
-    if (!userId) {
-      const loginUrl = new URL('/login', req.url);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
   return NextResponse.next({ request: { headers: requestHeaders } });
 });
 
