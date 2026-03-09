@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 import { isDemoMode } from '../../lib/demoApi';
 import { useUser } from '@clerk/nextjs';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 const BASE_TABS = [
   { label: 'TODAY',   href: '/pm'          },
@@ -56,6 +57,9 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
           SIGNAL
         </Text>
       </Flex>
+
+      {/* ── Workspace Switcher ── */}
+      <WorkspaceSwitcher />
 
       <Flex
         flex={1} overflowX="auto" align="stretch"
