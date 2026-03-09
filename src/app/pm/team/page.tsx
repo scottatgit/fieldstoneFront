@@ -12,6 +12,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { pmFetch, isDemoMode } from '@/lib/demoApi';
+import { useAuth } from '@clerk/nextjs';
 import pmTheme from '@/components/pm/pmTheme';
 
 const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
@@ -78,6 +79,38 @@ export default function TeamPage() {
   const [delUser, setDelUser] = useState<TenantUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Invite state
+  const { getToken } = useAuth();
+  const [inviteRole,   setInviteRole]   = useState('technician');
+  const [inviteUrl,    setInviteUrl]    = useState('');
+  const [inviteExp,    setInviteExp]    = useState('');
+  const [inviteLoading,setInviteLoading]= useState(false);
+  const [inviteError,  setInviteError]  = useState('');
+
+  async function handleGenerateInvite() {
+    setInviteLoading(true); setInviteUrl(''); setInviteError('');
+    try {
+      const jwt = await getToken();
+      const res = await fetch(`${API}/api/tenant/invites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          'x-tenant-id': process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'ipquest',
+        },
+        body: JSON.stringify({ role: inviteRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setInviteError(data.detail || 'Failed to generate invite'); return; }
+      setInviteUrl(data.invite_url);
+      setInviteExp(new Date(data.expires_at).toLocaleString());
+    } catch {
+      setInviteError('Could not connect to server');
+    } finally {
+      setInviteLoading(false);
+    }
+  }
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -204,6 +237,79 @@ export default function TeamPage() {
               </TableContainer>
             </Box>
           )}
+        </Box>
+
+        {/* ── Invite Team Member ── */}
+        <Box
+          mt={6} p={5} bg="gray.900"
+          border="1px solid" borderColor="blue.800"
+          borderRadius="xl"
+        >
+          <VStack align="stretch" spacing={4}>
+            <Text fontSize="xs" fontWeight="bold" fontFamily="mono" color="blue.300" letterSpacing="wider">
+              INVITE TEAM MEMBER
+            </Text>
+            <HStack spacing={3} flexWrap="wrap">
+              <Box>
+                <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={1}>ROLE</Text>
+                <Select
+                  size="sm" w="160px"
+                  bg="gray.800" borderColor="gray.600" color="gray.100"
+                  value={inviteRole}
+                  onChange={e => { setInviteRole(e.target.value); setInviteUrl(''); }}
+                >
+                  <option value="technician">Technician</option>
+                  <option value="viewer">Viewer</option>
+                </Select>
+              </Box>
+              <Box alignSelf="flex-end">
+                <Button
+                  size="sm" colorScheme="blue"
+                  fontFamily="mono" fontWeight="bold"
+                  isLoading={inviteLoading}
+                  onClick={handleGenerateInvite}
+                >
+                  Generate Invite Link
+                </Button>
+              </Box>
+            </HStack>
+
+            {inviteError && (
+              <Text fontSize="xs" color="red.400" fontFamily="mono">{inviteError}</Text>
+            )}
+
+            {inviteUrl && (
+              <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="green.700">
+                <VStack align="stretch" spacing={2}>
+                  <HStack justify="space-between">
+                    <Text fontSize="2xs" color="green.400" fontFamily="mono" fontWeight="bold">INVITE LINK READY</Text>
+                    <Text fontSize="2xs" color="gray.500" fontFamily="mono">Expires {inviteExp}</Text>
+                  </HStack>
+                  <HStack spacing={2}>
+                    <Box
+                      flex={1} px={3} py={1.5}
+                      bg="gray.900" borderRadius="sm"
+                      border="1px solid" borderColor="gray.600"
+                      fontFamily="mono" fontSize="2xs" color="blue.300"
+                      overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis"
+                      as="code"
+                    >
+                      {inviteUrl}
+                    </Box>
+                    <Button
+                      size="xs" colorScheme="gray" fontFamily="mono"
+                      onClick={() => navigator.clipboard.writeText(inviteUrl)}
+                    >
+                      Copy
+                    </Button>
+                  </HStack>
+                  <Text fontSize="2xs" color="gray.600" fontFamily="mono">
+                    Single-use · Valid for 48 hours · Role locked to {inviteRole}
+                  </Text>
+                </VStack>
+              </Box>
+            )}
+          </VStack>
         </Box>
 
         <Modal isOpen={addOpen} onClose={closeAdd} isCentered>
