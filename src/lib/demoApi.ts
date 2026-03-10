@@ -18,14 +18,16 @@ import {
  * Works in both browser and server-side Next.js contexts.
  */
 export function isDemoMode(): boolean {
-  // Runtime hostname detection — works without build-time env vars
+  // Runtime hostname detection — always wins over env vars on real domains
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname.startsWith('demo.')) return true;
+    if (hostname.startsWith('demo.')) return true;   // demo.fieldstone.pro = always demo
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+      return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';  // localhost respects env var
     }
+    return false;  // any real subdomain (ipquest., acme., etc.) = NEVER demo
   }
+  // SSR fallback — only true when explicitly set (used for demo subdomain SSR)
   return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 }
 

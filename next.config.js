@@ -19,9 +19,15 @@ module.exports = {
     async rewrites() {
       const rules = [];
 
-      // Only proxy to local SecondBrain API when running locally.
-      // On Vercel all /pm-api/ calls are intercepted by demoApi.ts (demo mode).
-      if (!isVercel) {
+      // Proxy /pm-api/ to the correct backend
+      if (isVercel) {
+        // On Vercel: route to production API
+        rules.push({
+          source: '/pm-api/:path*',
+          destination: 'https://api.fieldstone.pro/:path*',
+        });
+      } else {
+        // Local dev: route to localhost
         rules.push({
           source: '/pm-api/:path*',
           destination: 'http://localhost:8100/:path*',
