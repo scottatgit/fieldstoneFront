@@ -4,342 +4,114 @@ import {
   Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon,
   FormControl, FormLabel, FormHelperText,
   InputGroup, InputRightElement, IconButton,
-  Divider, Spinner, Flex, Select,
-  useToast,
+  Divider, Spinner, Flex, Radio, RadioGroup,
+  Collapse, useToast, Progress,
 } from '@chakra-ui/react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface SettingsMap { [key: string]: string; }
 interface TestResult { status: 'ok' | 'error' | 'idle' | 'loading'; message: string; }
-
-// ─── Field definitions ───────────────────────────────────────────────────────
-type FieldDef = {
-  key: string;
-  label: string;
-  helper?: string;
-  secret?: boolean;
-  type?: 'text' | 'select' | 'toggle' | 'heading';
-  options?: string[];
-  placeholder?: string;
-};
-
-const SECTIONS: { title: string; icon: string; fields: FieldDef[] }[] = [
-  {
-    title: 'Email / IMAP',
-    icon: '📧',
-    fields: [
-      { key: 'GMAIL_ADDRESS',      label: 'Gmail Address',       placeholder: 'you@gmail.com' },
-      { key: 'GMAIL_APP_PASSWORD', label: 'Gmail App Password',  secret: true, placeholder: 'xxxx xxxx xxxx xxxx' },
-      { key: 'SMTP_USER',          label: 'SMTP Username',       placeholder: 'you@gmail.com' },
-      { key: 'SMTP_PASS',          label: 'SMTP Password',       secret: true },
-      { key: 'SMTP_HOST',          label: 'SMTP Host',           placeholder: 'smtp.gmail.com' },
-      { key: 'SMTP_PORT',          label: 'SMTP Port',           placeholder: '587' },
-      { key: 'IMAP_HOST',          label: 'IMAP Host',           placeholder: 'imap.gmail.com' },
-      { key: 'IMAP_USER',          label: 'IMAP Username',       placeholder: 'you@gmail.com' },
-      { key: 'IMAP_PASS',          label: 'IMAP Password',       secret: true },
-      // ── Google OAuth 2.0 ──
-      { key: '_oauth_heading',       label: 'Google OAuth 2.0',    type: 'heading', helper: 'Alternative to App Password — use if 2FA blocks SMTP/IMAP' },
-      { key: 'GOOGLE_CLIENT_ID',     label: 'OAuth Client ID',     placeholder: '123456789.apps.googleusercontent.com' },
-      { key: 'GOOGLE_CLIENT_SECRET', label: 'OAuth Client Secret', secret: true, placeholder: 'GOCSPX-...' },
-      { key: 'GOOGLE_REFRESH_TOKEN', label: 'OAuth Refresh Token', secret: true, placeholder: '1//0g...' },
-    ],
-  },
-  {
-    title: 'AI Configuration',
-    icon: '🤖',
-    fields: [
-      {
-        key: 'MODEL_PROVIDER', label: 'Provider',
-        type: 'select', options: ['openai', 'anthropic'],
-        helper: 'openai = OpenAI-compatible (includes Ollama)',
-      },
-      { key: 'OPENAI_API_BASE',  label: 'API Base URL',      placeholder: 'http://192.168.1.225:11434/v1', helper: 'Ollama or OpenAI endpoint' },
-      { key: 'OPENAI_API_KEY',   label: 'API Key',           secret: true, placeholder: 'ollama / sk-...' },
-      { key: 'MODEL_NAME',       label: 'Default Model',     placeholder: 'deepseek-coder:6.7b-instruct-q4_K_M' },
-      { key: 'AI_FAST_MODEL',    label: 'Fast Model',        placeholder: 'For summaries & classification', helper: 'Quick, low-cost tasks' },
-      { key: 'AI_STRONG_MODEL',  label: 'Strong Model',      placeholder: 'For signal analysis & drafts', helper: 'Complex reasoning tasks' },
-      { key: 'ANTHROPIC_API_KEY',label: 'Anthropic API Key', secret: true, placeholder: 'sk-ant-...', helper: 'Only needed if using Anthropic' },
-      { key: 'AI_BUDGET_DAILY_USD', label: 'Daily Budget (USD)', placeholder: '0.0', helper: '0 = unlimited (free/local)' },
-      { key: 'AI_CACHE_TTL_HOURS',  label: 'Cache TTL (hours)',  placeholder: '24' },
-      { key: 'AI_CACHE_ENABLED',    label: 'Cache Enabled',      placeholder: 'true' },
-      { key: 'AI_TIMEOUT_SECS',     label: 'Timeout (seconds)',  placeholder: '60' },
-      { key: 'AI_FALLBACK_URL',     label: 'Fallback URL',       placeholder: 'https://api.openai.com/v1', helper: 'Optional backup provider' },
-      { key: 'AI_FALLBACK_KEY',     label: 'Fallback API Key',   secret: true },
-      { key: 'AI_FALLBACK_MODEL',   label: 'Fallback Model',     placeholder: 'gpt-4o-mini' },
-      // ── AI OAuth 2.0 ──
-      { key: '_ai_oauth_heading', label: 'AI OAuth 2.0 (Provider-Agnostic)', type: 'heading', helper: 'Use OAuth instead of API keys — works with Google Vertex AI, Azure OpenAI, OpenAI Platform, and custom providers' },
-      {
-        key: 'AI_OAUTH_PROVIDER', label: 'OAuth Provider',
-        type: 'select', options: ['', 'google', 'azure', 'openai', 'custom'],
-        helper: 'google=Vertex AI/Gemini · azure=Azure OpenAI · openai=OpenAI Platform · custom=any OAuth2 endpoint',
-      },
-      { key: 'AI_OAUTH_CLIENT_ID',     label: 'OAuth Client ID',     placeholder: 'client id from your provider' },
-      { key: 'AI_OAUTH_CLIENT_SECRET', label: 'OAuth Client Secret', secret: true, placeholder: 'client secret' },
-      { key: 'AI_OAUTH_REFRESH_TOKEN', label: 'OAuth Refresh Token', secret: true, placeholder: 'refresh token from OAuth flow' },
-      { key: 'AI_OAUTH_TOKEN_URL',     label: 'Token Endpoint URL',  placeholder: 'https://oauth2.googleapis.com/token', helper: 'Required for custom provider; auto-set for google/azure/openai' },
-      { key: 'AI_OAUTH_SCOPE',         label: 'OAuth Scope(s)',       placeholder: 'https://www.googleapis.com/auth/cloud-platform', helper: 'Space-separated scopes' },
-      { key: 'AZURE_TENANT_ID',        label: 'Azure Tenant ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', helper: 'Azure AD only — leave blank for other providers' },
-    ],
-  },
-  {
-    title: 'Agent Zero',
-    icon: '🔗',
-    fields: [
-      { key: 'AGENT_ZERO_URL',     label: 'Agent Zero URL',     placeholder: 'http://localhost' },
-      { key: 'AGENT_ZERO_API_KEY', label: 'Agent Zero API Key', secret: true },
-    ],
-  },
-  {
-    title: 'Discord',
-    icon: '🎮',
-    fields: [
-      { key: 'DISCORD_BOT_TOKEN', label: 'Bot Token', secret: true, placeholder: 'MTQ...', helper: 'From Discord Developer Portal' },
-    ],
-  },
-  {
-    title: 'GitHub',
-    icon: '🐙',
-    fields: [
-      { key: 'GITHUB_TOKEN', label: 'Personal Access Token', secret: true, placeholder: 'github_pat_...', helper: 'Required for repo sync' },
-    ],
-  },
-  {
-    title: 'Notifications',
-    icon: '\U0001f514',
-    fields: [
-      { key: 'slack_webhook',       label: 'Slack Webhook URL',   placeholder: 'https://hooks.slack.com/services/...' },
-      { key: 'discord_webhook',     label: 'Discord Webhook URL', placeholder: 'https://discord.com/api/webhooks/...' },
-      { key: 'email_alerts',        label: 'Alert Email Address', placeholder: 'ops@yourcompany.com' },
-      { key: '_notif_events',       label: 'Notify on Events',    type: 'heading' as const },
-      { key: 'notify_outbreak',     label: 'Outbreak Detected',   placeholder: 'true' },
-      { key: 'notify_trial_ending', label: 'Trial Ending',        placeholder: 'true' },
-      { key: 'notify_suspended',    label: 'Tenant Suspended',    placeholder: 'true' },
-      { key: 'notify_pattern',      label: 'Pattern Emerging',    placeholder: 'true' },
-    ],
-  },
-  {
-    title: 'Platform',
-    icon: '\U0001f3e2',
-    fields: [
-      { key: '_platform_info',   label: 'Tenant Information', type: 'heading' as const, helper: 'Contact support to change plan or subdomain' },
-      { key: 'TENANT_NAME',     label: 'Organization Name',  placeholder: 'Your organization name' },
-      { key: 'TENANT_SUBDOMAIN',label: 'Subdomain',          placeholder: 'yourcompany.fieldstone.pro', helper: 'Read-only' },
-      { key: 'TENANT_PLAN',     label: 'Plan',               placeholder: 'starter', helper: 'Read-only' },
-      { key: 'TENANT_TRIAL',    label: 'Trial Ends',         placeholder: 'N/A', helper: 'Read-only' },
-    ],
-  },
-];
-
-// ─── Single field row ─────────────────────────────────────────────────────────
-function SettingField({
-  field, value, onChange
-}: {
-  field: FieldDef;
-  value: string;
-  onChange: (key: string, val: string) => void;
-}) {
-  const [show, setShow] = useState(false);
-  const isSecret = field.secret;
-  const isMasked = value.includes('••');
-
-  if (field.type === 'heading') {
-    return (
-      <FormControl>
-        <Divider borderColor="blue.700" mt={2} mb={1} />
-        <Text fontSize="xs" fontFamily="mono" color="blue.300"
-          textTransform="uppercase" letterSpacing="wider" fontWeight="bold" mb={1}>
-          {field.label}
-        </Text>
-        {field.helper && (
-          <FormHelperText fontSize="xs" color="gray.500" mt={0} mb={2}>{field.helper}</FormHelperText>
-        )}
-      </FormControl>
-    );
-  }
-
-  return (
-    <FormControl>
-      <FormLabel
-        fontSize="xs" fontFamily="mono" color="gray.400"
-        textTransform="uppercase" letterSpacing="wider" mb={1}
-      >
-        {field.label}
-      </FormLabel>
-      {field.type === 'select' ? (
-        <Select
-          size="sm" bg="gray.800" borderColor="gray.600" color="white"
-          value={value}
-          onChange={e => onChange(field.key, e.target.value)}
-          _hover={{ borderColor: 'blue.400' }}
-          _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
-        >
-          {(field.options || []).map(o => (
-            <option key={o} value={o} style={{ background: '#1a202c' }}>{o}</option>
-          ))}
-        </Select>
-      ) : (
-        <InputGroup size="sm">
-          <Input
-            bg="gray.800" borderColor="gray.600" color="white"
-            fontFamily={isSecret ? 'mono' : undefined}
-            type={isSecret && !show ? 'password' : 'text'}
-            value={value}
-            placeholder={isMasked ? '(unchanged — leave to keep current)' : (field.placeholder || '')}
-            onChange={e => onChange(field.key, e.target.value)}
-            onFocus={() => { if (isMasked) onChange(field.key, ''); }}
-            _hover={{ borderColor: 'blue.500' }}
-            _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
-            _placeholder={{ color: 'gray.600' }}
-          />
-          {isSecret && (
-            <InputRightElement>
-              <IconButton
-                aria-label="toggle visibility"
-                size="xs" variant="ghost" color="gray.500"
-                onClick={() => setShow(s => !s)}
-                icon={<Text fontSize="10px">{show ? '🙈' : '👁'}</Text>}
-              />
-            </InputRightElement>
-          )}
-        </InputGroup>
-      )}
-      {field.helper && (
-        <FormHelperText fontSize="10px" color="gray.600" mt={1}>
-          {field.helper}
-        </FormHelperText>
-      )}
-    </FormControl>
-  );
-}
-
-// ─── Test result badge ────────────────────────────────────────────────────────
-function TestBadge({ result }: { result: TestResult }) {
-  if (result.status === 'idle') return null;
-  if (result.status === 'loading') return <Spinner size="xs" color="blue.400" />;
-  return (
-    <Box
-      mt={2} p={2} borderRadius="md" fontSize="xs" fontFamily="mono"
-      bg={result.status === 'ok' ? 'green.900' : 'red.900'}
-      borderWidth={1} borderColor={result.status === 'ok' ? 'green.600' : 'red.600'}
-      color={result.status === 'ok' ? 'green.300' : 'red.300'}
-    >
-      {result.message}
-    </Box>
-  );
-}
-
-// ─── OAuth Connect Button ─────────────────────────────────────────────────────
-function OAuthConnectButton({ provider, onSuccess }: { provider: string; onSuccess: () => void }) {
-  const [status, setStatus] = useState<'idle' | 'waiting' | 'success' | 'error'>('idle');
-  const [msg, setMsg] = useState('');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopPolling = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  };
-
-  const handleConnect = () => {
-    if (!provider) { setMsg('Select a provider first'); setStatus('error'); return; }
-    setStatus('waiting');
-    setMsg('Waiting for authorization...');
-
-    // Open OAuth popup
-    const popup = window.open(
-      `http://localhost:8100/api/oauth/initiate?provider=${provider}`,
-      'oauth_popup',
-      'width=520,height=680,scrollbars=yes,resizable=yes'
-    );
-
-    // Poll for completion every 2s
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`http://localhost:8100/api/oauth/status?provider=${provider}`);
-        const data = await res.json();
-        if (data.completed) {
-          stopPolling();
-          popup?.close();
-          setStatus('success');
-          setMsg(data.has_refresh
-            ? '✅ Connected! Refresh token saved.'
-            : '⚠️ Connected but no refresh token — check scope includes offline_access');
-          setTimeout(onSuccess, 1000);
-        }
-      } catch { /* ignore poll errors */ }
-    }, 2000);
-
-    // Cleanup after 5 minutes
-    setTimeout(() => {
-      stopPolling();
-      if (status !== 'success') {
-        setStatus('error');
-        setMsg('Timed out — authorization not completed within 5 minutes');
-      }
-    }, 300000);
-  };
-
-  useEffect(() => () => stopPolling(), []);
-
-  const providerLabels: Record<string, string> = {
-    google: 'Google (Vertex AI)',
-    azure:  'Azure OpenAI',
-    openai: 'OpenAI Platform',
-    custom: 'Custom Provider',
-  };
-  const label = (providerLabels[provider] || provider || 'PROVIDER').toUpperCase();
-
-  return (
-    <Box mt={2}>
-      <HStack spacing={3} align="center" flexWrap="wrap">
-        <Button
-          size="sm" colorScheme="purple" variant="outline"
-          onClick={handleConnect}
-          isLoading={status === 'waiting'}
-          loadingText="Waiting..."
-          isDisabled={!provider || status === 'waiting'}
-          fontFamily="mono" fontSize="xs" letterSpacing="wider"
-        >
-          🔗 CONNECT WITH {label}
-        </Button>
-        {status === 'success' && (
-          <Text fontSize="xs" color="green.400" fontFamily="mono">{msg}</Text>
-        )}
-        {status === 'error' && (
-          <Text fontSize="xs" color="red.400" fontFamily="mono">{msg}</Text>
-        )}
-      </HStack>
-      {status === 'waiting' && (
-        <Text fontSize="xs" color="gray.500" mt={1} fontFamily="mono">
-          Complete the authorization in the popup window...
-        </Text>
-      )}
-    </Box>
-  );
-}
-
-// ─── Main SetupPanel ──────────────────────────────────────────────────────────
-// ─── Setup Status Panel ────────────────────────────────────────────────────
 interface SetupStatus {
   organization: boolean;
   imap_connected: boolean;
   ai_configured: boolean;
   first_ingestion_complete: boolean;
 }
+interface IngestResult {
+  running: boolean;
+  emailsFound?: number;
+  ticketsImported?: number;
+  aiAnalyzed?: number;
+  error?: string;
+  done?: boolean;
+}
 
-function SetupStatusPanel({ status, loading }: { status: SetupStatus | null; loading: boolean }) {
-  const steps: { key: keyof SetupStatus; label: string }[] = [
-    { key: 'organization',             label: 'Organization created' },
-    { key: 'imap_connected',           label: 'Ticket inbox connected' },
-    { key: 'first_ingestion_complete', label: 'First ingestion run' },
-    { key: 'ai_configured',            label: 'AI configured' },
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function SecretInput({ value, placeholder, onChange }: {
+  value: string; placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  const [show, setShow] = useState(false);
+  const masked = value.includes('••');
+  return (
+    <InputGroup size="sm">
+      <Input
+        bg="gray.800" borderColor="gray.600" color="white" fontFamily="mono"
+        type={show ? 'text' : 'password'}
+        value={value}
+        placeholder={masked ? '(unchanged — leave blank to keep)' : (placeholder || '')}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => { if (masked) onChange(''); }}
+        _hover={{ borderColor: 'blue.500' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
+        _placeholder={{ color: 'gray.600' }}
+      />
+      <InputRightElement>
+        <IconButton aria-label="toggle" size="xs" variant="ghost" color="gray.500"
+          onClick={() => setShow(s => !s)}
+          icon={<Text fontSize="10px">{show ? '🙈' : '👁'}</Text>}
+        />
+      </InputRightElement>
+    </InputGroup>
+  );
+}
+
+function PlainInput({ value, placeholder, onChange }: {
+  value: string; placeholder?: string; onChange: (v: string) => void;
+}) {
+  return (
+    <Input size="sm" bg="gray.800" borderColor="gray.600" color="white"
+      value={value} placeholder={placeholder || ''}
+      onChange={e => onChange(e.target.value)}
+      _hover={{ borderColor: 'blue.500' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
+      _placeholder={{ color: 'gray.600' }}
+    />
+  );
+}
+
+function FieldRow({ label, helper, children }: {
+  label: string; helper?: string; children: React.ReactNode;
+}) {
+  return (
+    <FormControl>
+      <FormLabel fontSize="xs" fontFamily="mono" color="gray.400"
+        textTransform="uppercase" letterSpacing="wider" mb={1}>
+        {label}
+      </FormLabel>
+      {children}
+      {helper && <FormHelperText fontSize="10px" color="gray.600" mt={1}>{helper}</FormHelperText>}
+    </FormControl>
+  );
+}
+
+function TestBadge({ result }: { result: TestResult }) {
+  if (result.status === 'idle') return null;
+  if (result.status === 'loading') return <Spinner size="xs" color="blue.400" />;
+  return (
+    <Box mt={2} p={2} borderRadius="md" fontSize="xs" fontFamily="mono"
+      bg={result.status === 'ok' ? 'green.900' : 'red.900'}
+      borderWidth={1} borderColor={result.status === 'ok' ? 'green.600' : 'red.600'}
+      color={result.status === 'ok' ? 'green.300' : 'red.300'}>
+      {result.message}
+    </Box>
+  );
+}
+
+// ─── Activation Status ────────────────────────────────────────────────────────
+function ActivationStatus({ status, loading }: { status: SetupStatus | null; loading: boolean }) {
+  const steps: { key: keyof SetupStatus; label: string; hint: string }[] = [
+    { key: 'organization',             label: 'Organization created',   hint: '' },
+    { key: 'imap_connected',           label: 'Ticket inbox connected', hint: 'Connect below' },
+    { key: 'first_ingestion_complete', label: 'First ingestion run',    hint: 'Run scan below' },
+    { key: 'ai_configured',            label: 'AI configured',          hint: 'Enable AI below' },
   ];
   const completed = status ? steps.filter(s => status[s.key]).length : 0;
   const pct = Math.round((completed / steps.length) * 100);
   return (
-    <Box mx={4} mt={4} mb={2} p={4} bg="gray.800" borderRadius="md"
-      border="1px solid" borderColor={pct === 100 ? 'green.600' : 'blue.700'}>
+    <Box p={4} bg="gray.800" borderRadius="md" border="1px solid"
+      borderColor={pct === 100 ? 'green.600' : 'blue.800'}>
       <HStack justify="space-between" mb={3}>
         <Text fontSize="xs" fontFamily="mono" color="blue.300"
           textTransform="uppercase" letterSpacing="wider" fontWeight="bold">
@@ -353,18 +125,20 @@ function SetupStatusPanel({ status, loading }: { status: SetupStatus | null; loa
       </HStack>
       <Box bg="gray.700" borderRadius="full" h="4px" mb={3}>
         <Box bg={pct === 100 ? 'green.400' : 'blue.400'} borderRadius="full"
-          h="4px" w={pct + '%'} transition="width 0.4s ease" />
+          h="4px" w={`${pct}%`} transition="width 0.5s ease" />
       </Box>
       <VStack spacing={1} align="stretch">
         {steps.map(step => (
           <HStack key={step.key} spacing={2}>
-            <Text fontSize="xs" color={status?.[step.key] ? 'green.400' : 'gray.500'}>
+            <Text fontSize="sm" color={status?.[step.key] ? 'green.400' : 'gray.600'}>
               {status?.[step.key] ? '✓' : '○'}
             </Text>
-            <Text fontSize="xs" fontFamily="mono"
-              color={status?.[step.key] ? 'white' : 'gray.500'}>
+            <Text fontSize="xs" fontFamily="mono" color={status?.[step.key] ? 'white' : 'gray.500'}>
               {step.label}
             </Text>
+            {!status?.[step.key] && step.hint && (
+              <Text fontSize="10px" color="blue.600" fontFamily="mono">← {step.hint}</Text>
+            )}
           </HStack>
         ))}
       </VStack>
@@ -372,17 +146,389 @@ function SetupStatusPanel({ status, loading }: { status: SetupStatus | null; loa
   );
 }
 
+// ─── Step 1: Connect Inbox ────────────────────────────────────────────────────
+type EmailProvider = 'gmail' | 'microsoft365' | 'imap';
+
+function ConnectInbox({ settings, onChange, onTest, testResult }: {
+  settings: SettingsMap;
+  onChange: (k: string, v: string) => void;
+  onTest: () => void;
+  testResult: TestResult;
+}) {
+  const [provider, setProvider] = useState<EmailProvider>(() => {
+    const host = settings['IMAP_HOST'] || '';
+    if (host.includes('gmail')) return 'gmail';
+    if (host.includes('outlook') || host.includes('office365')) return 'microsoft365';
+    if (host) return 'imap';
+    return 'gmail';
+  });
+
+  const handleProvider = (p: EmailProvider) => {
+    setProvider(p);
+    if (p === 'gmail') {
+      onChange('IMAP_HOST', 'imap.gmail.com');
+      onChange('SMTP_HOST', 'smtp.gmail.com');
+      onChange('SMTP_PORT', '587');
+    } else if (p === 'microsoft365') {
+      onChange('IMAP_HOST', 'outlook.office365.com');
+      onChange('SMTP_HOST', 'smtp.office365.com');
+      onChange('SMTP_PORT', '587');
+    }
+  };
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Text fontSize="xs" color="gray.400" fontFamily="mono">Choose your ticket inbox provider:</Text>
+      <RadioGroup value={provider} onChange={v => handleProvider(v as EmailProvider)}>
+        <VStack spacing={2} align="stretch">
+          {([
+            { val: 'gmail',         label: 'Gmail',           sub: 'Google Workspace or personal Gmail' },
+            { val: 'microsoft365',  label: 'Microsoft 365',   sub: 'Outlook / Exchange Online' },
+            { val: 'imap',          label: 'Generic IMAP',    sub: 'Any mail server — enter details manually' },
+          ] as { val: EmailProvider; label: string; sub: string }[]).map(opt => (
+            <Box key={opt.val} p={3} borderRadius="md" border="1px solid"
+              borderColor={provider === opt.val ? 'blue.500' : 'gray.700'}
+              bg={provider === opt.val ? 'blue.950' : 'gray.850'}
+              cursor="pointer" onClick={() => handleProvider(opt.val)}
+            >
+              <HStack spacing={3}>
+                <Radio value={opt.val} colorScheme="blue" size="sm" />
+                <VStack spacing={0} align="start">
+                  <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">{opt.label}</Text>
+                  <Text fontSize="xs" color="gray.500">{opt.sub}</Text>
+                </VStack>
+              </HStack>
+            </Box>
+          ))}
+        </VStack>
+      </RadioGroup>
+
+      {/* Gmail fields */}
+      {provider === 'gmail' && (
+        <VStack spacing={3} align="stretch">
+          <FieldRow label="Gmail Address" helper="The Gmail account that receives your ticket emails">
+            <PlainInput value={settings['GMAIL_ADDRESS'] || settings['IMAP_USER'] || ''}
+              placeholder="you@gmail.com"
+              onChange={v => { onChange('GMAIL_ADDRESS', v); onChange('IMAP_USER', v); onChange('SMTP_USER', v); }} />
+          </FieldRow>
+          <FieldRow label="App Password" helper="Create at myaccount.google.com → Security → App passwords">
+            <SecretInput value={settings['GMAIL_APP_PASSWORD'] || settings['IMAP_PASS'] || ''}
+              placeholder="xxxx xxxx xxxx xxxx"
+              onChange={v => { onChange('GMAIL_APP_PASSWORD', v); onChange('IMAP_PASS', v); onChange('SMTP_PASS', v); }} />
+          </FieldRow>
+        </VStack>
+      )}
+
+      {/* Microsoft 365 fields */}
+      {provider === 'microsoft365' && (
+        <VStack spacing={3} align="stretch">
+          <FieldRow label="Email Address" helper="Your Microsoft 365 email address">
+            <PlainInput value={settings['IMAP_USER'] || ''}
+              placeholder="you@company.com"
+              onChange={v => { onChange('IMAP_USER', v); onChange('SMTP_USER', v); }} />
+          </FieldRow>
+          <FieldRow label="Password" helper="Your Microsoft 365 password or app password">
+            <SecretInput value={settings['IMAP_PASS'] || ''}
+              placeholder="password"
+              onChange={v => { onChange('IMAP_PASS', v); onChange('SMTP_PASS', v); }} />
+          </FieldRow>
+        </VStack>
+      )}
+
+      {/* Generic IMAP fields */}
+      {provider === 'imap' && (
+        <VStack spacing={3} align="stretch">
+          <FieldRow label="IMAP Host">
+            <PlainInput value={settings['IMAP_HOST'] || ''} placeholder="imap.yourserver.com"
+              onChange={v => onChange('IMAP_HOST', v)} />
+          </FieldRow>
+          <FieldRow label="IMAP Username">
+            <PlainInput value={settings['IMAP_USER'] || ''} placeholder="you@yourserver.com"
+              onChange={v => onChange('IMAP_USER', v)} />
+          </FieldRow>
+          <FieldRow label="IMAP Password">
+            <SecretInput value={settings['IMAP_PASS'] || ''}
+              onChange={v => onChange('IMAP_PASS', v)} />
+          </FieldRow>
+          <FieldRow label="SMTP Host">
+            <PlainInput value={settings['SMTP_HOST'] || ''} placeholder="smtp.yourserver.com"
+              onChange={v => onChange('SMTP_HOST', v)} />
+          </FieldRow>
+          <FieldRow label="SMTP Port">
+            <PlainInput value={settings['SMTP_PORT'] || '587'} placeholder="587"
+              onChange={v => onChange('SMTP_PORT', v)} />
+          </FieldRow>
+          <FieldRow label="SMTP Username">
+            <PlainInput value={settings['SMTP_USER'] || ''}
+              onChange={v => onChange('SMTP_USER', v)} />
+          </FieldRow>
+          <FieldRow label="SMTP Password">
+            <SecretInput value={settings['SMTP_PASS'] || ''}
+              onChange={v => onChange('SMTP_PASS', v)} />
+          </FieldRow>
+        </VStack>
+      )}
+
+      <HStack spacing={3} pt={1}>
+        <Button size="sm" variant="outline" colorScheme="green"
+          onClick={onTest} isLoading={testResult.status === 'loading'}
+          fontFamily="mono" fontSize="xs" letterSpacing="wider">
+          🔌 TEST CONNECTION
+        </Button>
+        <Text fontSize="xs" color="gray.600">Verifies IMAP login</Text>
+      </HStack>
+      <TestBadge result={testResult} />
+    </VStack>
+  );
+}
+
+// ─── Step 2: Enable AI ────────────────────────────────────────────────────────
+type AIProvider = 'openrouter' | 'openai';
+
+function EnableAI({ settings, onChange, onTest, testResult }: {
+  settings: SettingsMap;
+  onChange: (k: string, v: string) => void;
+  onTest: () => void;
+  testResult: TestResult;
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const detectProvider = (): AIProvider => {
+    const base = settings['OPENAI_API_BASE'] || '';
+    if (base.includes('openrouter')) return 'openrouter';
+    return 'openai';
+  };
+  const [provider, setProvider] = useState<AIProvider>(detectProvider);
+
+  const handleProvider = (p: AIProvider) => {
+    setProvider(p);
+    if (p === 'openrouter') {
+      onChange('OPENAI_API_BASE', 'https://openrouter.ai/api/v1');
+      onChange('MODEL_PROVIDER', 'openai');
+    } else {
+      onChange('OPENAI_API_BASE', 'https://api.openai.com/v1');
+      onChange('MODEL_PROVIDER', 'openai');
+    }
+  };
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Text fontSize="xs" color="gray.400" fontFamily="mono">Choose your AI provider:</Text>
+
+      <RadioGroup value={provider} onChange={v => handleProvider(v as AIProvider)}>
+        <VStack spacing={2} align="stretch">
+          <Box p={3} borderRadius="md" border="1px solid"
+            borderColor={provider === 'openrouter' ? 'blue.500' : 'gray.700'}
+            bg={provider === 'openrouter' ? 'blue.950' : 'gray.850'}
+            cursor="pointer" onClick={() => handleProvider('openrouter')}>
+            <HStack spacing={3}>
+              <Radio value="openrouter" colorScheme="blue" size="sm" />
+              <VStack spacing={0} align="start">
+                <HStack>
+                  <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">OpenRouter</Text>
+                  <Badge colorScheme="green" fontSize="9px">RECOMMENDED</Badge>
+                </HStack>
+                <Text fontSize="xs" color="gray.500">One key, 100+ models — get key at openrouter.ai/keys</Text>
+              </VStack>
+            </HStack>
+          </Box>
+
+          <Box p={3} borderRadius="md" border="1px solid"
+            borderColor={provider === 'openai' ? 'blue.500' : 'gray.700'}
+            bg={provider === 'openai' ? 'blue.950' : 'gray.850'}
+            cursor="pointer" onClick={() => handleProvider('openai')}>
+            <HStack spacing={3}>
+              <Radio value="openai" colorScheme="blue" size="sm" />
+              <VStack spacing={0} align="start">
+                <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">OpenAI</Text>
+                <Text fontSize="xs" color="gray.500">Direct OpenAI access — get key at platform.openai.com/api-keys</Text>
+              </VStack>
+            </HStack>
+          </Box>
+        </VStack>
+      </RadioGroup>
+
+      {/* Key + models — same layout for both */}
+      <VStack spacing={3} align="stretch">
+        <FieldRow label={provider === 'openrouter' ? 'OpenRouter API Key' : 'OpenAI API Key'}
+          helper={provider === 'openrouter' ? 'Starts with sk-or-...' : 'Starts with sk-proj- or sk-...'}
+        >
+          <SecretInput
+            value={settings['OPENAI_API_KEY'] || ''}
+            placeholder={provider === 'openrouter' ? 'sk-or-...' : 'sk-proj-...'}
+            onChange={v => onChange('OPENAI_API_KEY', v)}
+          />
+        </FieldRow>
+
+        <HStack spacing={3} align="start">
+          <Box flex={1}>
+            <FieldRow label="Fast Model" helper="Quick tasks (summaries, classification)">
+              <PlainInput
+                value={settings['AI_FAST_MODEL'] || 'gpt-4o-mini'}
+                placeholder="gpt-4o-mini"
+                onChange={v => onChange('AI_FAST_MODEL', v)}
+              />
+            </FieldRow>
+          </Box>
+          <Box flex={1}>
+            <FieldRow label="Strong Model" helper="Deep analysis (Pilot, signal extraction)">
+              <PlainInput
+                value={settings['AI_STRONG_MODEL'] || 'gpt-4o'}
+                placeholder="gpt-4o"
+                onChange={v => onChange('AI_STRONG_MODEL', v)}
+              />
+            </FieldRow>
+          </Box>
+        </HStack>
+      </VStack>
+
+      <HStack spacing={3}>
+        <Button size="sm" variant="outline" colorScheme="blue"
+          onClick={onTest} isLoading={testResult.status === 'loading'}
+          fontFamily="mono" fontSize="xs" letterSpacing="wider">
+          🧪 TEST AI
+        </Button>
+        <Text fontSize="xs" color="gray.600">Sends a test prompt to verify</Text>
+      </HStack>
+      <TestBadge result={testResult} />
+
+      {/* Advanced collapsed */}
+      <Box border="1px solid" borderColor="gray.700" borderRadius="md" overflow="hidden">
+        <HStack
+          px={3} py={2} bg="gray.850" cursor="pointer" justify="space-between"
+          onClick={() => setShowAdvanced(s => !s)}
+          _hover={{ bg: 'gray.800' }}
+        >
+          <Text fontSize="xs" fontFamily="mono" color="gray.500" letterSpacing="wider">
+            ▸ ADVANCED AI SETTINGS
+          </Text>
+          <Text fontSize="xs" color="gray.600">{showAdvanced ? '▲' : '▼'}</Text>
+        </HStack>
+        <Collapse in={showAdvanced}>
+          <Box p={4} bg="gray.900">
+            <VStack spacing={3} align="stretch">
+              <Text fontSize="10px" color="gray.600" fontFamily="mono">
+                These settings are for custom endpoints, local AI, and advanced configuration.
+              </Text>
+              <FieldRow label="Custom API Base URL" helper="Override for Ollama, LiteLLM, or custom gateway">
+                <PlainInput value={settings['OPENAI_API_BASE'] || ''}
+                  placeholder="http://localhost:11434/v1"
+                  onChange={v => onChange('OPENAI_API_BASE', v)} />
+              </FieldRow>
+              <FieldRow label="Fallback API URL" helper="Secondary provider if primary fails">
+                <PlainInput value={settings['AI_FALLBACK_URL'] || ''}
+                  placeholder="https://api.openai.com/v1"
+                  onChange={v => onChange('AI_FALLBACK_URL', v)} />
+              </FieldRow>
+              <FieldRow label="Fallback API Key">
+                <SecretInput value={settings['AI_FALLBACK_KEY'] || ''}
+                  onChange={v => onChange('AI_FALLBACK_KEY', v)} />
+              </FieldRow>
+              <FieldRow label="Fallback Model">
+                <PlainInput value={settings['AI_FALLBACK_MODEL'] || ''}
+                  placeholder="gpt-4o-mini"
+                  onChange={v => onChange('AI_FALLBACK_MODEL', v)} />
+              </FieldRow>
+              <FieldRow label="Daily Budget (USD)" helper="0 = unlimited">
+                <PlainInput value={settings['AI_BUDGET_DAILY_USD'] || '0'}
+                  placeholder="1.00" onChange={v => onChange('AI_BUDGET_DAILY_USD', v)} />
+              </FieldRow>
+              <FieldRow label="Cache TTL (hours)">
+                <PlainInput value={settings['AI_CACHE_TTL_HOURS'] || '24'}
+                  placeholder="24" onChange={v => onChange('AI_CACHE_TTL_HOURS', v)} />
+              </FieldRow>
+              <FieldRow label="Request Timeout (seconds)">
+                <PlainInput value={settings['AI_TIMEOUT_SECS'] || '60'}
+                  placeholder="60" onChange={v => onChange('AI_TIMEOUT_SECS', v)} />
+              </FieldRow>
+            </VStack>
+          </Box>
+        </Collapse>
+      </Box>
+    </VStack>
+  );
+}
+
+// ─── Step 3: First Scan ───────────────────────────────────────────────────────
+function FirstScan({ onRun, result }: {
+  onRun: () => void;
+  result: IngestResult;
+}) {
+  return (
+    <VStack spacing={4} align="stretch">
+      <Text fontSize="xs" color="gray.400" fontFamily="mono">
+        Run your first scan to import tickets and activate AI analysis.
+      </Text>
+
+      {!result.running && !result.done && !result.error && (
+        <Button colorScheme="orange" onClick={onRun}
+          fontFamily="mono" letterSpacing="wider" fontSize="sm">
+          🚀 RUN FIRST SCAN
+        </Button>
+      )}
+
+      {result.running && (
+        <VStack spacing={3} align="stretch">
+          <Text fontSize="xs" fontFamily="mono" color="blue.300">Scanning inbox...</Text>
+          <Progress size="xs" isIndeterminate colorScheme="blue" borderRadius="full" />
+          <VStack spacing={1} align="start">
+            <Text fontSize="xs" color="gray.400" fontFamily="mono">✓ Connecting to inbox</Text>
+            {(result.emailsFound ?? 0) > 0 && (
+              <Text fontSize="xs" color="green.400" fontFamily="mono">
+                ✓ {result.emailsFound} emails found
+              </Text>
+            )}
+            {(result.ticketsImported ?? 0) > 0 && (
+              <Text fontSize="xs" color="green.400" fontFamily="mono">
+                ✓ {result.ticketsImported} tickets imported
+              </Text>
+            )}
+          </VStack>
+        </VStack>
+      )}
+
+      {result.done && (
+        <Box p={3} bg="green.900" borderRadius="md" border="1px solid" borderColor="green.600">
+          <VStack spacing={1} align="start">
+            <Text fontSize="xs" fontFamily="mono" color="green.300" fontWeight="bold">
+              ✅ Scan Complete — Signal is live
+            </Text>
+            {(result.emailsFound ?? 0) > 0 && (
+              <Text fontSize="xs" color="green.400" fontFamily="mono">
+                {result.emailsFound} emails scanned
+              </Text>
+            )}
+            {(result.ticketsImported ?? 0) > 0 && (
+              <Text fontSize="xs" color="green.400" fontFamily="mono">
+                {result.ticketsImported} tickets imported
+              </Text>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {result.error && (
+        <Box p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.600">
+          <Text fontSize="xs" fontFamily="mono" color="red.300">❌ {result.error}</Text>
+          <Button mt={2} size="xs" colorScheme="red" variant="outline" onClick={onRun}
+            fontFamily="mono" fontSize="10px">RETRY</Button>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
+// ─── Main SetupPanel ──────────────────────────────────────────────────────────
 export function SetupPanel() {
-  const toast   = useToast();
+  const toast = useToast();
   const [settings, setSettings] = useState<SettingsMap>({});
   const [loading, setLoading]   = useState(true);
   const [saving,  setSaving]    = useState(false);
-  const [aiTest,  setAiTest]    = useState<TestResult>({ status: 'idle', message: '' });
   const [emailTest, setEmailTest] = useState<TestResult>({ status: 'idle', message: '' });
-  const [aiUsage, setAiUsage]   = useState<any>(null);
+  const [aiTest,    setAiTest]    = useState<TestResult>({ status: 'idle', message: '' });
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
-  const [ingestRunning, setIngestRunning] = useState(false);
+  const [ingest, setIngest] = useState<IngestResult>({ running: false });
 
   const loadSetupStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -394,55 +540,21 @@ export function SetupPanel() {
     finally { setStatusLoading(false); }
   }, []);
 
-  // Load settings
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${PM_API}/api/settings`);
       const data = await res.json();
       setSettings(data.settings || {});
-    } catch (e) {
+    } catch {
       toast({ title: 'Failed to load settings', status: 'error', duration: 3000 });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [toast]);
 
-  // Load AI usage
-  const loadAiUsage = useCallback(async () => {
-    try {
-      const res = await fetch(`${PM_API}/api/settings/ai/usage`);
-      const data = await res.json();
-      setAiUsage(data);
-    } catch {}
-  }, []);
+  useEffect(() => { loadSettings(); loadSetupStatus(); }, [loadSettings, loadSetupStatus]);
 
-  useEffect(() => { loadSettings(); loadAiUsage(); loadSetupStatus(); }, [loadSettings, loadAiUsage, loadSetupStatus]);
+  const handleChange = (k: string, v: string) => setSettings(prev => ({ ...prev, [k]: v }));
 
-  const handleChange = (key: string, val: string) => {
-    setSettings(prev => ({ ...prev, [key]: val }));
-  };
-
-  const handleRunIngest = async () => {
-    setIngestRunning(true);
-    try {
-      const res = await fetch(`${PM_API}/api/ingest/run`, { method: 'POST' });
-      const data = await res.json();
-      toast({
-        title: data.status === 'started' ? '🚀 Ingestion Started' : '⚠ Error',
-        description: data.message,
-        status: data.status === 'started' ? 'info' : 'error',
-        duration: 5000,
-      });
-      if (data.status === 'started') setTimeout(() => loadSetupStatus(), 8000);
-    } catch (e) {
-      toast({ title: 'Ingestion failed', description: String(e), status: 'error', duration: 4000 });
-    } finally {
-      setIngestRunning(false);
-    }
-  };
-
-  // Save
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -458,36 +570,59 @@ export function SetupPanel() {
         status: data.status === 'ok' ? 'success' : 'error',
         duration: 4000,
       });
-      if (data.status === 'ok') loadSettings();
+      if (data.status === 'ok') { loadSettings(); loadSetupStatus(); }
     } catch (e) {
       toast({ title: 'Save failed', description: String(e), status: 'error', duration: 4000 });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  // Test AI
-  const handleTestAI = async () => {
-    setAiTest({ status: 'loading', message: '' });
-    try {
-      const res = await fetch(`${PM_API}/api/settings/test/ai`, { method: 'POST' });
-      const data = await res.json();
-      setAiTest({ status: data.status, message: data.message });
-      loadAiUsage();
-    } catch (e) {
-      setAiTest({ status: 'error', message: String(e) });
-    }
-  };
-
-  // Test Email
   const handleTestEmail = async () => {
     setEmailTest({ status: 'loading', message: '' });
     try {
       const res = await fetch(`${PM_API}/api/settings/test/email`, { method: 'POST' });
       const data = await res.json();
       setEmailTest({ status: data.status, message: data.message });
+      if (data.status === 'ok') loadSetupStatus();
+    } catch (e) { setEmailTest({ status: 'error', message: String(e) }); }
+  };
+
+  const handleTestAI = async () => {
+    setAiTest({ status: 'loading', message: '' });
+    try {
+      const res = await fetch(`${PM_API}/api/settings/test/ai`, { method: 'POST' });
+      const data = await res.json();
+      setAiTest({ status: data.status, message: data.message });
+      if (data.status === 'ok') loadSetupStatus();
+    } catch (e) { setAiTest({ status: 'error', message: String(e) }); }
+  };
+
+  const handleRunScan = async () => {
+    setIngest({ running: true });
+    try {
+      const res = await fetch(`${PM_API}/api/ingest/run`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'started') {
+        setIngest({ running: true, emailsFound: 0, ticketsImported: 0 });
+        // Poll for completion
+        setTimeout(async () => {
+          try {
+            const sr = await fetch(`${PM_API}/api/setup/status`);
+            const sd = await sr.json();
+            setSetupStatus(sd);
+            setIngest({
+              running: false, done: true,
+              emailsFound: data.emails_found || 0,
+              ticketsImported: data.tickets_imported || 0,
+            });
+          } catch {
+            setIngest({ running: false, done: true });
+          }
+        }, 8000);
+      } else {
+        setIngest({ running: false, error: data.message || 'Ingestion failed' });
+      }
     } catch (e) {
-      setEmailTest({ status: 'error', message: String(e) });
+      setIngest({ running: false, error: String(e) });
     }
   };
 
@@ -497,207 +632,174 @@ export function SetupPanel() {
     </Flex>
   );
 
+  const sectionStyle = {
+    border: '1px solid', borderColor: 'gray.700', borderRadius: 'md',
+    mb: 3, overflow: 'hidden',
+  };
+
   return (
     <VStack spacing={0} align="stretch" h="full" overflow="hidden">
-
       {/* Header */}
-      <Flex
-        px={6} py={4} bg="gray.900"
-        borderBottom="1px solid" borderColor="gray.700"
-        align="center" justify="space-between" flexShrink={0}
-      >
+      <Flex px={6} py={4} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
+        align="center" justify="space-between" flexShrink={0}>
         <VStack align="start" spacing={0}>
           <Text fontSize="lg" fontWeight="black" color="white" fontFamily="mono" letterSpacing="wider">
             ⚙️ SETUP
           </Text>
           <Text fontSize="xs" color="gray.500" fontFamily="mono">
-            Configure Signal connections & AI
+            Activate Signal for your workspace
           </Text>
         </VStack>
-        <HStack spacing={3}>
-          {aiUsage && (
-            <VStack spacing={0} align="end">
-              <Text fontSize="xs" color="gray.400" fontFamily="mono">
-                AI Today: {aiUsage.total_tokens || 0} tokens
-              </Text>
-              <Text fontSize="10px" color="gray.600" fontFamily="mono">
-                ${(aiUsage.total_cost || 0).toFixed(4)} / ${aiUsage.budget_usd || 0} budget
-              </Text>
-            </VStack>
-          )}
-          <Button
-            size="sm" colorScheme="blue" onClick={handleSave}
-            isLoading={saving} loadingText="Saving..."
-            fontFamily="mono" letterSpacing="wider" fontSize="xs"
-          >
-            SAVE ALL
-          </Button>
-        </HStack>
+        <Button size="sm" colorScheme="blue" onClick={handleSave}
+          isLoading={saving} loadingText="Saving..."
+          fontFamily="mono" letterSpacing="wider" fontSize="xs">
+          SAVE SETTINGS
+        </Button>
       </Flex>
-
-      {/* Setup Activation Status */}
-      <SetupStatusPanel status={setupStatus} loading={statusLoading} />
 
       {/* Scrollable body */}
       <Box flex={1} overflowY="auto" p={4}
         css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748' } }}
       >
-        <Accordion allowMultiple defaultIndex={[0, 1]} borderColor="gray.700">
+        {/* Activation status */}
+        <Box mb={4}>
+          <ActivationStatus status={setupStatus} loading={statusLoading} />
+        </Box>
 
-          {SECTIONS.map(section => (
-            <AccordionItem key={section.title} border="1px solid" borderColor="gray.700"
-              borderRadius="md" mb={3} overflow="hidden"
-            >
-              <AccordionButton
-                bg="gray.850" px={4} py={3}
-                _hover={{ bg: 'gray.800' }}
-                _expanded={{ bg: 'gray.800', borderBottom: '1px solid', borderColor: 'gray.700' }}
-              >
-                <HStack flex={1} spacing={2}>
-                  <Text fontSize="sm">{section.icon}</Text>
+        <Accordion allowMultiple defaultIndex={[0, 1, 2]} borderColor="gray.700">
+
+          {/* Step 1: Connect Inbox */}
+          <AccordionItem {...sectionStyle}>
+            <AccordionButton bg="gray.850" px={4} py={3}
+              _hover={{ bg: 'gray.800' }}
+              _expanded={{ bg: 'gray.800', borderBottom: '1px solid', borderColor: 'gray.700' }}>
+              <HStack flex={1} spacing={2}>
+                <Text fontSize="sm">📧</Text>
+                <VStack spacing={0} align="start">
                   <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono"
-                    letterSpacing="wider" textTransform="uppercase"
-                  >
-                    {section.title}
+                    letterSpacing="wider">STEP 1 — CONNECT INBOX</Text>
+                  <Text fontSize="10px" color={setupStatus?.imap_connected ? 'green.400' : 'gray.500'}>
+                    {setupStatus?.imap_connected ? '✓ Connected' : 'Connect your ticket email inbox'}
                   </Text>
-                </HStack>
-                <AccordionIcon color="gray.400" />
-              </AccordionButton>
-
-              <AccordionPanel bg="gray.900" p={4}>
-                <VStack spacing={4} align="stretch">
-                  {section.fields.map(field => (
-                    <SettingField
-                      key={field.key}
-                      field={field}
-                      value={settings[field.key] || ''}
-                      onChange={handleChange}
-                    />
-                  ))}
-
-                  {/* Test buttons per section */}
-                  {section.title === 'AI Configuration' && (
-                    <Box>
-                      <Divider borderColor="gray.700" mb={3} />
-                      <HStack spacing={3}>
-                        <Button
-                          size="sm" variant="outline" colorScheme="blue"
-                          onClick={handleTestAI}
-                          isLoading={aiTest.status === 'loading'}
-                          fontFamily="mono" fontSize="xs" letterSpacing="wider"
-                        >
-                          🧪 TEST AI CONNECTION
-                        </Button>
-                        <Text fontSize="xs" color="gray.600">
-                          Sends a test prompt to verify the endpoint
-                        </Text>
-                      </HStack>
-                      <TestBadge result={aiTest} />
-                      {settings['AI_OAUTH_PROVIDER'] && (
-                        <Box mt={3}>
-                          <Divider borderColor="purple.800" mb={3} />
-                          <Text fontSize="xs" fontFamily="mono" color="purple.300"
-                            textTransform="uppercase" letterSpacing="wider" mb={2}>
-                            🔗 OAuth Authorization Flow
-                          </Text>
-                          <Text fontSize="xs" color="gray.500" mb={2}>
-                            Make sure Client ID and Client Secret are saved first, then click Connect to authorize.
-                          </Text>
-                          <OAuthConnectButton
-                            provider={settings['AI_OAUTH_PROVIDER'] || ''}
-                            onSuccess={loadSettings}
-                          />
-                        </Box>
-                      )}
-                    </Box>
-                  )}
-
-                  {section.title === 'Email / IMAP' && (
-                    <Box>
-                      <Divider borderColor="gray.700" mb={3} />
-                      <HStack spacing={3}>
-                        <Button
-                          size="sm" variant="outline" colorScheme="green"
-                          onClick={handleTestEmail}
-                          isLoading={emailTest.status === 'loading'}
-                          fontFamily="mono" fontSize="xs" letterSpacing="wider"
-                        >
-                          🔌 TEST EMAIL CONNECTION
-                        </Button>
-                        <Text fontSize="xs" color="gray.600">
-                          Verifies IMAP login
-                        </Text>
-                      </HStack>
-                      <TestBadge result={emailTest} />
-                      <Box mt={3}>
-                        <Divider borderColor="gray.700" mb={3} />
-                        <HStack spacing={3}>
-                          <Button
-                            size="sm" colorScheme="orange"
-                            onClick={handleRunIngest}
-                            isLoading={ingestRunning}
-                            loadingText="Running..."
-                            fontFamily="mono" fontSize="xs" letterSpacing="wider"
-                          >
-                            🚀 RUN FIRST INGESTION
-                          </Button>
-                          <Text fontSize="xs" color="gray.600">Scans inbox and imports tickets</Text>
-                        </HStack>
-                      </Box>
-                    </Box>
-                  )}
                 </VStack>
-              </AccordionPanel>
-            </AccordionItem>
-          ))}
+              </HStack>
+              <AccordionIcon color="gray.400" />
+            </AccordionButton>
+            <AccordionPanel bg="gray.900" p={4}>
+              <ConnectInbox settings={settings} onChange={handleChange}
+                onTest={handleTestEmail} testResult={emailTest} />
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* Step 2: Enable AI */}
+          <AccordionItem {...sectionStyle}>
+            <AccordionButton bg="gray.850" px={4} py={3}
+              _hover={{ bg: 'gray.800' }}
+              _expanded={{ bg: 'gray.800', borderBottom: '1px solid', borderColor: 'gray.700' }}>
+              <HStack flex={1} spacing={2}>
+                <Text fontSize="sm">🤖</Text>
+                <VStack spacing={0} align="start">
+                  <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono"
+                    letterSpacing="wider">STEP 2 — ENABLE AI</Text>
+                  <Text fontSize="10px" color={setupStatus?.ai_configured ? 'green.400' : 'gray.500'}>
+                    {setupStatus?.ai_configured ? '✓ AI active' : 'Bring your own OpenRouter or OpenAI key'}
+                  </Text>
+                </VStack>
+              </HStack>
+              <AccordionIcon color="gray.400" />
+            </AccordionButton>
+            <AccordionPanel bg="gray.900" p={4}>
+              <EnableAI settings={settings} onChange={handleChange}
+                onTest={handleTestAI} testResult={aiTest} />
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* Step 3: First Scan */}
+          <AccordionItem {...sectionStyle}>
+            <AccordionButton bg="gray.850" px={4} py={3}
+              _hover={{ bg: 'gray.800' }}
+              _expanded={{ bg: 'gray.800', borderBottom: '1px solid', borderColor: 'gray.700' }}>
+              <HStack flex={1} spacing={2}>
+                <Text fontSize="sm">🚀</Text>
+                <VStack spacing={0} align="start">
+                  <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono"
+                    letterSpacing="wider">STEP 3 — RUN FIRST SCAN</Text>
+                  <Text fontSize="10px" color={setupStatus?.first_ingestion_complete ? 'green.400' : 'gray.500'}>
+                    {setupStatus?.first_ingestion_complete ? '✓ Tickets imported' : 'Import tickets and activate intelligence'}
+                  </Text>
+                </VStack>
+              </HStack>
+              <AccordionIcon color="gray.400" />
+            </AccordionButton>
+            <AccordionPanel bg="gray.900" p={4}>
+              <FirstScan onRun={handleRunScan} result={ingest} />
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* Optional: Integrations */}
+          <AccordionItem {...sectionStyle}>
+            <AccordionButton bg="gray.850" px={4} py={3}
+              _hover={{ bg: 'gray.800' }}
+              _expanded={{ bg: 'gray.800', borderBottom: '1px solid', borderColor: 'gray.700' }}>
+              <HStack flex={1} spacing={2}>
+                <Text fontSize="sm">🔗</Text>
+                <VStack spacing={0} align="start">
+                  <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono"
+                    letterSpacing="wider">OPTIONAL — INTEGRATIONS</Text>
+                  <Text fontSize="10px" color="gray.500">Discord, Notifications, Platform settings</Text>
+                </VStack>
+              </HStack>
+              <AccordionIcon color="gray.400" />
+            </AccordionButton>
+            <AccordionPanel bg="gray.900" p={4}>
+              <VStack spacing={4} align="stretch">
+                <Text fontSize="xs" fontFamily="mono" color="gray.500"
+                  textTransform="uppercase" letterSpacing="wider">Discord</Text>
+                <FieldRow label="Bot Token" helper="From Discord Developer Portal → Your App → Bot">
+                  <SecretInput value={settings['DISCORD_BOT_TOKEN'] || ''}
+                    placeholder="MTQ..." onChange={v => onChange('DISCORD_BOT_TOKEN', v)} />
+                </FieldRow>
+
+                <Divider borderColor="gray.700" />
+                <Text fontSize="xs" fontFamily="mono" color="gray.500"
+                  textTransform="uppercase" letterSpacing="wider">Notifications</Text>
+                <FieldRow label="Slack Webhook">
+                  <PlainInput value={settings['slack_webhook'] || ''}
+                    placeholder="https://hooks.slack.com/services/..."
+                    onChange={v => onChange('slack_webhook', v)} />
+                </FieldRow>
+                <FieldRow label="Alert Email">
+                  <PlainInput value={settings['email_alerts'] || ''}
+                    placeholder="ops@yourcompany.com"
+                    onChange={v => onChange('email_alerts', v)} />
+                </FieldRow>
+
+                <Divider borderColor="gray.700" />
+                <Text fontSize="xs" fontFamily="mono" color="gray.500"
+                  textTransform="uppercase" letterSpacing="wider">Organization</Text>
+                <FieldRow label="Organization Name">
+                  <PlainInput value={settings['TENANT_NAME'] || ''}
+                    placeholder="Your company name"
+                    onChange={v => onChange('TENANT_NAME', v)} />
+                </FieldRow>
+              </VStack>
+            </AccordionPanel>
+          </AccordionItem>
 
         </Accordion>
 
-        {/* AI Usage Card */}
-        {aiUsage && aiUsage.entries?.length > 0 && (
-          <Box mt={4} p={4} bg="gray.800" borderRadius="md"
-            border="1px solid" borderColor="gray.700"
-          >
-            <Text fontSize="xs" fontFamily="mono" color="gray.400"
-              textTransform="uppercase" letterSpacing="wider" mb={3}
-            >
-              📊 AI Usage Today
-            </Text>
-            <VStack spacing={2} align="stretch">
-              {aiUsage.entries.map((e: any, i: number) => (
-                <HStack key={i} justify="space-between">
-                  <Text fontSize="xs" color="white" fontFamily="mono">{e.model}</Text>
-                  <HStack spacing={4}>
-                    <Badge colorScheme="blue" fontSize="10px">{e.task_type}</Badge>
-                    <Text fontSize="xs" color="gray.400">{e.calls} calls</Text>
-                    <Text fontSize="xs" color="gray.400">{e.tokens} tokens</Text>
-                    <Text fontSize="xs" color="green.400">${e.cost.toFixed(4)}</Text>
-                  </HStack>
-                </HStack>
-              ))}
-              <Divider borderColor="gray.700" />
-              <HStack justify="space-between">
-                <Text fontSize="xs" color="gray.500" fontFamily="mono">TOTAL</Text>
-                <HStack spacing={4}>
-                  <Text fontSize="xs" color="white" fontWeight="bold">{aiUsage.total_tokens} tokens</Text>
-                  <Text fontSize="xs" color="green.300" fontWeight="bold">${aiUsage.total_cost.toFixed(4)}</Text>
-                </HStack>
-              </HStack>
-            </VStack>
-          </Box>
-        )}
-
-        {/* Save button at bottom */}
-        <Box mt={4} pb={4}>
-          <Button
-            w="full" colorScheme="blue" onClick={handleSave}
+        {/* Save at bottom */}
+        <Box mt={2} pb={6}>
+          <Button w="full" colorScheme="blue" onClick={handleSave}
             isLoading={saving} loadingText="Saving..."
-            fontFamily="mono" letterSpacing="wider"
-          >
+            fontFamily="mono" letterSpacing="wider">
             💾 SAVE ALL SETTINGS
           </Button>
         </Box>
       </Box>
     </VStack>
   );
+
+  // inner helper only available in this scope
+  function onChange(k: string, v: string) { handleChange(k, v); }
 }
