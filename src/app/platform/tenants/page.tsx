@@ -3,23 +3,18 @@ import {
   Box, VStack, HStack, Text, Badge, Button, Input,
   SimpleGrid, Spinner, Flex, InputGroup, InputLeftElement,
 } from '@chakra-ui/react';
-import { useEffect, useState, useCallback } from 'react';
-import { useAdminFetch } from '@/lib/adminFetch';
+import { useEffect, useState } from 'react';
 
 interface Tenant {
   id: string;
   name: string;
   subdomain: string;
-  clerk_org_id: string | null;
   plan: string;
   billing_status: string;
   trial_ends_at: string | null;
   created_at: string;
   stripe_customer_id: string | null;
-}
-
-interface TenantsResponse {
-  tenants: Tenant[];
+  current_seat_count: number;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -28,26 +23,34 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function TenantsPage() {
-  const adminFetch                    = useAdminFetch();
-  const [tenants, setTenants]         = useState<Tenant[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [search, setSearch]           = useState('');
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [tick, setTick]     = useState(0); // manual refresh trigger
 
-  const loadTenants = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const data = await adminFetch('/pm-api/api/admin/tenants') as TenantsResponse;
-      setTenants(data.tenants || []);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminFetch]);
 
-  useEffect(() => { loadTenants(); }, [loadTenants]);
+    fetch('/pm-api/api/tenants')
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        return res.json();
+      })
+      .then((data: { tenants: Tenant[] }) => {
+        if (!cancelled) setTenants(data.tenants || []);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [tick]);
 
   const filtered = tenants.filter(t =>
     (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -59,19 +62,19 @@ export default function TenantsPage() {
       <VStack spacing={6} align="stretch">
         <HStack justify="space-between">
           <VStack align="start" spacing={0}>
-            <Text fontSize="xl" fontWeight="black" color="white" fontFamily="mono"
-              letterSpacing="wider">TENANTS</Text>
+            <Text fontSize="xl" fontWeight="black" color="white"
+              fontFamily="mono" letterSpacing="wider">TENANTS</Text>
             <Text fontSize="xs" color="gray.500" fontFamily="mono">
-              {tenants.length} workspace{tenants.length !== 1 ? 's' : ''} registered
+              {loading ? '...' : `${tenants.length} workspace${tenants.length !== 1 ? 's' : ''} registered`}
             </Text>
           </VStack>
           <Button size="sm" colorScheme="orange" variant="outline"
-            fontFamily="mono" fontSize="xs" onClick={loadTenants} isLoading={loading}>
+            fontFamily="mono" fontSize="xs"
+            onClick={() => setTick(t => t + 1)} isLoading={loading}>
             REFRESH
           </Button>
         </HStack>
 
-        {/* Search */}
         <InputGroup size="sm" maxW="320px">
           <InputLeftElement pointerEvents="none">
             <Text fontSize="xs" color="gray.600">🔍</Text>
@@ -85,15 +88,16 @@ export default function TenantsPage() {
           />
         </InputGroup>
 
-        {/* Error state */}
         {error && (
           <Box p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
-            <Text fontSize="xs" color="red.300" fontFamily="mono">{error}</Text>
+            <Text fontSize="xs" color="red.300" fontFamily="mono">Error: {error}</Text>
           </Box>
         )}
 
         {loading ? (
-          <Flex justify="center" py={12}><Spinner color="orange.400" size="lg" /></Flex>
+          <Flex justify="center" py={12}>
+            <Spinner color="orange.400" size="lg" />
+          </Flex>
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
             {filtered.map(tenant => (
@@ -126,11 +130,9 @@ export default function TenantsPage() {
                     </VStack>
                     <VStack spacing={0} align="start">
                       <Text fontSize="xs" fontWeight="bold" color="white">
-                        {tenant.trial_ends_at
-                          ? new Date(tenant.trial_ends_at).toLocaleDateString()
-                          : '—'}
+                        {tenant.current_seat_count ?? 0}
                       </Text>
-                      <Text fontSize="9px" color="gray.600" fontFamily="mono">TRIAL END</Text>
+                      <Text fontSize="9px" color="gray.600" fontFamily="mono">SEATS</Text>
                     </VStack>
                     <VStack spacing={0} align="start">
                       <Text fontSize="xs" fontWeight="bold"
@@ -141,15 +143,13 @@ export default function TenantsPage() {
                     </VStack>
                   </SimpleGrid>
 
-                  <HStack spacing={2}>
-                    <Button size="xs" colorScheme="orange" variant="outline"
-                      fontFamily="mono" fontSize="9px" letterSpacing="wider"
-                      as="a"
-                      href={`https://${tenant.subdomain}.fieldstone.pro/pm`}
-                      target="_blank">
-                      OPEN WORKSPACE ↗
-                    </Button>
-                  </HStack>
+                  <Button size="xs" colorScheme="orange" variant="outline"
+                    fontFamily="mono" fontSize="9px" letterSpacing="wider"
+                    as="a"
+                    href={`https://${tenant.subdomain}.fieldstone.pro/pm`}
+                    target="_blank">
+                    OPEN WORKSPACE ↗
+                  </Button>
                 </VStack>
               </Box>
             ))}
