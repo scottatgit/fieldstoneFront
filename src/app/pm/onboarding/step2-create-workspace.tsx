@@ -132,7 +132,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           />
           {subdomain && (
             <Text fontSize="2xs" color={slugValid ? 'blue.400' : 'red.400'} fontFamily="mono" mt={1}>
-              {slugValid ? `\u2713 fieldstone.pro \u2192 ${slug}.fieldstone.pro` : '2\u201330 lowercase letters, numbers, hyphens'}
+              {slugValid ? `✓ fieldstone.pro → ${slug}.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
             </Text>
           )}
         </FormControl>
@@ -154,7 +154,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           Create Workspace
         </Button>
         <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>
-          \u2190 Back
+          ← Back
         </Button>
       </VStack>
     </VStack>
