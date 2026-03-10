@@ -4,7 +4,8 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Flex, VStack, Spinner, Text } from '@chakra-ui/react';
 
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'fieldstone.pro';
+const BASE_DOMAIN   = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
+const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE_DOMAIN);
 
 export default function PostLoginRedirect() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
