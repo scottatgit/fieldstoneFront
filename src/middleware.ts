@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 const BASE_DOMAIN    = process.env.NEXT_PUBLIC_BASE_DOMAIN    || 'fieldstone.pro';
-const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'ipquest';
+const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'demo';
 
 const CLERK_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 const hasValidClerkKey =
@@ -10,15 +10,22 @@ const hasValidClerkKey =
   !CLERK_KEY.includes('placeholder') &&
   CLERK_KEY.length > 20;
 
+// Reserved slugs — never resolve as tenant workspaces
 const RESERVED_SLUGS = new Set([
-  'www', 'app', 'admin', 'demo', 'api',
+  'www', 'app', 'admin', 'demo', 'api', 'signal',
 ]);
-
 
 const isEnvDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
-const isProtectedRoute = createRouteMatcher(['(pm\\.*)'  ]);
-const ADMIN_ROUTES     = ['/pm/admin'];
+const isProtectedRoute  = createRouteMatcher(['(pm\\.*)', '(platform\\.*)']);
+const ADMIN_ROUTES      = ['/pm/admin'];
+const PLATFORM_ROUTES   = ['/platform'];
+
+/** Detect if this request is for the Signal control plane. */
+function isPlatformHost(req: NextRequest): boolean {
+  const hostname = (req.headers.get('host') || '').split(':')[0];
+  return hostname === `signal.${BASE_DOMAIN}` || hostname === 'signal.fieldstone.pro';
+}
 
 /** Extract tenant from subdomain. */
 function extractTenant(req: NextRequest): string {
@@ -31,15 +38,14 @@ function extractTenant(req: NextRequest): string {
 
   if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
     const subdomain = hostname.replace(`.${BASE_DOMAIN}`, '');
-    if (['www', 'app'].includes(subdomain)) return DEFAULT_TENANT;
+    if (RESERVED_SLUGS.has(subdomain)) return DEFAULT_TENANT;
     return subdomain;
   }
 
   return DEFAULT_TENANT;
 }
 
-
-/** Extract raw subdomain slug (not resolved to tenant_id). Returns null for reserved/localhost. */
+/** Extract raw subdomain slug. Returns null for reserved/localhost. */
 function extractSlug(req: NextRequest): string | null {
   const host     = req.headers.get('host') || '';
   const hostname = host.split(':')[0];
@@ -52,7 +58,7 @@ function extractSlug(req: NextRequest): string | null {
   return null;
 }
 
-/** Returns true if auth should be bypassed (demo / dev / no Clerk key). */
+/** Returns true if auth should be bypassed. */
 function shouldBypassAuth(req: NextRequest): boolean {
   if (isEnvDemoMode || !hasValidClerkKey) return true;
   const hostname = (req.headers.get('host') || '').split(':')[0];
@@ -60,19 +66,42 @@ function shouldBypassAuth(req: NextRequest): boolean {
   return false;
 }
 
-/** Returns true if this path requires platform-admin role. */
 function isAdminRoute(req: NextRequest): boolean {
   const { pathname } = req.nextUrl;
   return ADMIN_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
 }
 
+function isPlatformRoute(req: NextRequest): boolean {
+  const { pathname } = req.nextUrl;
+  return PLATFORM_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
+}
+
 /**
- * Pass-through middleware — dev / demo environments.
- * Admin routes allowed only on demo subdomain or DEMO_MODE env.
- * No tenant ID grants admin privileges.
+ * Rewrite signal.fieldstone.pro/* → /platform/*
+ * Sets x-platform-mode header so platform layout can detect context.
  */
+function applyPlatformRewrite(req: NextRequest): NextResponse {
+  const { pathname, search } = req.nextUrl;
+  // Already under /platform — pass through
+  if (pathname.startsWith('/platform')) {
+    const headers = new Headers(req.headers);
+    headers.set('x-platform-mode', 'true');
+    return NextResponse.next({ request: { headers } });
+  }
+  // Rewrite / → /platform, /setup → /platform/setup, etc.
+  const newPath = pathname === '/' ? '/platform' : `/platform${pathname}`;
+  const url = req.nextUrl.clone();
+  url.pathname = newPath;
+  const headers = new Headers(req.headers);
+  headers.set('x-platform-mode', 'true');
+  return NextResponse.rewrite(url, { request: { headers } });
+}
+
+/** Pass-through middleware for dev/demo. */
 function bypassMiddleware(req: NextRequest): NextResponse {
-  const tenant   = extractTenant(req);
+  // Platform host rewrite even in bypass mode
+  if (isPlatformHost(req)) return applyPlatformRewrite(req);
+
   const hostname = (req.headers.get('host') || '').split(':')[0];
   const isDemo   = hostname.startsWith('demo.') || isEnvDemoMode;
 
@@ -89,35 +118,38 @@ function bypassMiddleware(req: NextRequest): NextResponse {
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
-/**
- * Clerk-protected middleware — production with valid keys.
- * Admin access requires: user.publicMetadata.role === 'admin'
- * Tenant identity does NOT grant admin privileges.
- */
+/** Clerk-protected middleware for production. */
 const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
-  const tenant = extractTenant(req);
-  const { pathname } = req.nextUrl;
+  // Platform host: rewrite + require platform_admin
+  if (isPlatformHost(req)) {
+    const { userId, sessionClaims } = auth();
+    if (!userId) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+    // @ts-expect-error: Clerk publicMetadata typed loosely
+    const role = sessionClaims?.publicMetadata?.role as string | undefined;
+    if (role !== 'admin' && role !== 'platform_admin') {
+      // Non-admins redirected to their workspace
+      return NextResponse.redirect(new URL('https://fieldstone.pro/pm', req.url));
+    }
+    return applyPlatformRewrite(req);
+  }
 
-  // Gate protected routes — redirect to login if not authenticated
+  // Standard tenant route protection
   if (isProtectedRoute(req)) {
     const { userId, sessionClaims } = auth();
     if (!userId) {
-      const loginUrl = new URL('/login', req.url);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL('/login', req.url));
     }
 
-    // @ts-expect-error: publicMetadata typed loosely by Clerk SDK
-    const role = sessionClaims?.publicMetadata?.role as string | undefined;
-    // @ts-expect-error: publicMetadata typed loosely by Clerk SDK
+    // @ts-expect-error: Clerk publicMetadata typed loosely
+    const role     = sessionClaims?.publicMetadata?.role as string | undefined;
+    // @ts-expect-error: Clerk publicMetadata typed loosely
     const tenantId = sessionClaims?.publicMetadata?.tenant_id as string | undefined;
+    const { pathname } = req.nextUrl;
 
-    // Role-aware redirect: admin lands on /pm/admin, no tenant goes to onboarding
+    // Role-aware redirect at /pm root
     if (pathname === '/pm') {
-      if (role === 'admin') {
-        const url = req.nextUrl.clone();
-        url.pathname = '/pm/admin';
-        return NextResponse.redirect(url);
-      }
       if (!tenantId) {
         const url = req.nextUrl.clone();
         url.pathname = '/pm/onboarding';
@@ -125,11 +157,18 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
       }
     }
 
-    // Admin route guard — non-admins blocked
+    // Admin route guard
     if (isAdminRoute(req) && role !== 'admin') {
       const url = req.nextUrl.clone();
       url.pathname = '/pm';
       url.searchParams.set('error', 'admin_required');
+      return NextResponse.redirect(url);
+    }
+
+    // Platform route guard (direct /platform access without signal. domain)
+    if (isPlatformRoute(req) && role !== 'admin' && role !== 'platform_admin') {
+      const url = req.nextUrl.clone();
+      url.pathname = '/pm';
       return NextResponse.redirect(url);
     }
   }

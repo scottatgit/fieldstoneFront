@@ -8,18 +8,12 @@ import { isDemoMode } from '../../lib/demoApi';
 import { useUser } from '@clerk/nextjs';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
+// Tenant workspace navigation — platform admin tabs live at signal.fieldstone.pro
 const BASE_TABS = [
-  { label: 'TODAY',   href: '/pm'          },
-  { label: 'INTEL',   href: '/pm/intel'    },
-  { label: 'TEAM',    href: '/pm/team'     },
-  { label: 'BILLING', href: '/pm/billing', demoHide: true },
-  { label: 'SETUP',   href: '/pm/setup'   },
-  { label: 'DOCS',    href: '/pm/docs'    },
-];
-
-const ADMIN_TABS = [
-  { label: 'ADMIN',   href: '/pm/admin'         },
-  { label: 'CLIENTS', href: '/pm/admin/clients'  },
+  { label: 'TODAY', href: '/pm'          },
+  { label: 'INTEL', href: '/pm/intel'    },
+  { label: 'TEAM',  href: '/pm/team'     },
+  { label: 'DOCS',  href: '/pm/docs'     },
 ];
 
 const COMING_SOON_MODULES = [
@@ -28,100 +22,104 @@ const COMING_SOON_MODULES = [
 ];
 
 export function SummaryBar({ summary, loading }: { summary: Summary | null; loading: boolean }) {
-  const pathname   = usePathname();
-  const demo       = isDemoMode();
-  const { user }   = useUser();
-  // Admin: Clerk role === 'admin', or demo mode (showcase)
-  const isAdmin    = (user?.publicMetadata?.role as string | undefined) === 'admin';
+  const pathname = usePathname();
+  const demo     = isDemoMode();
+  const { user } = useUser();
+  const isAdmin  = (user?.publicMetadata?.role as string | undefined) === 'admin';
 
-  const navBar = (
+  return (
     <Flex
       px={0} py={0} bg="gray.900" borderBottom="1px solid" borderColor="gray.700"
-      align="stretch" flexShrink={0}
-      justify="space-between"
-      position="relative"
+      align="stretch" flexShrink={0} justify="space-between" position="relative"
     >
-      {/* ── Signal Wordmark — sticky on mobile so it never scrolls away ── */}
+      {/* Signal Wordmark */}
       <Flex
         align="center" px={4} borderRight="1px solid" borderColor="gray.700"
         flexShrink={0} bg="gray.900"
         position={{ base: 'sticky', md: 'relative' }}
-        left={0} zIndex={10}
-        minH="44px"
+        left={0} zIndex={10} minH="44px"
       >
-        <Text
-          fontSize="xs" fontWeight="black" fontFamily="mono"
-          letterSpacing="widest" color="blue.400"
-          userSelect="none"
-        >
+        <Text fontSize="xs" fontWeight="black" fontFamily="mono"
+          letterSpacing="widest" color="blue.400" userSelect="none">
           SIGNAL
         </Text>
       </Flex>
 
-      {/* ── Workspace Switcher ── */}
+      {/* Workspace Switcher */}
       <WorkspaceSwitcher />
 
-      <Flex
-        flex={1} overflowX="auto" align="stretch"
-        css={{ '&::-webkit-scrollbar': { display: 'none' } }}
-      >
-      <HStack spacing={0} align="stretch" flex={1}>
+      {/* Nav tabs */}
+      <Flex flex={1} overflowX="auto" align="stretch"
+        css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+        <HStack spacing={0} align="stretch" flex={1}>
 
-        {/* ── Tickets module tabs ── */}
-        {[...BASE_TABS.filter(t => !('demoHide' in t) || (!demo || !t.demoHide)), ...(isAdmin ? ADMIN_TABS : [])].map(tab => {
-          const isActive =
-            tab.href === '/pm'
+          {BASE_TABS.map(tab => {
+            const isActive = tab.href === '/pm'
               ? pathname === '/pm'
               : pathname.startsWith(tab.href);
-          return (
-            <Link key={tab.href} href={tab.href} style={{ textDecoration: 'none' }}>
-              <Flex
-                align="center" justify="center"
+            return (
+              <Link key={tab.href} href={tab.href} style={{ textDecoration: 'none' }}>
+                <Flex align="center" justify="center"
+                  px={4} minH="44px" minW="60px"
+                  borderBottom="2px solid"
+                  borderColor={isActive ? 'blue.400' : 'transparent'}
+                  color={isActive ? 'white' : 'gray.500'}
+                  _hover={{ color: 'gray.200', borderColor: isActive ? 'blue.400' : 'gray.600' }}
+                  transition="all 0.15s" cursor="pointer">
+                  <Text fontSize="xs" fontWeight={isActive ? 'black' : 'medium'}
+                    fontFamily="mono" letterSpacing="wider">
+                    {tab.label}
+                  </Text>
+                </Flex>
+              </Link>
+            );
+          })}
+
+          {/* Divider */}
+          <Flex align="center" px={2} flexShrink={0}>
+            <Box w="1px" h="20px" bg="gray.700" />
+          </Flex>
+
+          {/* Coming Soon */}
+          {COMING_SOON_MODULES.map(mod => (
+            <Tooltip key={mod.label} label={`${mod.label} — ${mod.tag}`} placement="bottom" fontSize="xs">
+              <Flex align="center" justify="center"
                 px={4} minH="44px" minW="60px"
-                borderBottom="2px solid"
-                borderColor={isActive ? 'blue.400' : 'transparent'}
-                color={isActive ? 'white' : 'gray.500'}
-                _hover={{ color: 'gray.200', borderColor: isActive ? 'blue.400' : 'gray.600' }}
-                transition="all 0.15s"
-                cursor="pointer"
-              >
-                <Text fontSize="xs" fontWeight={isActive ? 'black' : 'medium'} fontFamily="mono" letterSpacing="wider">
-                  {tab.label}
+                borderBottom="2px solid" borderColor="transparent"
+                color="gray.700" cursor="not-allowed" position="relative">
+                <Text fontSize="xs" fontWeight="medium" fontFamily="mono" letterSpacing="wider">
+                  {mod.label}
                 </Text>
+                <Text fontSize="2xs" color="gray.700" fontFamily="mono" ml={1}>•</Text>
               </Flex>
-            </Link>
-          );
-        })}
+            </Tooltip>
+          ))}
 
-        {/* ── Divider ── */}
-        <Flex align="center" px={2} flexShrink={0}>
-          <Box w="1px" h="20px" bg="gray.700" />
-        </Flex>
-
-        {/* ── Coming Soon: Ops + Sales ── */}
-        {COMING_SOON_MODULES.map(mod => (
-          <Tooltip key={mod.label} label={`${mod.label} module — ${mod.tag}`} placement="bottom" fontSize="xs">
-            <Flex
-              align="center" justify="center"
-              px={4} minH="44px" minW="60px"
-              borderBottom="2px solid" borderColor="transparent"
-              color="gray.700"
-              cursor="not-allowed"
-              position="relative"
-            >
-              <Text fontSize="xs" fontWeight="medium" fontFamily="mono" letterSpacing="wider">
-                {mod.label}
-              </Text>
-              <Text fontSize="2xs" color="gray.700" fontFamily="mono" ml={1}>
-                •
-              </Text>
-            </Flex>
-          </Tooltip>
-        ))}
-      </HStack>
+          {/* Admin link to control plane */}
+          {isAdmin && !demo && (
+            <>
+              <Flex align="center" px={2} flexShrink={0}>
+                <Box w="1px" h="20px" bg="gray.700" />
+              </Flex>
+              <Tooltip label="Open Signal Control Plane" placement="bottom" fontSize="xs">
+                <Flex as="a" href="https://signal.fieldstone.pro"
+                  align="center" justify="center"
+                  px={4} minH="44px" minW="60px"
+                  borderBottom="2px solid" borderColor="transparent"
+                  color="orange.600"
+                  _hover={{ color: 'orange.400', borderColor: 'orange.700' }}
+                  transition="all 0.15s" cursor="pointer">
+                  <Text fontSize="xs" fontWeight="medium" fontFamily="mono" letterSpacing="wider">
+                    ⚡ SIGNAL
+                  </Text>
+                </Flex>
+              </Tooltip>
+            </>
+          )}
+        </HStack>
       </Flex>
 
-      {/* ── Right: summary stats + user button ── */}
+      {/* Right: stats + user */}
       <HStack spacing={4} px={3} flexShrink={0}>
         {loading ? (
           <Spinner size="xs" color="gray.600" />
@@ -149,19 +147,11 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
         ) : null}
         {!demo && (
           <Flex align="center" px={1}>
-            <UserButton
-              afterSignOutUrl="/login"
-              appearance={{
-                elements: {
-                  avatarBox: { width: 36, height: 36 },
-                },
-              }}
-            />
+            <UserButton afterSignOutUrl="/login"
+              appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />
           </Flex>
         )}
       </HStack>
     </Flex>
   );
-
-  return navBar;
 }
