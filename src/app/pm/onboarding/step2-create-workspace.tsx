@@ -18,7 +18,6 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
   const [loading,        setLoading]        = useState(false);
   const [error,          setError]          = useState('');
 
-  // Generate slug from any string
   function toSlug(val: string) {
     return val.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   }
@@ -28,10 +27,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
 
   function handleNameChange(val: string) {
     setName(val);
-    // Auto-fill subdomain from name UNLESS user has manually edited it
-    if (!userEditedSlug) {
-      setSubdomain(toSlug(val));
-    }
+    if (!userEditedSlug) setSubdomain(toSlug(val));
   }
 
   function handleSubdomainChange(val: string) {
@@ -42,13 +38,27 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
   async function handleCreate() {
     if (!name.trim() || !slugValid) return;
     setLoading(true); setError('');
+
+    // Step 1 — get JWT
+    let jwt: string | null = null;
     try {
-      const jwt = await getToken();
-      if (!jwt) {
-        setError('You must be signed in to create a workspace. Please log in and try again.');
-        return;
-      }
-      const res = await fetch(`/api/tenants/create`, {
+      jwt = await getToken();
+    } catch (e) {
+      setError(`Auth error: ${e instanceof Error ? e.message : 'Could not get session token'}`);
+      setLoading(false);
+      return;
+    }
+
+    if (!jwt) {
+      setError('No session token — please sign out and sign back in.');
+      setLoading(false);
+      return;
+    }
+
+    // Step 2 — call API
+    let res: Response;
+    try {
+      res = await fetch('/api/tenants/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -58,21 +68,36 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           plan:           'starter',
         }),
       });
-      const data = await res.json();
-      if (res.status === 409) { setError('That subdomain is already taken. Try another.'); return; }
-      if (res.status === 401 || res.status === 403) { setError('Session expired — please refresh and sign in again.'); return; }
-      if (!res.ok) { setError(data.detail || 'Failed to create workspace.'); return; }
-      // Redirect to new subdomain
-      if (typeof window !== 'undefined') {
-        window.location.href = `https://${slug}.fieldstone.pro/pm`;
-      } else {
-        onSuccess();
-      }
-    } catch {
-      setError('Could not reach server.');
-    } finally {
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : 'Cannot reach api.fieldstone.pro'}`);
       setLoading(false);
+      return;
     }
+
+    // Step 3 — parse response
+    let data: Record<string, unknown> = {};
+    try {
+      data = await res.json() as Record<string, unknown>;
+    } catch {
+      setError(`Server returned non-JSON response (status ${res.status})`);
+      setLoading(false);
+      return;
+    }
+
+    // Step 4 — handle status codes
+    if (res.status === 409) { setError('That subdomain is already taken. Try another.'); setLoading(false); return; }
+    if (res.status === 401) { setError(`Authentication failed (401) — ${String(data.detail ?? 'invalid token')}`); setLoading(false); return; }
+    if (res.status === 403) { setError(`Access denied (403) — ${String(data.detail ?? 'forbidden')}`); setLoading(false); return; }
+    if (!res.ok) { setError(String(data.detail ?? `Server error ${res.status}`)); setLoading(false); return; }
+
+    // Step 5 — success
+    if (typeof window !== 'undefined') {
+      window.location.href = `https://${slug}.fieldstone.pro/pm`;
+    } else {
+      onSuccess();
+    }
+
+    setLoading(false);
   }
 
   return (
@@ -107,13 +132,17 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           />
           {subdomain && (
             <Text fontSize="2xs" color={slugValid ? 'blue.400' : 'red.400'} fontFamily="mono" mt={1}>
-              {slugValid ? `✓ fieldstone.pro → ${slug}.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
+              {slugValid ? `\u2713 fieldstone.pro \u2192 ${slug}.fieldstone.pro` : '2\u201330 lowercase letters, numbers, hyphens'}
             </Text>
           )}
         </FormControl>
       </VStack>
 
-      {error && <Text fontSize="xs" color="red.400" fontFamily="mono">{error}</Text>}
+      {error && (
+        <Box bg="red.900" border="1px solid" borderColor="red.600" borderRadius="md" p={3}>
+          <Text fontSize="xs" color="red.300" fontFamily="mono">{error}</Text>
+        </Box>
+      )}
 
       <VStack spacing={2}>
         <Button
@@ -125,7 +154,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           Create Workspace
         </Button>
         <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>
-          ← Back
+          \u2190 Back
         </Button>
       </VStack>
     </VStack>
