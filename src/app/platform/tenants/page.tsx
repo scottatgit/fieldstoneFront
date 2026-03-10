@@ -111,7 +111,7 @@ export default function TenantsPage() {
                         {tenant.name || tenant.id}
                       </Text>
                       <Text fontSize="xs" color="gray.500" fontFamily="mono">
-                        {tenant.subdomain}.fieldstone.pro
+                        {tenant.subdomain}.signal.fieldstone.pro
                       </Text>
                     </VStack>
                     <Badge
@@ -146,7 +146,7 @@ export default function TenantsPage() {
                   <Button size="xs" colorScheme="orange" variant="outline"
                     fontFamily="mono" fontSize="9px" letterSpacing="wider"
                     as="a"
-                    href={`https://${tenant.subdomain}.fieldstone.pro/pm`}
+                    href={`https://${tenant.subdomain}.signal.fieldstone.pro/pm`}
                     target="_blank">
                     OPEN WORKSPACE ↗
                   </Button>

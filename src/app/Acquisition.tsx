@@ -97,7 +97,7 @@ function Nav() {
             by Fieldstone
           </Text>
           <Button
-            as="a" href="https://demo.fieldstone.pro/pm"
+            as="a" href="https://demo.signal.fieldstone.pro/pm"
             size="xs" variant="ghost"
             color="gray.400" fontFamily="mono" fontSize="xs"
             _hover={{ color: 'white' }}
@@ -189,7 +189,7 @@ function Hero() {
               <Button as="a" href="/signup" colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
                 START FREE TRIAL
               </Button>
-              <Button as="a" href="https://demo.fieldstone.pro/pm" variant="outline" size="md" borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8} _hover={{ borderColor: BLUE, color: BLUE }}>
+              <Button as="a" href="https://demo.signal.fieldstone.pro/pm" variant="outline" size="md" borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8} _hover={{ borderColor: BLUE, color: BLUE }}>
                 WATCH DEMO
               </Button>
             </Stack>
@@ -572,7 +572,7 @@ function Footer() {
           <HStack spacing={6} flexWrap="wrap">
             {[
               { label: 'Dashboard', href: '/pm' },
-              { label: 'Demo', href: 'https://demo.fieldstone.pro/pm' },
+              { label: 'Demo', href: 'https://demo.signal.fieldstone.pro/pm' },
               { label: 'Sign Up', href: '/signup' },
               { label: 'Contact', href: 'mailto:hello@fieldstone.pro' },
             ].map(({ label, href }) => (

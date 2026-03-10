@@ -22,12 +22,23 @@ const ROLE_LABELS: Record<string, string> = {
   viewer:       'Viewer',
 };
 
+const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || 'signal.fieldstone.pro';
+
 function getCurrentSlug(): string | null {
   if (typeof window === 'undefined') return null;
-  const parts = window.location.hostname.split('.');
-  if (parts.length < 3) return null;
-  const slug = parts[0];
-  return ['www','app','admin','demo','api'].includes(slug) ? null : slug;
+  const hostname = window.location.hostname;
+  // {tenant}.signal.fieldstone.pro
+  if (hostname.endsWith('.' + SIGNAL_DOMAIN)) {
+    const slug = hostname.split('.')[0];
+    return ['www','app','admin','demo','api','signal'].includes(slug) ? null : slug;
+  }
+  // Legacy {tenant}.fieldstone.pro
+  const parts = hostname.split('.');
+  if (parts.length >= 3) {
+    const slug = parts[0];
+    return ['www','app','admin','demo','api','signal'].includes(slug) ? null : slug;
+  }
+  return null;
 }
 
 export function WorkspaceSwitcher() {
@@ -80,8 +91,7 @@ export function WorkspaceSwitcher() {
       window.location.href = '/pm';
     } else {
       const { protocol, host } = window.location;
-      const rootDomain = host.split('.').slice(-2).join('.');
-      window.location.href = `${protocol}//${ws.slug}.${rootDomain}/pm`;
+      window.location.href = `${protocol}//${ws.slug}.${SIGNAL_DOMAIN}/pm`;
     }
     setOpen(false);
   }
@@ -118,7 +128,7 @@ export function WorkspaceSwitcher() {
                     <Text fontSize='sm' fontWeight={isCurrent ? 'bold' : 'medium'}
                       color={isCurrent ? 'white' : 'gray.300'}>{ws.name}</Text>
                     <Text fontSize='xs' color='gray.600' fontFamily='mono'>
-                      {ws.slug}.fieldstone.pro
+                      {ws.slug + '.' + SIGNAL_DOMAIN}
                     </Text>
                   </VStack>
                   <Flex align='center' gap={2}>

@@ -229,7 +229,7 @@ export default function PlatformSetupPage() {
       {step === 'done' && (
         <Box py={3} borderTop="1px solid" borderColor="gray.800" flexShrink={0}>
           <Button w="full" colorScheme="orange" variant="outline"
-            fontFamily="mono" as="a" href="https://fieldstone.pro/pm">
+            fontFamily="mono" as="a" href="https://signal.fieldstone.pro">
             OPEN WORKSPACE →
           </Button>
         </Box>

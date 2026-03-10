@@ -529,7 +529,7 @@ export default function TenantDetailPage() {
                 <Text fontFamily="mono" fontSize="sm" color="blue.300">{detail.id}</Text>
               } />
               <StatCell label="Subdomain" value={
-                <Text fontFamily="mono" fontSize="sm" color="blue.300">{detail.subdomain}.fieldstone.pro</Text>
+                <Text fontFamily="mono" fontSize="sm" color="blue.300">{detail.subdomain}.signal.fieldstone.pro</Text>
               } />
               <StatCell label="Created" value={fmtDate(detail.created_at)} />
               <StatCell label="Trial Ends" value={fmtDate(detail.trial_ends_at)} />

@@ -87,7 +87,7 @@ export function PlatformNav() {
       {/* Right: tenant link + user */}
       <HStack spacing={3} px={4} flexShrink={0}>
         <Tooltip label="Back to tenant workspace" placement="bottom" fontSize="xs">
-          <Link href="https://fieldstone.pro/pm" style={{ textDecoration: 'none' }}>
+          <Link href="https://signal.fieldstone.pro" style={{ textDecoration: 'none' }}>
             <Text fontSize="xs" fontFamily="mono" color="gray.600"
               _hover={{ color: 'gray.400' }} transition="color 0.15s">
               ← WORKSPACE

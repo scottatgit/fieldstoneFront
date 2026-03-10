@@ -282,10 +282,10 @@ export default function ClientsPage() {
                     </Td>
                     <Td borderColor="gray.700">
                       <HStack spacing={1}>
-                        <Tooltip label={`Open ${t.subdomain}.fieldstone.pro/pm`}>
+                        <Tooltip label={`Open ${t.subdomain}.signal.fieldstone.pro/pm`}>
                           <Button
                             size="xs" variant="ghost" colorScheme="blue"
-                            onClick={() => window.open(`https://${t.subdomain}.fieldstone.pro/pm`, '_blank')}
+                            onClick={() => window.open(`https://${t.subdomain}.signal.fieldstone.pro/pm`, '_blank')}
                           >
                             Open
                           </Button>
@@ -355,7 +355,7 @@ export default function ClientsPage() {
                   onChange={e => setForm(f => ({ ...f, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
                 />
                 <Text fontSize="2xs" color="gray.500" mt={1}>
-                  {form.subdomain ? `${form.subdomain}.fieldstone.pro` : 'subdomain.fieldstone.pro'}
+                  {form.subdomain ? `${form.subdomain}.signal.fieldstone.pro` : 'subdomain.signal.fieldstone.pro'}
                 </Text>
               </FormControl>
               <FormControl>

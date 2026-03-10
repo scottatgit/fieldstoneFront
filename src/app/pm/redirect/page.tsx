@@ -41,7 +41,7 @@ export default function PostLoginRedirect() {
           if (list.length > 0) {
             const slug = list[0].slug;
             const proto = window.location.protocol;
-            window.location.href = `${proto}//${slug}.${BASE_DOMAIN}/pm`;
+            window.location.href = `${proto}//${slug}.${SIGNAL_DOMAIN}/pm`;
             return;
           }
         }

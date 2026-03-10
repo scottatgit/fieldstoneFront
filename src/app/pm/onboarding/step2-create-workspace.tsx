@@ -92,7 +92,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
 
     // Step 5 — success
     if (typeof window !== 'undefined') {
-      window.location.href = `https://${slug}.fieldstone.pro/pm`;
+      window.location.href = `https://${slug}.signal.fieldstone.pro/pm`;
     } else {
       onSuccess();
     }
@@ -132,7 +132,7 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           />
           {subdomain && (
             <Text fontSize="2xs" color={slugValid ? 'blue.400' : 'red.400'} fontFamily="mono" mt={1}>
-              {slugValid ? `✓ fieldstone.pro → ${slug}.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
+              {slugValid ? `✓ ${slug}.signal.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
             </Text>
           )}
         </FormControl>

@@ -21,7 +21,7 @@ export function isDemoMode(): boolean {
   // Runtime hostname detection — always wins over env vars on real domains
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname.startsWith('demo.')) return true;   // demo.fieldstone.pro = always demo
+    if (hostname.startsWith('demo.')) return true;   // demo.signal.fieldstone.pro or demo.fieldstone.pro = always demo
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return process.env.NEXT_PUBLIC_DEMO_MODE === 'true';  // localhost respects env var
     }
@@ -591,11 +591,19 @@ if (endpoint === '/api/ingest/run' && method === 'POST') {
 export function getActiveTenant(): string {
   if (typeof window === 'undefined') return DEFAULT_TENANT;
   const hostname = window.location.hostname;
-  const BASE = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'fieldstone.pro';
+  const BASE   = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
+  const SIGNAL = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE);
   if (hostname === 'localhost' || hostname === '127.0.0.1') return DEFAULT_TENANT;
-  if (hostname.endsWith(`.${BASE}`)) {
-    const sub = hostname.replace(`.${BASE}`, '');
-    if (['www', 'app'].includes(sub)) return DEFAULT_TENANT;
+  // New: {tenant}.signal.fieldstone.pro
+  if (hostname.endsWith('.' + SIGNAL)) {
+    const sub = hostname.split('.')[0];
+    if (['www', 'app', 'admin', 'signal', 'demo', 'api'].includes(sub)) return DEFAULT_TENANT;
+    return sub;
+  }
+  // Legacy: {tenant}.fieldstone.pro
+  if (hostname.endsWith('.' + BASE)) {
+    const sub = hostname.replace('.' + BASE, '');
+    if (['www', 'app', 'signal'].includes(sub)) return DEFAULT_TENANT;
     return sub;
   }
   return DEFAULT_TENANT;

@@ -6,13 +6,21 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Flex, VStack, Text, Button, Spinner } from '@chakra-ui/react';
 
 const BASE_DOMAIN    = process.env.NEXT_PUBLIC_BASE_DOMAIN    || 'fieldstone.pro';
-const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api']);
+const SIGNAL_DOMAIN  = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN  || ('signal.' + BASE_DOMAIN);
+const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api', 'signal']);
 
 /** Returns the tenant slug from the current hostname, or null if on a root/reserved domain. */
 function getCurrentSlug(): string | null {
   if (typeof window === 'undefined') return null;
   const hostname = window.location.hostname;
   if (hostname === 'localhost' || hostname === '127.0.0.1') return null;
+  // New: {tenant}.signal.fieldstone.pro
+  if (hostname.endsWith('.' + SIGNAL_DOMAIN)) {
+    const sub = hostname.split('.')[0];
+    if (RESERVED_SLUGS.has(sub)) return null;
+    return sub;
+  }
+  // Legacy: {tenant}.fieldstone.pro
   if (hostname.endsWith('.' + BASE_DOMAIN)) {
     const sub = hostname.replace('.' + BASE_DOMAIN, '');
     if (RESERVED_SLUGS.has(sub)) return null;
@@ -58,7 +66,7 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
           // On www.fieldstone.pro — redirect to the user's first workspace
           const target = list[0].slug;
           const proto  = window.location.protocol;
-          window.location.href = proto + '//' + target + '.' + BASE_DOMAIN + '/pm';
+          window.location.href = proto + '//' + target + '.' + SIGNAL_DOMAIN + '/pm';
           return;
         }
         // Already on correct tenant subdomain
