@@ -177,7 +177,7 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
       return NextResponse.next();
     }
     // Post-login routing helpers — need auth context but must NOT be rewritten to /platform/*
-    const PASS_THROUGH_PATHS = ['/pm/redirect', '/pm/onboarding'];
+    const PASS_THROUGH_PATHS = ['/redirect', '/pm/redirect', '/pm/onboarding'];
     if (PASS_THROUGH_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
       const { userId } = auth();
       if (!userId) {
