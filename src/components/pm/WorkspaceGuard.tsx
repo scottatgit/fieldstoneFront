@@ -37,7 +37,7 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [checking, setChecking]         = useState(true);
   const [hasWorkspace, setHasWorkspace] = useState(true);
-  const isOnboarding = (pathname ?? '').startsWith('/pm/onboarding');
+  const isOnboarding = (pathname ?? '').startsWith('/pm/onboarding') || (pathname ?? '') === '/pm/redirect';
 
   useEffect(() => {
     if (isOnboarding)           { setChecking(false); return; }
