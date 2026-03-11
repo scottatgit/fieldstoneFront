@@ -35,14 +35,14 @@ function classifyHost(req: NextRequest): { mode: HostMode; slug: string | null }
     return { mode: 'localhost', slug: null };
   }
 
+  // admin.signal.fieldstone.pro → admin control plane (must be checked BEFORE platform wildcard)
+  if (hostname === `admin.${SIGNAL_DOMAIN}`) {
+    return { mode: 'admin', slug: null };
+  }
+
   // signal.fieldstone.pro → platform landing
   if (hostname === SIGNAL_DOMAIN) {
     return { mode: 'platform', slug: null };
-  }
-
-  // admin.signal.fieldstone.pro → admin control plane
-  if (hostname === `admin.${SIGNAL_DOMAIN}`) {
-    return { mode: 'admin', slug: null };
   }
 
   // {tenant}.signal.fieldstone.pro → tenant workspace
