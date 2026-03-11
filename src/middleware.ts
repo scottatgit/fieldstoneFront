@@ -25,7 +25,7 @@ const PLATFORM_ROUTES  = ['/platform'];
 
 // ─── Host classification ──────────────────────────────────────────────────────
 
-type HostMode = 'marketing' | 'platform' | 'admin' | 'tenant' | 'localhost';
+type HostMode = 'marketing' | 'platform' | 'admin' | 'tenant' | 'localhost' | 'demo';
 
 function classifyHost(req: NextRequest): { mode: HostMode; slug: string | null } {
   const host     = req.headers.get('host') || '';
@@ -44,6 +44,11 @@ function classifyHost(req: NextRequest): { mode: HostMode; slug: string | null }
   // signal.fieldstone.pro → platform landing
   if (hostname === SIGNAL_DOMAIN) {
     return { mode: 'platform', slug: null };
+  }
+
+  // demo.signal.fieldstone.pro → public demo workspace (checked before wildcard)
+  if (hostname === `demo.${SIGNAL_DOMAIN}`) {
+    return { mode: 'demo', slug: 'demo' };
   }
 
   // {tenant}.signal.fieldstone.pro → tenant workspace
@@ -83,7 +88,7 @@ function applyPlatformRewrite(req: NextRequest, isAdmin = false): NextResponse {
     if (isAdmin) headers.set('x-admin-mode', 'true');
     return NextResponse.next({ request: { headers } });
   }
-  const newPath = pathname === '/' ? '/platform' : `/platform${pathname}`;
+  const newPath = pathname === '/' ? '/signal' : pathname.startsWith('/platform') ? pathname : `/platform${pathname}`;
   const url = req.nextUrl.clone();
   url.pathname = newPath;
   const headers = new Headers(req.headers);
@@ -97,6 +102,7 @@ function shouldBypassAuth(req: NextRequest): boolean {
   if (isEnvDemoMode || !hasValidClerkKey) return true;
   const hostname = (req.headers.get('host') || '').split(':')[0];
   if (hostname.startsWith('demo.')) return true;
+  if (hostname === BASE_DOMAIN || hostname === `www.${BASE_DOMAIN}`) return true;
   return false;
 }
 
@@ -114,6 +120,15 @@ function isPlatformRoute(req: NextRequest): boolean {
 
 function bypassMiddleware(req: NextRequest): NextResponse {
   const { mode, slug } = classifyHost(req);
+
+  if (mode === 'demo') {
+    const url = req.nextUrl.clone();
+    if (!req.nextUrl.pathname.startsWith('/pm')) url.pathname = '/pm';
+    const headers = new Headers(req.headers);
+    headers.set('x-demo-mode', 'true');
+    headers.set('x-tenant-slug', 'demo');
+    return NextResponse.rewrite(url, { request: { headers } });
+  }
 
   if (mode === 'platform' || mode === 'admin') {
     return applyPlatformRewrite(req, mode === 'admin');
@@ -139,6 +154,16 @@ function bypassMiddleware(req: NextRequest): NextResponse {
 
 const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   const { mode, slug } = classifyHost(req);
+
+  // Demo workspace — bypass auth entirely
+  if (mode === 'demo') {
+    const url = req.nextUrl.clone();
+    if (!req.nextUrl.pathname.startsWith('/pm')) url.pathname = '/pm';
+    const headers = new Headers(req.headers);
+    headers.set('x-demo-mode', 'true');
+    headers.set('x-tenant-slug', 'demo');
+    return NextResponse.rewrite(url, { request: { headers } });
+  }
 
   // Platform / admin control plane
   if (mode === 'platform' || mode === 'admin') {
