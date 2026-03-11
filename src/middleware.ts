@@ -171,9 +171,19 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
     // Allow auth pages through without login check — prevents infinite redirect loop
     // Use NextResponse.next() NOT applyPlatformRewrite (which would rewrite /login → /platform/login)
     const { pathname } = req.nextUrl;
+    // Public auth pages — no login check, no rewrite
     const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback'];
     if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
       return NextResponse.next();
+    }
+    // Post-login routing helpers — need auth context but must NOT be rewritten to /platform/*
+    const PASS_THROUGH_PATHS = ['/pm/redirect', '/pm/onboarding'];
+    if (PASS_THROUGH_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+      const { userId } = auth();
+      if (!userId) {
+        return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/login`, req.url));
+      }
+      return NextResponse.next(); // serve the route as-is — /pm/redirect handles its own logic
     }
 
     const { userId, sessionClaims } = auth();
@@ -183,8 +193,8 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
     // @ts-expect-error: Clerk publicMetadata typed loosely
     const role = sessionClaims?.publicMetadata?.role as string | undefined;
     if (role !== 'admin' && role !== 'platform_admin') {
-      // Non-admins → their workspace
-      return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}`, req.url));
+      // Non-admins on signal domain — send to their workspace via redirect helper
+      return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/pm/redirect`, req.url));
     }
     return applyPlatformRewrite(req, mode === 'admin');
   }
