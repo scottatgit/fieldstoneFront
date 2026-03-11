@@ -102,7 +102,7 @@ function shouldBypassAuth(req: NextRequest): boolean {
   if (isEnvDemoMode || !hasValidClerkKey) return true;
   const hostname = (req.headers.get('host') || '').split(':')[0];
   if (hostname.startsWith('demo.')) return true;
-  if (hostname === BASE_DOMAIN || hostname === `www.${BASE_DOMAIN}`) return true;
+  // Note: root domain is NOT bypassed — clerkMiddleware must run so useClerk() initializes
   return false;
 }
 
