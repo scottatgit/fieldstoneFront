@@ -172,7 +172,7 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
     // Use NextResponse.next() NOT applyPlatformRewrite (which would rewrite /login → /platform/login)
     const { pathname } = req.nextUrl;
     // Public auth pages — no login check, no rewrite
-    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback'];
+    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback', '/redirect', '/pm/redirect'];
     if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
       return NextResponse.next();
     }
@@ -194,7 +194,7 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
     const role = sessionClaims?.publicMetadata?.role as string | undefined;
     if (role !== 'admin' && role !== 'platform_admin') {
       // Non-admins on signal domain — send to their workspace via redirect helper
-      return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/pm/redirect`, req.url));
+      return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/redirect`, req.url));
     }
     return applyPlatformRewrite(req, mode === 'admin');
   }
