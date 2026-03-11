@@ -168,6 +168,13 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
 
   // Platform / admin control plane
   if (mode === 'platform' || mode === 'admin') {
+    // Allow auth pages through without login check — prevents infinite redirect loop
+    const { pathname } = req.nextUrl;
+    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback', '/sso-callback/'];
+    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p))) {
+      return applyPlatformRewrite(req, mode === 'admin');
+    }
+
     const { userId, sessionClaims } = auth();
     if (!userId) {
       return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/login`, req.url));
