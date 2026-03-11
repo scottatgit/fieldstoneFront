@@ -1,12 +1,13 @@
 'use client';
-import { Box, VStack, HStack, Text, Badge, Button } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Badge } from '@chakra-ui/react';
 
 interface Props {
   onCreate: () => void;
   onJoin:   () => void;
+  onReclaim: () => void;
 }
 
-export function Step1PathSelect({ onCreate, onJoin }: Props) {
+export function Step1PathSelect({ onCreate, onJoin, onReclaim }: Props) {
   return (
     <VStack align="stretch" spacing={6}>
       <VStack align="start" spacing={1}>
@@ -46,6 +47,20 @@ export function Step1PathSelect({ onCreate, onJoin }: Props) {
           <VStack align="start" spacing={1}>
             <Text fontSize="sm" fontWeight="bold" color="gray.200" fontFamily="mono">JOIN A WORKSPACE</Text>
             <Text fontSize="xs" color="gray.400">Accept an invite link from your admin.</Text>
+          </VStack>
+        </Box>
+
+        <Box
+          as="button" onClick={onReclaim}
+          p={5} borderRadius="lg"
+          border="1px solid" borderColor="purple.800"
+          bg="purple.950" textAlign="left"
+          _hover={{ borderColor: 'purple.500', bg: 'purple.900' }}
+          transition="all 0.15s"
+        >
+          <VStack align="start" spacing={1}>
+            <Text fontSize="sm" fontWeight="bold" color="purple.200" fontFamily="mono">ACCESS EXISTING WORKSPACE</Text>
+            <Text fontSize="xs" color="gray.400">Already have a workspace? Link your account by slug.</Text>
           </VStack>
         </Box>
       </VStack>

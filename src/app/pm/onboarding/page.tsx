@@ -5,16 +5,17 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Box, VStack, Spinner, Text } from '@chakra-ui/react';
 
-import { Step1PathSelect }       from './step1-path-select';
-import { Step2CreateWorkspace }  from './step2-create-workspace';
-import { Step2JoinWorkspace }    from './step2-join-workspace';
-import { Step3NextSteps }        from './step3-next-steps';
+import { Step1PathSelect }         from './step1-path-select';
+import { Step2CreateWorkspace }    from './step2-create-workspace';
+import { Step2JoinWorkspace }      from './step2-join-workspace';
+import { Step2ReclaimWorkspace }   from './step2-reclaim-workspace';
+import { Step3NextSteps }          from './step3-next-steps';
 
-type Step = 'path-select' | 'create' | 'join' | 'next-steps';
+type Step = 'path-select' | 'create' | 'join' | 'reclaim' | 'next-steps';
 
 function OnboardingInner() {
-  const searchParams              = useSearchParams();
-  const router                    = useRouter();
+  const searchParams = useSearchParams();
+  const router       = useRouter();
   const { getToken, isSignedIn, isLoaded } = useAuth();
 
   const inviteToken = searchParams.get('invite');
@@ -22,7 +23,6 @@ function OnboardingInner() {
   const [step,        setStep]        = useState<Step>(inviteToken ? 'join' : 'path-select');
   const [activeToken, setActiveToken] = useState<string | null>(inviteToken);
 
-  // Redirect to login if not authenticated once Clerk has loaded
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       const returnUrl = encodeURIComponent(
@@ -39,7 +39,6 @@ function OnboardingInner() {
     }
   }, [inviteToken]);
 
-  // Show spinner while Clerk loads or while redirecting
   if (!isLoaded || !isSignedIn) {
     return (
       <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
@@ -75,6 +74,7 @@ function OnboardingInner() {
           <Step1PathSelect
             onCreate={() => setStep('create')}
             onJoin={() => setStep('join')}
+            onReclaim={() => setStep('reclaim')}
           />
         )}
 
@@ -95,6 +95,13 @@ function OnboardingInner() {
               setActiveToken(null);
               setStep('path-select');
             }}
+          />
+        )}
+
+        {step === 'reclaim' && (
+          <Step2ReclaimWorkspace
+            getToken={getToken}
+            onBack={() => setStep('path-select')}
           />
         )}
 
