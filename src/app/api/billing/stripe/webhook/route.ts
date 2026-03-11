@@ -8,9 +8,8 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text()
     const sig = req.headers.get('stripe-signature') ?? ''
 
-    const apiUrl = process.env.NEXT_PUBLIC_PM_API_URL
-      ? `${process.env.NEXT_PUBLIC_PM_API_URL.replace('/pm-api', '')}/api/billing/stripe/webhook`
-      : 'https://api.brandie.cc/api/billing/stripe/webhook'
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.fieldstone.pro'
+    const apiUrl = `${apiBase}/api/billing/stripe/webhook`
 
     const upstream = await fetch(apiUrl, {
       method: 'POST',

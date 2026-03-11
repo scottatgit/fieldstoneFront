@@ -24,7 +24,7 @@ module.exports = {
         // On Vercel: route to production API
         rules.push({
           source: '/pm-api/:path*',
-          destination: 'https://api.fieldstone.pro/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.fieldstone.pro'}/:path*`,
         });
       } else {
         // Local dev: route to localhost
@@ -38,11 +38,11 @@ module.exports = {
       rules.push(
         {
           source: '/api/:path*',
-          destination: 'https://api.fieldstone.pro/api/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.fieldstone.pro'}/api/:path*`,
         },
         {
           source: '/uploads/:path*',
-          destination: 'https://api.fieldstone.pro/uploads/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.fieldstone.pro'}/uploads/:path*`,
         }
       );
 

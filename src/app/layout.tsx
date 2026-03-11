@@ -23,7 +23,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider domain="fieldstone.pro">
       <html lang="en">
         <head>
           <meta name="title" content="Fieldstone | AI Solutions for Your Business Growth" />

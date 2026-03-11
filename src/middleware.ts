@@ -14,7 +14,7 @@ const hasValidClerkKey =
   CLERK_KEY.length > 20;
 
 // Reserved slugs — never resolve as tenant workspaces
-const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api', 'signal']);
+const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api', 'signal', 'static']);
 
 const isEnvDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
