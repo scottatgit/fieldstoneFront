@@ -158,6 +158,7 @@ function Nav() {
 }
 
 function Hero() {
+  const { openSignIn, openSignUp } = useClerk();
   return (
     <Section py={24}>
       <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={12} alignItems="center">
@@ -477,6 +478,7 @@ function WhoItsFor() {
 }
 
 function Pricing() {
+  const { openSignIn, openSignUp } = useClerk();
   const features = [
     'Signal: Tickets',
     'Intel Network',
@@ -528,6 +530,7 @@ function Pricing() {
 }
 
 function FinalCTA() {
+  const { openSignIn, openSignUp } = useClerk();
   return (
     <Section py={24}>
       <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
