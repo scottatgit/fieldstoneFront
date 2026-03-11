@@ -169,10 +169,11 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   // Platform / admin control plane
   if (mode === 'platform' || mode === 'admin') {
     // Allow auth pages through without login check — prevents infinite redirect loop
+    // Use NextResponse.next() NOT applyPlatformRewrite (which would rewrite /login → /platform/login)
     const { pathname } = req.nextUrl;
-    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback', '/sso-callback/'];
-    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p))) {
-      return applyPlatformRewrite(req, mode === 'admin');
+    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback'];
+    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+      return NextResponse.next();
     }
 
     const { userId, sessionClaims } = auth();
