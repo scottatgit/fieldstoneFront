@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useUser, UserButton } from '@clerk/nextjs';
+import { useUser, UserButton, useClerk } from '@clerk/nextjs';
 import {
   Box, Button, Container, Flex, Grid, Heading, Stack,
   Text, Badge, VStack, HStack, Divider,
@@ -83,6 +83,7 @@ function BriefMock() {
 
 function Nav() {
   const { isSignedIn, isLoaded } = useUser();
+  const { openSignIn, openSignUp } = useClerk();
   return (
     <Box
       as="nav" bg={BG} borderBottom="1px solid" borderColor={BORDER}
@@ -127,7 +128,7 @@ function Nav() {
           ) : (
             <HStack spacing={3}>
               <Button
-                as="a" href="/login"
+                onClick={() => openSignIn()}
                 size="sm" variant="outline"
                 borderColor="gray.600" color="gray.300"
                 fontFamily="mono" fontSize="xs"
@@ -138,7 +139,7 @@ function Nav() {
                 SIGN IN
               </Button>
               <Button
-                as="a" href="/signup"
+                onClick={() => openSignUp()}
                 size="sm"
                 bg={BLUE} color="gray.900"
                 fontFamily="mono" fontSize="xs"
@@ -186,7 +187,7 @@ function Hero() {
           </MotionBox>
           <MotionBox initial="hidden" animate="visible" custom={3} variants={fadeUp}>
             <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
-              <Button as="a" href="/signup" colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
+              <Button onClick={() => openSignUp()} colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
                 START FREE TRIAL
               </Button>
               <Button as="a" href="https://demo.signal.fieldstone.pro/pm" variant="outline" size="md" borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8} _hover={{ borderColor: BLUE, color: BLUE }}>
@@ -514,7 +515,7 @@ function Pricing() {
                   </HStack>
                 ))}
               </VStack>
-              <Button as="a" href="/signup" colorScheme="blue" w="full" size="md"
+              <Button onClick={() => openSignUp()} colorScheme="blue" w="full" size="md"
                 fontFamily="mono" fontWeight="bold" letterSpacing="wider" mt={2}>
                 START FREE TRIAL
               </Button>
@@ -540,7 +541,7 @@ function FinalCTA() {
             </Heading>
           </VStack>
           <Stack direction={{ base: 'column', sm: 'row' }} spacing={4} justify="center">
-            <Button as="a" href="/signup" colorScheme="blue" size="lg"
+            <Button onClick={() => openSignUp()} colorScheme="blue" size="lg"
               fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={10}>
               START FREE TRIAL
             </Button>
