@@ -15,6 +15,7 @@ const hasValidClerkKey =
 
 // Reserved slugs — never resolve as tenant workspaces
 const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api', 'signal', 'static']);
+const SLUG_PATTERN   = /^[a-z0-9-]{2,40}$/; // valid tenant slug format
 
 const isEnvDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
@@ -49,6 +50,7 @@ function classifyHost(req: NextRequest): { mode: HostMode; slug: string | null }
   if (hostname.endsWith(`.${SIGNAL_DOMAIN}`)) {
     const slug = hostname.split('.')[0];
     if (RESERVED_SLUGS.has(slug)) return { mode: 'platform', slug: null };
+    if (!SLUG_PATTERN.test(slug)) return { mode: 'platform', slug: null }; // malformed slug guard
     return { mode: 'tenant', slug };
   }
 
@@ -59,6 +61,7 @@ function classifyHost(req: NextRequest): { mode: HostMode; slug: string | null }
     if (subdomain === 'signal') return { mode: 'platform', slug: null };
     if (subdomain === 'admin') return { mode: 'admin', slug: null };
     if (RESERVED_SLUGS.has(subdomain)) return { mode: 'platform', slug: null };
+    if (!SLUG_PATTERN.test(subdomain)) return { mode: 'platform', slug: null }; // malformed slug guard
     return { mode: 'tenant', slug: subdomain };
   }
 
