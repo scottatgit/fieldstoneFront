@@ -26,7 +26,7 @@ export default function FieldstonePage() {
               </HStack>
               <Button
                 as="a"
-                href="https://signal.fieldstone.pro/login"
+                href="/login"
                 size="sm"
                 bg={BLUE}
                 color="#0d1117"
@@ -119,7 +119,7 @@ export default function FieldstonePage() {
               </Button>
               <Button
                 as="a"
-                href="https://signal.fieldstone.pro/signup"
+                href="/signup"
                 variant="ghost"
                 size="sm"
                 color="gray.500"
@@ -200,10 +200,10 @@ export default function FieldstonePage() {
                 <Text as="a" href="https://signal.fieldstone.pro" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
                   Signal
                 </Text>
-                <Text as="a" href="https://signal.fieldstone.pro/login" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
+                <Text as="a" href="/login" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
                   Sign In
                 </Text>
-                <Text as="a" href="https://signal.fieldstone.pro/signup" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
+                <Text as="a" href="/signup" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
                   Sign Up
                 </Text>
               </HStack>
