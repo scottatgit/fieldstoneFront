@@ -132,6 +132,12 @@ function bypassMiddleware(req: NextRequest): NextResponse {
   }
 
   if (mode === 'platform' || mode === 'admin') {
+    // Same PUBLIC_PATHS logic as clerkProtectedMiddleware — prevents /redirect → /platform/redirect rewrite
+    const { pathname } = req.nextUrl;
+    const PUBLIC_PATHS = ['/login', '/signup', '/sso-callback', '/redirect', '/pm/redirect', '/pm/onboarding'];
+    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+      return NextResponse.next();
+    }
     return applyPlatformRewrite(req, mode === 'admin');
   }
 
