@@ -4,7 +4,6 @@ import {
   Box, Button, Container, Flex, Heading, Stack, Text, VStack, HStack, Divider,
 } from '@chakra-ui/react';
 import { ChakraProvider } from '@chakra-ui/react';
-import { SignInButton, SignUpButton } from '@clerk/nextjs';
 import theme from '../theme';
 
 const BG     = '#0d1117';
@@ -25,17 +24,16 @@ export default function FieldstonePage() {
                   FIELDSTONE
                 </Text>
               </HStack>
-              <SignInButton mode="modal">
-                <Button
+              <Button
                   size="sm"
                   bg={BLUE}
                   color="#0d1117"
                   fontWeight="700"
                   _hover={{ opacity: 0.85 }}
+                  as='a' href='https://signal.fieldstone.pro/login'
                 >
                   Sign In
                 </Button>
-              </SignInButton>
             </Flex>
           </Container>
         </Box>
@@ -118,16 +116,15 @@ export default function FieldstonePage() {
               >
                 Admin Console
               </Button>
-              <SignUpButton mode="modal">
-                <Button
+              <Button
                   variant="ghost"
                   size="sm"
                   color="gray.500"
                   _hover={{ color: BLUE }}
+                  as='a' href='https://signal.fieldstone.pro/signup'
                 >
                   Create Account
                 </Button>
-              </SignUpButton>
             </HStack>
           </VStack>
         </Container>
@@ -201,16 +198,12 @@ export default function FieldstonePage() {
                 <Text as="a" href="https://signal.fieldstone.pro" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
                   Signal
                 </Text>
-                <SignInButton mode="modal">
-                  <Text fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
+                <Text fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer" as='a' href='https://signal.fieldstone.pro/login'>
                     Sign In
                   </Text>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <Text fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">
+                <Text fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer" as='a' href='https://signal.fieldstone.pro/signup'>
                     Sign Up
                   </Text>
-                </SignUpButton>
               </HStack>
             </Flex>
           </Container>
