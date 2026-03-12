@@ -8,10 +8,9 @@ import { Box, VStack, Spinner, Text } from '@chakra-ui/react';
 import { Step1PathSelect }        from './step1-path-select';
 import { Step2CreateWorkspace }   from './step2-create-workspace';
 import { Step2JoinWorkspace }     from './step2-join-workspace';
-import { Step2ReclaimWorkspace }  from './step2-reclaim-workspace';
 import { Step3NextSteps }         from './step3-next-steps';
 
-type Step = 'path-select' | 'create' | 'join' | 'reclaim' | 'next-steps';
+type Step = 'path-select' | 'create' | 'join' | 'next-steps';
 
 function OnboardingInner() {
   const searchParams = useSearchParams();
@@ -57,7 +56,6 @@ function OnboardingInner() {
           <Step1PathSelect
             onCreate={() => setStep('create')}
             onJoin={() => setStep('join')}
-            onReclaim={() => setStep('reclaim')}
           />
         )}
         {step === 'create' && (
@@ -71,11 +69,6 @@ function OnboardingInner() {
             inviteToken={activeToken}
             onSuccess={() => setStep('next-steps')}
             onBack={() => { setActiveToken(null); setStep('path-select'); }}
-          />
-        )}
-        {step === 'reclaim' && (
-          <Step2ReclaimWorkspace
-            onBack={() => setStep('path-select')}
           />
         )}
         {step === 'next-steps' && <Step3NextSteps />}
