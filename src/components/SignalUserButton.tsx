@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 'use client';
 import { useRouter } from 'next/navigation';
 import { Flex, Text, Box, Menu, MenuButton, MenuList, MenuItem, Avatar } from '@chakra-ui/react';

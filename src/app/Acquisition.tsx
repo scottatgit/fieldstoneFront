@@ -120,12 +120,7 @@ function Nav() {
               >
                 DASHBOARD
               </Button>
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: { avatarBox: { width: 32, height: 32 } },
-                }}
-              />
+              <SignalUserButton />
             </HStack>
           ) : (
             <HStack spacing={3}>
