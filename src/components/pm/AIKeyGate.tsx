@@ -20,7 +20,7 @@ export default function AIKeyGate({ onConnected }: { onConnected: () => void }) 
       const r = await fetch(PM_API + '/api/settings', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: key }),
+        body: JSON.stringify({ settings: { [field]: key } }),
       });
       if (!r.ok) throw new Error(await r.text());
       onConnected();
