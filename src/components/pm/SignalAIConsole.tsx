@@ -111,11 +111,7 @@ export default function SignalAIConsole() {
     setMessages([{
       id: "welcome",
       role: "signal",
-      content: "Welcome to Signal.
-
-I can help you configure your workspace, set up email monitoring, upload documentation, create SOPs, and more.
-
-What would you like to do first?",
+      content: "Welcome to Signal.\n\nI can help you configure your workspace, set up email monitoring, upload documentation, create SOPs, and more.\n\nWhat would you like to do first?",
       timestamp: Date.now(),
     }]);
   }, []);
