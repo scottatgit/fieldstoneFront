@@ -6,7 +6,6 @@ import {
   Spinner, Divider, Code,
 } from '@chakra-ui/react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.fieldstone.pro';
 
 interface BillingBucket { count: number; seats: number; }
 interface StripeStatus {
@@ -61,7 +60,7 @@ export default function PlatformIntegrationsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${API}/api/admin/stripe/status`, { credentials: 'include' })
+    fetch('/pm-api/api/admin/stripe/status', { credentials: 'include' })
       .then(r => r.json())
       .then(setStripe)
       .catch(() => setError('Could not load Stripe status'))
