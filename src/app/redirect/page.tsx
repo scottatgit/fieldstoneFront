@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Flex, VStack, Spinner, Text } from '@chakra-ui/react';
 
@@ -10,22 +10,32 @@ const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE
 export default function PostLoginRedirect() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const didRun = useRef(false);
+  const [status, setStatus] = useState('LOADING...');
 
   useEffect(() => {
     if (!isLoaded) return;
     if (didRun.current) return;
-    didRun.current = true;
 
-    async function route() {
+    // 500ms grace period for Clerk cross-domain session to propagate
+    // Without this, isSignedIn can be false briefly after redirect causing a loop
+    const timer = setTimeout(async () => {
+      if (didRun.current) return;
+      didRun.current = true;
+
       if (!isSignedIn) {
-        window.location.href = '/login';
+        // Use absolute URL — relative /login can cause loops if middleware
+        // intercepts and Clerk hasn't settled the session yet
+        setStatus('SIGNING IN...');
+        window.location.href = `https://${SIGNAL_DOMAIN}/login`;
         return;
       }
+
+      setStatus('CHECKING WORKSPACE...');
 
       try {
         const token = await getToken();
         if (!token) {
-          window.location.href = '/pm/onboarding';
+          window.location.href = `https://${SIGNAL_DOMAIN}/pm/onboarding`;
           return;
         }
 
@@ -42,20 +52,21 @@ export default function PostLoginRedirect() {
           if (list.length > 0) {
             const slug = list[0].slug;
             const proto = window.location.protocol;
+            setStatus('OPENING WORKSPACE...');
             window.location.href = `${proto}//${slug}.${SIGNAL_DOMAIN}/pm`;
             return;
           }
         }
 
-        // No workspaces OR any API error — onboarding
-        window.location.href = '/pm/onboarding';
+        // No workspaces or API error — go to onboarding
+        window.location.href = `https://${SIGNAL_DOMAIN}/pm/onboarding`;
 
       } catch (_err) {
-        window.location.href = '/pm/onboarding';
+        window.location.href = `https://${SIGNAL_DOMAIN}/pm/onboarding`;
       }
-    }
+    }, 500);
 
-    void route();
+    return () => clearTimeout(timer);
   }, [isLoaded, isSignedIn, getToken]);
 
   return (
@@ -63,7 +74,7 @@ export default function PostLoginRedirect() {
       <VStack spacing={4}>
         <Spinner size="md" color="blue.400" thickness="2px" />
         <Text fontSize="xs" color="gray.600" fontFamily="mono" letterSpacing="widest">
-          LOADING...
+          {status}
         </Text>
       </VStack>
     </Flex>
