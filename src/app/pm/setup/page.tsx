@@ -23,7 +23,7 @@ export default function SetupPage() {
         if (!d.has_ai_key) { setStage('need_ai_key'); return; }
         setStage('ready');
       } catch {
-        setStage('ready'); // fallback: show console anyway
+        setStage('need_ai_key'); // fallback: require AI key — never show dumb console
       }
     })();
   }, []);

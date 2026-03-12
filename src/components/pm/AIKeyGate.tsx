@@ -34,13 +34,19 @@ export default function AIKeyGate({ onConnected }: { onConnected: () => void }) 
       <Box w="100%" maxW="480px">
         <VStack spacing={8} align="stretch">
           <VStack spacing={2} align="start">
-            <Badge colorScheme="purple" fontFamily="mono" fontSize="9px" letterSpacing="wider">STEP 2 OF 2</Badge>
+            <Badge colorScheme="orange" fontFamily="mono" fontSize="9px" letterSpacing="wider">AI KEY REQUIRED</Badge>
             <Text fontSize="2xl" fontWeight="black" color="white" fontFamily="mono">Connect your AI brain</Text>
             <Text fontSize="sm" color="gray.400">
-              Signal uses AI to analyze tickets, brief your technicians, and guide setup. Paste your API key to activate.
+              Signal AI is offline until you connect an AI provider. Without it, Signal cannot analyze tickets, brief technicians, or assist with configuration. Paste your API key to activate.
             </Text>
           </VStack>
           <VStack spacing={4} align="stretch">
+            <Box bg="orange.900" border="1px solid" borderColor="orange.600" borderRadius="md" p={3}>
+              <Text fontSize="xs" color="orange.200" fontFamily="mono">
+                ⚡ Signal AI is non-functional without an API key. This is not optional.
+              </Text>
+            </Box>
+
             <VStack align="start" spacing={2}>
               <Text fontSize="xs" color="gray.400" fontFamily="mono" textTransform="uppercase" letterSpacing="wider">Provider</Text>
               <HStack spacing={2}>
