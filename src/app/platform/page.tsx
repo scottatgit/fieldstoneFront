@@ -39,13 +39,13 @@ export default function PlatformActivityPage() {
     let cancelled = false;
 
     Promise.allSettled([
-      fetch('/pm-api/api/tenants').then(r => r.json()),
-      fetch('/pm-api/api/admin/metrics').then(r => r.ok ? r.json() : null),
+      fetch('/pm-api/api/admin/tenants', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      fetch('/pm-api/api/admin/metrics', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
     ]).then(([tenantsResult, metricsResult]) => {
       if (cancelled) return;
 
       if (tenantsResult.status === 'fulfilled') {
-        const list: Array<{ billing_status: string }> = tenantsResult.value?.tenants || [];
+        const list: Array<{ billing_status: string }> = tenantsResult.value?.tenants || tenantsResult.value || [];
         setTenantSummary({
           total:     list.length,
           active:    list.filter(t => t.billing_status === 'active').length,
