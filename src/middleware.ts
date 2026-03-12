@@ -159,6 +159,10 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
     if (isBypassPath(pathname)) {
       return NextResponse.next();
     }
+    // API/upload paths — pass through so next.config.js rewrites proxy to backend
+    if (pathname.startsWith('/api/') || pathname.startsWith('/pm-api/') || pathname.startsWith('/uploads/')) {
+      return NextResponse.next();
+    }
     // Signed-in users trying to hit platform root → send to their workspace
     const { userId, sessionClaims } = auth();
     if (userId) {
