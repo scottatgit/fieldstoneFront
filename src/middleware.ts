@@ -1,29 +1,25 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+/**
+ * Signal Platform Middleware
+ * Auth: Custom JWT via HttpOnly cookie (signal_token)
+ * Clerk removed — cookie is set by FastAPI with Domain=.signal.fieldstone.pro
+ */
 import { NextRequest, NextResponse } from 'next/server';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 const BASE_DOMAIN    = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
 const SIGNAL_DOMAIN  = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || `signal.${BASE_DOMAIN}`;
 const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'demo';
-const CLERK_KEY      = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-
-const hasValidClerkKey =
-  CLERK_KEY.startsWith('pk_') &&
-  !CLERK_KEY.includes('placeholder') &&
-  CLERK_KEY.length > 20;
+const SIGNAL_COOKIE  = 'signal_token';
 
 // Reserved slugs — never resolve as tenant workspaces
 const RESERVED_SLUGS = new Set(['www', 'app', 'admin', 'demo', 'api', 'signal', 'static']);
 const SLUG_PATTERN   = /^[a-z0-9-]{2,40}$/;
 
-// Routes that require login on tenant subdomains
-const isProtectedRoute = createRouteMatcher(['/pm(.*)', '/platform(.*)']);
-
-// Paths that should NEVER be rewritten to /platform/* or intercepted by guards
+// Paths that bypass auth entirely
 const BYPASS_PATHS = [
   '/login', '/signup', '/sso-callback',
   '/redirect', '/pm/redirect', '/pm/onboarding',
-  '/invite',
+  '/invite', '/forgot-password',
 ];
 
 // ─── Host Classification ──────────────────────────────────────────────────────
@@ -74,6 +70,10 @@ function isBypassPath(pathname: string): boolean {
   return BYPASS_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
 
+function hasSignalToken(req: NextRequest): boolean {
+  return !!req.cookies.get(SIGNAL_COOKIE)?.value;
+}
+
 function applyPlatformRewrite(req: NextRequest, isAdmin = false): NextResponse {
   const { pathname } = req.nextUrl;
   const newPath = pathname === '/' ? '/signal'
@@ -87,37 +87,12 @@ function applyPlatformRewrite(req: NextRequest, isAdmin = false): NextResponse {
   return NextResponse.rewrite(url, { request: { headers } });
 }
 
-function addTenantHeader(req: NextRequest, slug: string): NextResponse {
-  const headers = new Headers(req.headers);
-  headers.set('x-tenant-slug', slug);
-  return NextResponse.next({ request: { headers } });
-}
-
-/**
- * Bypass Clerk entirely for:
- * - localhost/dev
- * - marketing root domain (fieldstone.pro)
- * - demo subdomain (demo.signal.fieldstone.pro)
- * - no valid Clerk key
- *
- * NOTE: NEXT_PUBLIC_DEMO_MODE is intentionally NOT used here.
- * The demo subdomain is handled by host classification above.
- */
-function shouldBypassAuth(req: NextRequest): boolean {
-  if (!hasValidClerkKey) return true;
-  const hostname = (req.headers.get('host') || '').split(':')[0];
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
-  if (hostname === BASE_DOMAIN || hostname === `www.${BASE_DOMAIN}`) return true;
-  if (hostname === `demo.${SIGNAL_DOMAIN}`) return true;
-  return false;
-}
-
-// ─── Bypass Middleware (no-auth paths) ────────────────────────────────────────
-function bypassMiddleware(req: NextRequest): NextResponse {
+// ─── Main Middleware ──────────────────────────────────────────────────────────
+export default function middleware(req: NextRequest): NextResponse {
   const { mode, slug } = classifyHost(req);
   const { pathname }   = req.nextUrl;
 
-  // Demo workspace — serve directly
+  // ── Demo workspace — always serve, no auth
   if (mode === 'demo') {
     const url = req.nextUrl.clone();
     if (!pathname.startsWith('/pm')) url.pathname = '/pm';
@@ -127,80 +102,58 @@ function bypassMiddleware(req: NextRequest): NextResponse {
     return NextResponse.rewrite(url, { request: { headers } });
   }
 
-  // Localhost — pass slug or default
+  // ── Localhost dev — pass through with slug header
   if (mode === 'localhost') {
     const headers = new Headers(req.headers);
     headers.set('x-tenant-slug', slug ?? DEFAULT_TENANT);
     return NextResponse.next({ request: { headers } });
   }
 
-  // Marketing root domain
-  return NextResponse.next();
-}
+  // ── Marketing root domain — no auth needed
+  if (mode === 'marketing') {
+    return NextResponse.next();
+  }
 
-// ─── Clerk-Protected Middleware ───────────────────────────────────────────────
-const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
-  const { mode, slug } = classifyHost(req);
-  const { pathname }   = req.nextUrl;
+  // ── API / upload paths — pass through (proxied to FastAPI by next.config.js)
+  if (pathname.startsWith('/api/') || pathname.startsWith('/pm-api/') || pathname.startsWith('/uploads/')) {
+    return NextResponse.next();
+  }
 
-  // ── Demo workspace (shouldn't reach here but guard anyway)
-  if (mode === 'demo') {
-    const url = req.nextUrl.clone();
-    if (!pathname.startsWith('/pm')) url.pathname = '/pm';
-    const headers = new Headers(req.headers);
-    headers.set('x-demo-mode', 'true');
-    headers.set('x-tenant-slug', 'demo');
-    return NextResponse.rewrite(url, { request: { headers } });
+  // ── Auth bypass paths — always accessible
+  if (isBypassPath(pathname)) {
+    return NextResponse.next();
   }
 
   // ── Platform / Admin control plane (signal.fieldstone.pro)
   if (mode === 'platform' || mode === 'admin') {
-    // Auth pages + routing helpers: serve as-is, no rewrite
-    if (isBypassPath(pathname)) {
-      return NextResponse.next();
-    }
-    // API/upload paths — pass through so next.config.js rewrites proxy to backend
-    if (pathname.startsWith('/api/') || pathname.startsWith('/pm-api/') || pathname.startsWith('/uploads/')) {
-      return NextResponse.next();
-    }
-    // Signed-in users trying to hit platform root → send to their workspace
-    const { userId, sessionClaims } = auth();
-    if (userId) {
-      // @ts-expect-error: Clerk publicMetadata typed loosely
-      const role = sessionClaims?.publicMetadata?.role as string | undefined;
-      if (role === 'admin' || role === 'platform_admin') {
-        return applyPlatformRewrite(req, true);
+    // Root platform path: authenticated users go to /redirect, others to /login
+    if (pathname === '/' || pathname === '') {
+      if (hasSignalToken(req)) {
+        return NextResponse.redirect(new URL('/redirect', req.url));
       }
-      // Regular user on platform domain — route via /redirect
-      if (pathname === '/' || pathname === '') {
-        return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/redirect`, req.url));
+      return applyPlatformRewrite(req, mode === 'admin');
+    }
+    // Protected platform routes require auth
+    if (pathname.startsWith('/pm') || pathname.startsWith('/platform')) {
+      if (!hasSignalToken(req)) {
+        return NextResponse.redirect(new URL(`https://${SIGNAL_DOMAIN}/login`, req.url));
       }
     }
-    // Not signed in or regular platform path → apply platform rewrite
     return applyPlatformRewrite(req, mode === 'admin');
   }
 
   // ── Tenant workspace ({slug}.signal.fieldstone.pro)
-  // NOTE: We do NOT check auth() here via server-side middleware because Clerk
-  // session cookies set on signal.fieldstone.pro are not readable by middleware
-  // running on test1.signal.fieldstone.pro (cross-subdomain cookie scope).
-  // Auth enforcement is handled client-side by WorkspaceGuard using useAuth()
-  // which correctly reads the session via Clerk's client-side SDK.
+  // Cookie is readable here because it is set with Domain=.signal.fieldstone.pro
+  // Auth enforcement is handled client-side by WorkspaceGuard (cleaner UX, avoids
+  // middleware edge limitations). Middleware just passes tenant slug via header.
   const headers = new Headers(req.headers);
   headers.set('x-tenant-slug', slug ?? DEFAULT_TENANT);
   return NextResponse.next({ request: { headers } });
-);
-
-// ─── Main Export ──────────────────────────────────────────────────────────────
-export default function middleware(req: NextRequest) {
-  if (shouldBypassAuth(req)) return bypassMiddleware(req);
-  // @ts-expect-error: clerkMiddleware returns compatible handler type
-  return clerkProtectedMiddleware(req);
 }
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)'  ,
+    '/(api|trpc)(.*)'  ,
   ],
 };

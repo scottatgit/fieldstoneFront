@@ -1,36 +1,26 @@
 'use client';
 import { useState, useEffect } from 'react';
 import {
-  Box, VStack, HStack, Text, Badge, Button, Spinner, Input,
-  FormControl, FormLabel,
+  Box, VStack, HStack, Text, Badge, Button, Spinner, Input, FormControl, FormLabel,
 } from '@chakra-ui/react';
 
+// getToken prop removed — auth cookie sent automatically via credentials:'include'
 interface Props {
   inviteToken: string | null;
-  getToken: () => Promise<string | null>;
-  onSuccess: () => void;
-  onBack: () => void;
+  onSuccess:   () => void;
+  onBack:      () => void;
 }
 
+interface InviteMeta { tenant_name: string; role: string; expires_at: string; valid: boolean; }
 
-interface InviteMeta {
-  tenant_name: string;
-  role: string;
-  expires_at: string;
-  valid: boolean;
-}
-
-export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }: Props) {
+export function Step2JoinWorkspace({ inviteToken, onSuccess, onBack }: Props) {
   const [token,   setToken]   = useState(inviteToken || '');
   const [meta,    setMeta]    = useState<InviteMeta | null>(null);
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error,   setError]   = useState('');
 
-  // Auto-load if token provided
-  useEffect(() => {
-    if (inviteToken) loadInvite(inviteToken);
-  }, [inviteToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (inviteToken) loadInvite(inviteToken); }, [inviteToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadInvite(t: string) {
     setLoading(true); setError(''); setMeta(null);
@@ -49,10 +39,9 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
     if (!t || !meta) return;
     setJoining(true); setError('');
     try {
-      const jwt = await getToken();
       const res = await fetch(`/api/invite/${t}/accept`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}` },
+        credentials: 'include',
       });
       const data = await res.json();
       if (res.status === 410) { setError('This invite has expired or has already been used.'); return; }
@@ -74,33 +63,24 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
         <Text fontSize="sm" fontWeight="bold" color="gray.100">Join a workspace</Text>
         <Text fontSize="xs" color="gray.400">Enter your invite token or paste the full invite link.</Text>
       </VStack>
-
       {!inviteToken && (
         <FormControl>
           <FormLabel fontSize="xs" color="gray.400" fontFamily="mono">INVITE TOKEN</FormLabel>
           <HStack>
-            <Input
-              size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
+            <Input size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
               placeholder="Paste invite token..."
               value={token} onChange={e => {
-                // Extract token from full URL if pasted
                 const val = e.target.value;
                 const match = val.match(/\/invite\/([^/\s]+)/);
                 setToken(match ? match[1] : val);
                 setMeta(null); setError('');
-              }}
-            />
-            <Button size="sm" colorScheme="gray" onClick={() => loadInvite(token.trim())} isLoading={loading}>
-              Look Up
-            </Button>
+              }} />
+            <Button size="sm" colorScheme="gray" onClick={() => loadInvite(token.trim())} isLoading={loading}>Look Up</Button>
           </HStack>
         </FormControl>
       )}
-
       {loading && <HStack justify="center"><Spinner color="blue.400" size="sm" /><Text fontSize="xs" color="gray.500">Loading invite...</Text></HStack>}
-
       {error && <Text fontSize="xs" color="red.400" fontFamily="mono">{error}</Text>}
-
       {meta && (
         <Box p={4} bg="gray.800" borderRadius="md" border="1px solid" borderColor="blue.700">
           <VStack align="stretch" spacing={2}>
@@ -110,9 +90,7 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
             </HStack>
             <HStack justify="space-between">
               <Text fontSize="xs" color="gray.400" fontFamily="mono">YOUR ROLE</Text>
-              <Badge colorScheme={meta.role === 'technician' ? 'blue' : 'gray'} fontSize="xs">
-                {roleLabel[meta.role] || meta.role}
-              </Badge>
+              <Badge colorScheme={meta.role === 'technician' ? 'blue' : 'gray'} fontSize="xs">{roleLabel[meta.role] || meta.role}</Badge>
             </HStack>
             <HStack justify="space-between">
               <Text fontSize="xs" color="gray.400" fontFamily="mono">EXPIRES</Text>
@@ -121,20 +99,12 @@ export function Step2JoinWorkspace({ inviteToken, getToken, onSuccess, onBack }:
           </VStack>
         </Box>
       )}
-
       <VStack spacing={2}>
         {meta && (
-          <Button
-            colorScheme="blue" w="full" fontFamily="mono" fontWeight="bold"
-            isLoading={joining} loadingText="Joining..."
-            onClick={handleAccept}
-          >
-            Join Workspace
-          </Button>
+          <Button colorScheme="blue" w="full" fontFamily="mono" fontWeight="bold"
+            isLoading={joining} loadingText="Joining..." onClick={handleAccept}>Join Workspace</Button>
         )}
-        <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>
-          ← Back
-        </Button>
+        <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>← Back</Button>
       </VStack>
     </VStack>
   );

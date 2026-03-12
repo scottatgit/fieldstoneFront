@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
-import { useUser, UserButton, useClerk } from '@clerk/nextjs';
+import { useUser } from '@/lib/useUser';
+import { useRouter } from 'next/navigation';
+import { SignalUserButton } from '@/components/SignalUserButton';
 import {
   Box, Button, Container, Flex, Grid, Heading, Stack,
   Text, Badge, VStack, HStack, Divider,
@@ -83,7 +85,7 @@ function BriefMock() {
 
 function Nav() {
   const { isSignedIn, isLoaded } = useUser();
-  const { openSignIn, openSignUp } = useClerk();
+  const router = useRouter();
   return (
     <Box
       as="nav" bg={BG} borderBottom="1px solid" borderColor={BORDER}
@@ -128,7 +130,7 @@ function Nav() {
           ) : (
             <HStack spacing={3}>
               <Button
-                onClick={() => openSignIn()}
+                onClick={() => router.push('/login')}
                 size="sm" variant="outline"
                 borderColor="gray.600" color="gray.300"
                 fontFamily="mono" fontSize="xs"
@@ -139,7 +141,7 @@ function Nav() {
                 SIGN IN
               </Button>
               <Button
-                onClick={() => openSignUp()}
+                onClick={() => router.push('/signup')}
                 size="sm"
                 bg={BLUE} color="gray.900"
                 fontFamily="mono" fontSize="xs"
@@ -158,7 +160,7 @@ function Nav() {
 }
 
 function Hero() {
-  const { openSignIn, openSignUp } = useClerk();
+  const router = useRouter();
   return (
     <Section py={24}>
       <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={12} alignItems="center">
@@ -188,7 +190,7 @@ function Hero() {
           </MotionBox>
           <MotionBox initial="hidden" animate="visible" custom={3} variants={fadeUp}>
             <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
-              <Button onClick={() => openSignUp()} colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
+              <Button onClick={() => router.push('/signup')} colorScheme="blue" size="md" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8}>
                 START FREE TRIAL
               </Button>
               <Button as="a" href="https://demo.signal.fieldstone.pro/pm" variant="outline" size="md" borderColor="gray.600" color="gray.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={8} _hover={{ borderColor: BLUE, color: BLUE }}>
@@ -478,7 +480,7 @@ function WhoItsFor() {
 }
 
 function Pricing() {
-  const { openSignIn, openSignUp } = useClerk();
+  const router = useRouter();
   const features = [
     'Signal: Tickets',
     'Intel Network',
@@ -517,7 +519,7 @@ function Pricing() {
                   </HStack>
                 ))}
               </VStack>
-              <Button onClick={() => openSignUp()} colorScheme="blue" w="full" size="md"
+              <Button onClick={() => router.push('/signup')} colorScheme="blue" w="full" size="md"
                 fontFamily="mono" fontWeight="bold" letterSpacing="wider" mt={2}>
                 START FREE TRIAL
               </Button>
@@ -530,7 +532,7 @@ function Pricing() {
 }
 
 function FinalCTA() {
-  const { openSignIn, openSignUp } = useClerk();
+  const router = useRouter();
   return (
     <Section py={24}>
       <MotionBox initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
@@ -544,7 +546,7 @@ function FinalCTA() {
             </Heading>
           </VStack>
           <Stack direction={{ base: 'column', sm: 'row' }} spacing={4} justify="center">
-            <Button onClick={() => openSignUp()} colorScheme="blue" size="lg"
+            <Button onClick={() => router.push('/signup')} colorScheme="blue" size="lg"
               fontFamily="mono" fontWeight="bold" letterSpacing="wider" px={10}>
               START FREE TRIAL
             </Button>

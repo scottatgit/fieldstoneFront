@@ -1,17 +1,16 @@
 'use client';
 import { useState } from 'react';
 import {
-  Box, VStack, HStack, Text, Badge, Button, Input,
-  FormControl, FormLabel, Spinner,
+  Box, VStack, HStack, Text, Badge, Button, Input, FormControl, FormLabel,
 } from '@chakra-ui/react';
 
+// getToken prop removed — auth cookie is sent automatically via credentials:'include'
 interface Props {
-  getToken: () => Promise<string | null>;
   onSuccess: () => void;
-  onBack: () => void;
+  onBack:    () => void;
 }
 
-export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
+export function Step2CreateWorkspace({ onSuccess, onBack }: Props) {
   const [name,           setName]           = useState('');
   const [subdomain,      setSubdomain]      = useState('');
   const [userEditedSlug, setUserEditedSlug] = useState(false);
@@ -29,7 +28,6 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
     setName(val);
     if (!userEditedSlug) setSubdomain(toSlug(val));
   }
-
   function handleSubdomainChange(val: string) {
     setUserEditedSlug(true);
     setSubdomain(val);
@@ -38,29 +36,11 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
   async function handleCreate() {
     if (!name.trim() || !slugValid) return;
     setLoading(true); setError('');
-
-    // Step 1 — get JWT
-    let jwt: string | null = null;
     try {
-      jwt = await getToken();
-    } catch (e) {
-      setError(`Auth error: ${e instanceof Error ? e.message : 'Could not get session token'}`);
-      setLoading(false);
-      return;
-    }
-
-    if (!jwt) {
-      setError('No session token — please sign out and sign back in.');
-      setLoading(false);
-      return;
-    }
-
-    // Step 2 — call API
-    let res: Response;
-    try {
-      res = await fetch('/api/tenants/create', {
+      const res = await fetch('/api/tenants/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name:           name.trim(),
           subdomain:      slug,
@@ -68,36 +48,17 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           plan:           'starter',
         }),
       });
-    } catch (e) {
-      setError(`Network error: ${e instanceof Error ? e.message : 'Cannot reach api.fieldstone.pro'}`);
-      setLoading(false);
-      return;
-    }
-
-    // Step 3 — parse response
-    let data: Record<string, unknown> = {};
-    try {
-      data = await res.json() as Record<string, unknown>;
-    } catch {
-      setError(`Server returned non-JSON response (status ${res.status})`);
-      setLoading(false);
-      return;
-    }
-
-    // Step 4 — handle status codes
-    if (res.status === 409) { setError('That subdomain is already taken. Try another.'); setLoading(false); return; }
-    if (res.status === 401) { setError(`Authentication failed (401) — ${String(data.detail ?? 'invalid token')}`); setLoading(false); return; }
-    if (res.status === 403) { setError(`Access denied (403) — ${String(data.detail ?? 'forbidden')}`); setLoading(false); return; }
-    if (!res.ok) { setError(String(data.detail ?? `Server error ${res.status}`)); setLoading(false); return; }
-
-    // Step 5 — success
-    if (typeof window !== 'undefined') {
+      const data = await res.json() as Record<string, unknown>;
+      if (res.status === 409) { setError('That subdomain is already taken. Try another.'); return; }
+      if (res.status === 401) { setError(`Authentication failed — please log in again.`); return; }
+      if (!res.ok) { setError(String(data.detail ?? `Server error ${res.status}`)); return; }
+      // Redirect to the new workspace
       window.location.href = `https://${slug}.signal.fieldstone.pro/pm`;
-    } else {
-      onSuccess();
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : 'Cannot reach server'}`);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
@@ -110,26 +71,16 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
         <Text fontSize="sm" fontWeight="bold" color="gray.100">Create your workspace</Text>
         <Text fontSize="xs" color="gray.400">Your team will use this to access Signal.</Text>
       </VStack>
-
       <VStack align="stretch" spacing={4}>
         <FormControl isRequired>
           <FormLabel fontSize="xs" color="gray.400" fontFamily="mono">WORKSPACE NAME</FormLabel>
-          <Input
-            size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
-            placeholder="Acme Dental"
-            value={name}
-            onChange={e => handleNameChange(e.target.value)}
-          />
+          <Input size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
+            placeholder="Acme Dental" value={name} onChange={e => handleNameChange(e.target.value)} />
         </FormControl>
-
         <FormControl isRequired isInvalid={subdomain.length > 0 && !slugValid}>
           <FormLabel fontSize="xs" color="gray.400" fontFamily="mono">SUBDOMAIN</FormLabel>
-          <Input
-            size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
-            placeholder="acme-dental"
-            value={subdomain}
-            onChange={e => handleSubdomainChange(e.target.value)}
-          />
+          <Input size="sm" bg="gray.800" borderColor="gray.600" color="gray.100"
+            placeholder="acme-dental" value={subdomain} onChange={e => handleSubdomainChange(e.target.value)} />
           {subdomain && (
             <Text fontSize="2xs" color={slugValid ? 'blue.400' : 'red.400'} fontFamily="mono" mt={1}>
               {slugValid ? `✓ ${slug}.signal.fieldstone.pro` : '2–30 lowercase letters, numbers, hyphens'}
@@ -137,25 +88,18 @@ export function Step2CreateWorkspace({ getToken, onSuccess, onBack }: Props) {
           )}
         </FormControl>
       </VStack>
-
       {error && (
         <Box bg="red.900" border="1px solid" borderColor="red.600" borderRadius="md" p={3}>
           <Text fontSize="xs" color="red.300" fontFamily="mono">{error}</Text>
         </Box>
       )}
-
       <VStack spacing={2}>
-        <Button
-          colorScheme="blue" w="full" fontFamily="mono" fontWeight="bold"
+        <Button colorScheme="blue" w="full" fontFamily="mono" fontWeight="bold"
           isLoading={loading} loadingText="Creating..."
-          isDisabled={!name.trim() || !slugValid}
-          onClick={handleCreate}
-        >
+          isDisabled={!name.trim() || !slugValid} onClick={handleCreate}>
           Create Workspace
         </Button>
-        <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>
-          ← Back
-        </Button>
+        <Button size="sm" variant="ghost" colorScheme="gray" w="full" onClick={onBack}>← Back</Button>
       </VStack>
     </VStack>
   );

@@ -5,15 +5,15 @@ import {
   FormControl, FormLabel, Spinner, Alert, AlertIcon, AlertDescription,
 } from '@chakra-ui/react';
 
+// getToken prop removed — auth cookie sent automatically via credentials:'include'
 interface Props {
-  getToken: () => Promise<string | null>;
   onBack: () => void;
 }
 
 const BASE_DOMAIN   = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
 const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE_DOMAIN);
 
-export function Step2ReclaimWorkspace({ getToken, onBack }: Props) {
+export function Step2ReclaimWorkspace({ onBack }: Props) {
   const [slug,    setSlug]    = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
@@ -21,37 +21,31 @@ export function Step2ReclaimWorkspace({ getToken, onBack }: Props) {
   function toSlug(val: string) {
     return val.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   }
-
   const cleanSlug = toSlug(slug);
   const slugValid = /^[a-z0-9-]{2,40}$/.test(cleanSlug);
 
   async function handleClaim() {
     if (!slugValid) return;
     setLoading(true); setError('');
-    let jwt: string | null = null;
-    try { jwt = await getToken(); } catch (e) {
-      setError('Auth error: ' + (e instanceof Error ? e.message : 'Could not get token'));
-      setLoading(false); return;
-    }
-    if (!jwt) { setError('No session — please sign out and back in.'); setLoading(false); return; }
-    let res: Response;
     try {
-      res = await fetch('/api/user/claim-workspace', {
+      const res = await fetch('/api/user/claim-workspace', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + jwt },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: cleanSlug }),
       });
+      if (!res.ok) {
+        let msg = `Error ${res.status}`;
+        try { const b = await res.json(); msg = (b as { detail?: string })?.detail || msg; } catch { /* ok */ }
+        setError(msg); return;
+      }
+      const data = await res.json() as { slug: string };
+      window.location.href = `${window.location.protocol}//${data.slug}.${SIGNAL_DOMAIN}/pm`;
     } catch (e) {
       setError('Network error: ' + (e instanceof Error ? e.message : 'Could not reach server'));
-      setLoading(false); return;
+    } finally {
+      setLoading(false);
     }
-    if (!res.ok) {
-      let msg = 'Error ' + String(res.status);
-      try { const b = await res.json(); msg = (b as { detail?: string })?.detail || msg; } catch { /* ok */ }
-      setError(msg); setLoading(false); return;
-    }
-    const data = await res.json() as { slug: string };
-    window.location.href = window.location.protocol + '//' + data.slug + '.' + SIGNAL_DOMAIN + '/pm';
   }
 
   return (
@@ -68,15 +62,13 @@ export function Step2ReclaimWorkspace({ getToken, onBack }: Props) {
         <FormControl>
           <FormLabel fontSize="xs" color="gray.400" fontFamily="mono" letterSpacing="wider">WORKSPACE SLUG</FormLabel>
           <Input
-            value={slug}
-            onChange={e => setSlug(e.target.value)}
+            value={slug} onChange={e => setSlug(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && slugValid && !loading) void handleClaim(); }}
             placeholder="your-workspace"
             bg="gray.800" border="1px solid"
             borderColor={slug && !slugValid ? 'red.500' : 'gray.600'}
             color="gray.100" fontSize="sm" fontFamily="mono"
-            _placeholder={{ color: 'gray.600' }}
-            _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
+            _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }}
           />
           {cleanSlug && (
             <Text fontSize="xs" color="gray.500" mt={1} fontFamily="mono">{cleanSlug}.{SIGNAL_DOMAIN}</Text>

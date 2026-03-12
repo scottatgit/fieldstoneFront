@@ -2,41 +2,39 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useUser } from '@/lib/useUser';
 import { Box, VStack, Spinner, Text } from '@chakra-ui/react';
 
-import { Step1PathSelect }         from './step1-path-select';
-import { Step2CreateWorkspace }    from './step2-create-workspace';
-import { Step2JoinWorkspace }      from './step2-join-workspace';
-import { Step2ReclaimWorkspace }   from './step2-reclaim-workspace';
-import { Step3NextSteps }          from './step3-next-steps';
+import { Step1PathSelect }        from './step1-path-select';
+import { Step2CreateWorkspace }   from './step2-create-workspace';
+import { Step2JoinWorkspace }     from './step2-join-workspace';
+import { Step2ReclaimWorkspace }  from './step2-reclaim-workspace';
+import { Step3NextSteps }         from './step3-next-steps';
 
 type Step = 'path-select' | 'create' | 'join' | 'reclaim' | 'next-steps';
 
 function OnboardingInner() {
   const searchParams = useSearchParams();
   const router       = useRouter();
-  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useUser();
 
   const inviteToken = searchParams.get('invite');
 
   const [step,        setStep]        = useState<Step>(inviteToken ? 'join' : 'path-select');
   const [activeToken, setActiveToken] = useState<string | null>(inviteToken);
 
+  // Redirect to login if not authed
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       const returnUrl = encodeURIComponent(
-        `/pm/onboarding${inviteToken ? `?invite=${inviteToken}` : ''}`
+        `/pm/onboarding${inviteToken ? `?invite=${inviteToken}` : ''}` 
       );
       router.replace(`/login?redirect_url=${returnUrl}`);
     }
   }, [isLoaded, isSignedIn, inviteToken, router]);
 
   useEffect(() => {
-    if (inviteToken) {
-      setActiveToken(inviteToken);
-      setStep('join');
-    }
+    if (inviteToken) { setActiveToken(inviteToken); setStep('join'); }
   }, [inviteToken]);
 
   if (!isLoaded || !isSignedIn) {
@@ -53,23 +51,8 @@ function OnboardingInner() {
   }
 
   return (
-    <Box
-      minH="100svh"
-      bg="gray.950"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      p={4}
-    >
-      <Box
-        w="full"
-        maxW="480px"
-        bg="gray.900"
-        border="1px solid"
-        borderColor="gray.700"
-        borderRadius="xl"
-        p={{ base: 6, md: 8 }}
-      >
+    <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center" p={4}>
+      <Box w="full" maxW="480px" bg="gray.900" border="1px solid" borderColor="gray.700" borderRadius="xl" p={{ base: 6, md: 8 }}>
         {step === 'path-select' && (
           <Step1PathSelect
             onCreate={() => setStep('create')}
@@ -77,37 +60,25 @@ function OnboardingInner() {
             onReclaim={() => setStep('reclaim')}
           />
         )}
-
         {step === 'create' && (
           <Step2CreateWorkspace
-            getToken={getToken}
             onSuccess={() => setStep('next-steps')}
             onBack={() => setStep('path-select')}
           />
         )}
-
         {step === 'join' && (
           <Step2JoinWorkspace
             inviteToken={activeToken}
-            getToken={getToken}
             onSuccess={() => setStep('next-steps')}
-            onBack={() => {
-              setActiveToken(null);
-              setStep('path-select');
-            }}
+            onBack={() => { setActiveToken(null); setStep('path-select'); }}
           />
         )}
-
         {step === 'reclaim' && (
           <Step2ReclaimWorkspace
-            getToken={getToken}
             onBack={() => setStep('path-select')}
           />
         )}
-
-        {step === 'next-steps' && (
-          <Step3NextSteps />
-        )}
+        {step === 'next-steps' && <Step3NextSteps />}
       </Box>
     </Box>
   );
@@ -115,16 +86,14 @@ function OnboardingInner() {
 
 export default function OnboardingPage() {
   return (
-    <Suspense
-      fallback={
-        <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
-          <VStack spacing={3}>
-            <Spinner color="blue.400" size="lg" />
-            <Text fontSize="xs" color="gray.500" fontFamily="mono">Loading...</Text>
-          </VStack>
-        </Box>
-      }
-    >
+    <Suspense fallback={
+      <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
+        <VStack spacing={3}>
+          <Spinner color="blue.400" size="lg" />
+          <Text fontSize="xs" color="gray.500" fontFamily="mono">Loading...</Text>
+        </VStack>
+      </Box>
+    }>
       <OnboardingInner />
     </Suspense>
   );

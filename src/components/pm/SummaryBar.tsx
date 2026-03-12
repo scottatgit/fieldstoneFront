@@ -3,9 +3,9 @@ import { Flex, HStack, VStack, Text, Spinner, Tooltip, Box } from '@chakra-ui/re
 import { Summary } from './types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
 import { isDemoMode } from '../../lib/demoApi';
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@/lib/useUser';
+import { SignalUserButton } from '@/components/SignalUserButton';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 // Tenant workspace navigation — platform admin tabs live at signal.fieldstone.pro
@@ -25,7 +25,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
   const pathname = usePathname();
   const demo     = isDemoMode();
   const { user } = useUser();
-  const isAdmin  = (user?.publicMetadata?.role as string | undefined) === 'admin';
+  const isAdmin  = (user?.role) === 'admin';
 
   return (
     <Flex
@@ -147,8 +147,7 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
         ) : null}
         {!demo && (
           <Flex align="center" px={1}>
-            <UserButton afterSignOutUrl="/login"
-              appearance={{ elements: { avatarBox: { width: 36, height: 36 } } }} />
+            <SignalUserButton afterSignOutUrl="/login" size={36} />
           </Flex>
         )}
       </HStack>

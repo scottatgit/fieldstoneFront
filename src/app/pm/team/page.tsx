@@ -12,7 +12,6 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { pmFetch, isDemoMode } from '@/lib/demoApi';
-import { useAuth } from '@clerk/nextjs';
 import pmTheme from '@/components/pm/pmTheme';
 
 const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
@@ -81,7 +80,6 @@ export default function TeamPage() {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   // Invite state
-  const { getToken } = useAuth();
   const [inviteRole,   setInviteRole]   = useState('technician');
   const [inviteUrl,    setInviteUrl]    = useState('');
   const [inviteExp,    setInviteExp]    = useState('');
@@ -91,13 +89,11 @@ export default function TeamPage() {
   async function handleGenerateInvite() {
     setInviteLoading(true); setInviteUrl(''); setInviteError('');
     try {
-      const jwt = await getToken();
       const res = await fetch(`${API}/api/tenant/invites`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'x-tenant-id': process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'ipquest',
         },
         body: JSON.stringify({ role: inviteRole }),
       });
