@@ -34,7 +34,7 @@ export default function TenantsPage() {
     setLoading(true);
     setError(null);
 
-    fetch('/pm-api/api/tenants')
+    fetch('/pm-api/api/admin/tenants', { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         return res.json();
