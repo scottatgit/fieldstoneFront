@@ -29,7 +29,14 @@ export default function PostLoginRedirect() {
         }
         const me = await meRes.json();
 
-        // 2. If /me already has a slug, go directly — no extra round-trip needed
+        // 2. Platform admin → route to platform hub
+        if (me.role === 'platform_admin') {
+          setStatus('OPENING PLATFORM...');
+          window.location.href = `https://${SIGNAL_DOMAIN}/platform`;
+          return;
+        }
+
+        // 3. If /me already has a slug, go directly — no extra round-trip needed
         if (me.slug) {
           setStatus('OPENING WORKSPACE...');
           const proto = window.location.protocol;
