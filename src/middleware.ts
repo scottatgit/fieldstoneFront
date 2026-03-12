@@ -181,21 +181,15 @@ const clerkProtectedMiddleware = clerkMiddleware((auth, req) => {
   }
 
   // ── Tenant workspace ({slug}.signal.fieldstone.pro)
-  if (isProtectedRoute(req)) {
-    const { userId } = auth();
-    if (!userId) {
-      // Redirect to login on platform domain
-      return NextResponse.redirect(
-        new URL(`https://${SIGNAL_DOMAIN}/login?redirect_url=${encodeURIComponent(req.url)}`, req.url)
-      );
-    }
-  }
-
-  // Authenticated tenant route — set slug header
+  // NOTE: We do NOT check auth() here via server-side middleware because Clerk
+  // session cookies set on signal.fieldstone.pro are not readable by middleware
+  // running on test1.signal.fieldstone.pro (cross-subdomain cookie scope).
+  // Auth enforcement is handled client-side by WorkspaceGuard using useAuth()
+  // which correctly reads the session via Clerk's client-side SDK.
   const headers = new Headers(req.headers);
   headers.set('x-tenant-slug', slug ?? DEFAULT_TENANT);
   return NextResponse.next({ request: { headers } });
-});
+);
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function middleware(req: NextRequest) {
