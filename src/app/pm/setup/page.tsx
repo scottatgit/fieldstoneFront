@@ -8,6 +8,7 @@ import AIKeyGate from '@/components/pm/AIKeyGate';
 import SignalAIConsole from '@/components/pm/SignalAIConsole';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 import { isDemoMode } from '@/lib/demoApi';
+import { DemoBanner } from '@/components/pm/DemoBanner';
 
 type Stage = 'loading' | 'need_workspace' | 'need_ai_key' | 'ready';
 
@@ -35,6 +36,7 @@ export default function SetupPage() {
   return (
     <ChakraProvider theme={pmTheme}>
       <SummaryBar summary={null} loading={false} />
+      <DemoBanner />
       {stage === 'loading' && (
         <Center h="100vh" bg="gray.950">
           <Spinner color="blue.400" size="xl" />

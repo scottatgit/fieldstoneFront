@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Flex as ChakraFlex } from '@chakra-ui/react';
 import { SummaryBar } from '../../../components/pm/SummaryBar';
+import { DemoBanner } from '@/components/pm/DemoBanner';
 import {
   Box, VStack, HStack, Text, Heading, Divider, Badge, Code,
   Table, Thead, Tbody, Tr, Th, Td, Input, InputGroup,
@@ -712,6 +713,7 @@ export default function DocsPage() {
   return (
     <ChakraFlex direction="column" minH="100dvh" overflowX="hidden">
       <SummaryBar summary={null} loading={false} />
+      <DemoBanner />
       <Box minH="100vh" bg={bg} color={textColor}>
       <Flex h="100vh" overflow="hidden">
 

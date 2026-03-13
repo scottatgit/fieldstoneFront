@@ -19,7 +19,7 @@ export function DemoBanner() {
           {' '}— Explore how Signal extracts intelligence from service operations.
         </Text>
         <Link
-          href="https://fieldstone.pro"
+          href="https://signal.fieldstone.pro/"
           fontSize="xs"
           color="blue.300"
           fontWeight="semibold"
