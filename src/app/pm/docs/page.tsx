@@ -712,8 +712,8 @@ export default function DocsPage() {
 
   return (
     <ChakraFlex direction="column" minH="100dvh" overflowX="hidden">
-      <SummaryBar summary={null} loading={false} />
       <DemoBanner />
+      <SummaryBar summary={null} loading={false} />
       <Box minH="100vh" bg={bg} color={textColor}>
       <Flex h="100vh" overflow="hidden">
 

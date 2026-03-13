@@ -35,8 +35,8 @@ export default function SetupPage() {
 
   return (
     <ChakraProvider theme={pmTheme}>
-      <SummaryBar summary={null} loading={false} />
       <DemoBanner />
+      <SummaryBar summary={null} loading={false} />
       {stage === 'loading' && (
         <Center h="100vh" bg="gray.950">
           <Spinner color="blue.400" size="xl" />

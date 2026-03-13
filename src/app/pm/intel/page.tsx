@@ -289,8 +289,8 @@ export default function IntelDashboard() {
 
   return (
     <Box bg="gray.900" minH="100dvh" display="flex" flexDirection="column" overflowX="hidden" w="100%" sx={{ maxWidth: '100vw', boxSizing: 'border-box' }}>
-      <SummaryBar summary={null} loading={false} />
       <DemoBanner />
+      <SummaryBar summary={null} loading={false} />
       <Box px={{ base: 3, md: 6 }} py={{ base: 3, md: 6 }} w="100%" maxW="1200px" mx="auto" overflowX="hidden">
       {/* Header */}
       <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={6} flexWrap="wrap" gap={3} direction={{ base: "column", md: "row" }}>
