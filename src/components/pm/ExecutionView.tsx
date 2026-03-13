@@ -7,7 +7,6 @@ import {
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
-import { ChatPanel } from './ChatPanel';
 import { PilotPanel } from './PilotPanel';
 import { isDemoMode, demoFetch } from '@/lib/demoApi';
 
@@ -708,7 +707,6 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
 // -- Main ExecutionView -------------------------------------------------------
 export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
   const [viewMode, setViewMode]     = useState<ViewMode>('door');
-  const [pilotOpen, setPilotOpen]   = useState(false);
   const [saveState, _setSaveState]   = useState<SaveState>('idle');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -782,8 +780,6 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     error:  (<Text fontSize='2xs' fontFamily='mono' color='red.400'>Connection issue</Text>),
   };
 
-  const handlePilotRefresh = useCallback(() => { setRefreshKey(k => k + 1); }, []);
-
   return (
     <Flex minH='100dvh' direction='column' bg='gray.950' overflowX='hidden' maxW='100vw'>
 
@@ -821,14 +817,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
               Work
             </Box>
           </HStack>
-          <Box as='button' onClick={() => setPilotOpen(v => !v)} px={3} minH='44px'
-            fontSize='2xs' fontFamily='mono' cursor='pointer'
-            bg={pilotOpen ? 'blue.800' : 'gray.800'}
-            color={pilotOpen ? 'blue.200' : 'gray.500'}
-            border='1px solid' borderColor={pilotOpen ? 'blue.600' : 'gray.700'} borderRadius='md'
-            _hover={{ borderColor: 'blue.500', color: 'white' }}>
-            {pilotOpen ? 'Work >' : 'Work'}
-          </Box>
+
         </HStack>
       </Flex>
 
@@ -863,35 +852,8 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             : <PilotPanel ticket={ticket} ctx={ingestContext} signals={ingestSignals} />
           }
         </Flex>
-        {/* Desktop side panel (lg+) */}
-        {pilotOpen && (
-          <Box display={{ base: 'none', lg: 'flex' }}
-            w='340px' flexShrink={0} borderLeft='1px solid' borderColor='gray.700'
-            overflow='hidden' flexDirection='column'>
-            <ChatPanel onCommand={handlePilotRefresh} />
-          </Box>
-        )}
-        {/* Mobile bottom sheet */}
-        {pilotOpen && (
-          <Box display={{ base: 'flex', lg: 'none' }}
-            position='fixed' bottom={0} left={0} right={0} h='60vh' zIndex={200}
-            bg='gray.900' borderTop='2px solid' borderColor='gray.600'
-            flexDirection='column' overflow='hidden'
-            boxShadow='0 -8px 32px rgba(0,0,0,0.6)'>
-            <Flex px={4} py={2} align='center' justify='space-between'
-              borderBottom='1px solid' borderColor='gray.700' flexShrink={0}>
-              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='blue.300'>AI ASSIST</Text>
-              <Box as='button' onClick={() => setPilotOpen(false)}
-                fontSize='lg' color='gray.400' _hover={{ color: 'white' }} cursor='pointer'
-                minH='44px' px={3}>
-                ✕
-              </Box>
-            </Flex>
-            <Box flex={1} overflow='hidden' display='flex' flexDirection='column'>
-              <ChatPanel onCommand={handlePilotRefresh} />
-            </Box>
-          </Box>
-        )}
+
+
       </Flex>
     </Flex>
   );
