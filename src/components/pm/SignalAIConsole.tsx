@@ -18,7 +18,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 type Role = 'user' | 'signal';
-type ActionStatus = 'pending' | 'confirmed' | 'dismissed';
+type ActionStatus = 'pending' | 'confirmed' | 'failed' | 'dismissed';
 
 interface ChatAction {
   id: string;
@@ -44,7 +44,17 @@ function ActionCard({ action, onConfirm, onDismiss }: {
   if (action.status === "confirmed") {
     return (
       <Box mt={2} p={3} bg="green.900" borderRadius="md" border="1px solid" borderColor="green.700">
-        <Text fontSize="xs" color="green.300" fontFamily="mono">ACTION APPLIED</Text>
+        <Text fontSize="xs" color="green.300" fontFamily="mono">✓ ACTION APPLIED</Text>
+      </Box>
+    );
+  }
+  if (action.status === "failed") {
+    return (
+      <Box mt={2} p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
+        <Text fontSize="xs" color="red.300" fontFamily="mono">✗ ACTION FAILED — see message above</Text>
+        <Button mt={2} size="xs" variant="outline" colorScheme="red" fontFamily="mono" onClick={onDismiss}>
+          DISMISS
+        </Button>
       </Box>
     );
   }
@@ -153,9 +163,7 @@ export default function SignalAIConsole() {
   }, [messages, loading]);
 
   const confirmAction = useCallback(async (msgId: string) => {
-    setMessages(prev => prev.map(m =>
-      m.id === msgId && m.action ? { ...m, action: { ...m.action, status: "confirmed" } } : m
-    ));
+    // Find action before any state mutation
     const msg = messages.find(m => m.id === msgId);
     if (!msg?.action) return;
     try {
@@ -165,14 +173,50 @@ export default function SignalAIConsole() {
         body: JSON.stringify({ type: msg.action.type, payload: msg.action.payload }),
       });
       const d = await r.json();
-      const confirmMsg: Message = {
-        id: Date.now().toString(), role: "signal",
-        content: d.message || "Action completed.",
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, confirmMsg]);
+      if (d.ok === false) {
+        // Mark action failed — keep visible, add error bubble
+        setMessages(prev => prev.map(m =>
+          m.id === msgId && m.action
+            ? { ...m, action: { ...m.action, status: "failed" as ActionStatus } }
+            : m
+        ));
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(), role: "signal",
+          content: `⚠️ Action failed: ${d.message || "Unknown error"}${
+            d.detail && typeof d.detail === "string" ? `\n\nDetail: ${d.detail}` : ""
+          }`,
+          timestamp: Date.now(),
+        }]);
+        toast({
+          title: "Action failed",
+          description: d.message || "The action could not be completed.",
+          status: "error", duration: 5000, isClosable: true,
+        });
+      } else {
+        // Success — confirm and show result bubble
+        setMessages(prev => prev.map(m =>
+          m.id === msgId && m.action
+            ? { ...m, action: { ...m.action, status: "confirmed" as ActionStatus } }
+            : m
+        ));
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(), role: "signal",
+          content: d.message || "Action completed successfully.",
+          timestamp: Date.now(),
+        }]);
+      }
     } catch {
-      toast({ title: "Action failed", status: "error", duration: 3000, isClosable: true });
+      // Network error — revert to pending so user can retry
+      setMessages(prev => prev.map(m =>
+        m.id === msgId && m.action
+          ? { ...m, action: { ...m.action, status: "pending" as ActionStatus } }
+          : m
+      ));
+      toast({
+        title: "Network error",
+        description: "Could not reach the backend. Please check your connection and try again.",
+        status: "error", duration: 5000, isClosable: true,
+      });
     }
   }, [messages, toast]);
 
