@@ -45,7 +45,8 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
   await new Promise(r => setTimeout(r, 120 + Math.random() * 180));
 
   // ── Tickets ──────────────────────────────────────────────────────────────
-  if (endpoint.includes('/api/tickets')) {
+  // Match ticket LIST only — not subpaths like /work/pilot/chat, /context, /signals
+  if (endpoint.includes('/api/tickets') && !endpoint.match(/\/api\/tickets\/.+/)) {
     return { tickets: DEMO_TICKETS };
   }
 
