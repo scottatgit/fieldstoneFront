@@ -292,16 +292,16 @@ export default function IntelDashboard() {
     <Box bg="gray.900" minH="100dvh" display="flex" flexDirection="column">
       <SummaryBar summary={null} loading={false} />
       <DemoBanner />
-      <Box p={6} maxW="1200px" mx="auto">
+      <Box p={{ base: 3, md: 6 }} maxW="1200px" mx="auto">
       {/* Header */}
-      <Flex justify="space-between" align="center" mb={6} flexWrap="wrap" gap={3}>
+      <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={6} flexWrap="wrap" gap={3} direction={{ base: "column", md: "row" }}>
         <VStack align="start" spacing={0}>
           <HStack>
             <Link href="/pm">
               <Text fontSize="sm" color="blue.400" cursor="pointer">← PM Dashboard</Text>
             </Link>
             <Text color="gray.600">/</Text>
-            <Heading size="md" color="gray.100">🧠 Cross-Client Intelligence</Heading>
+            <Heading size={{ base: "sm", md: "md" }} color="gray.100">🧠 Cross-Client Intelligence</Heading>
           </HStack>
           <Text fontSize="xs" color="gray.500">
             Auto-refreshes every 60s · Last updated: {lastRun || 'loading...'}
@@ -332,23 +332,23 @@ export default function IntelDashboard() {
 
       {/* Tabs */}
       <Tabs colorScheme="blue" variant="enclosed">
-        <TabList borderColor="gray.700">
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+        <TabList borderColor="gray.700" overflowX="auto" flexWrap="nowrap" sx={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             🚨 Outbreaks ({active.length})
           </Tab>
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             ⚠️ At-Risk ({atRiskAll.length})
           </Tab>
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             📈 Tool Risk Scores
           </Tab>
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             🕐 History ({resolved.length})
           </Tab>
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             🧠 Intel Entries ({intelEntries.length})
           </Tab>
-          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }}>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             📊 Trends {trends.filter(t => t.trend_status !== 'normal').length > 0 ? `(${trends.filter(t => t.trend_status !== 'normal').length})` : ''}
           </Tab>
         </TabList>
@@ -461,8 +461,8 @@ export default function IntelDashboard() {
           {/* Intel Entries Tab */}
           <TabPanel px={0}>
             {/* Filters */}
-            <HStack mb={4} spacing={3} flexWrap="wrap">
-              <Select size="sm" maxW="200px" bg="gray.800" border="1px solid" borderColor="gray.600"
+            <HStack mb={4} spacing={3} flexWrap="wrap" align="flex-start">
+              <Select size="sm" w={{ base: "full", md: "200px" }} maxW={{ base: "full", md: "200px" }} bg="gray.800" border="1px solid" borderColor="gray.600"
                 color="gray.200" fontSize="xs" placeholder="All clients"
                 value={intelFilter.client}
                 onChange={(e) => setIntelFilter((f) => ({ ...f, client: e.target.value }))}>
@@ -470,7 +470,7 @@ export default function IntelDashboard() {
                   <option key={k} value={k} style={{background:'#1a202c'}}>{k}</option>
                 ))}
               </Select>
-              <Select size="sm" maxW="160px" bg="gray.800" border="1px solid" borderColor="gray.600"
+              <Select size="sm" w={{ base: "full", md: "160px" }} maxW={{ base: "full", md: "160px" }} bg="gray.800" border="1px solid" borderColor="gray.600"
                 color="gray.200" fontSize="xs" placeholder="All tools"
                 value={intelFilter.tool}
                 onChange={(e) => setIntelFilter((f) => ({ ...f, tool: e.target.value }))}>
@@ -478,7 +478,7 @@ export default function IntelDashboard() {
                   <option key={t} value={t} style={{background:'#1a202c'}}>{t}</option>
                 ))}
               </Select>
-              <Select size="sm" maxW="140px" bg="gray.800" border="1px solid" borderColor="gray.600"
+              <Select size="sm" w={{ base: "full", md: "140px" }} maxW={{ base: "full", md: "140px" }} bg="gray.800" border="1px solid" borderColor="gray.600"
                 color="gray.200" fontSize="xs" placeholder="Any confidence"
                 value={intelFilter.confidence}
                 onChange={(e) => setIntelFilter((f) => ({ ...f, confidence: e.target.value }))}>
