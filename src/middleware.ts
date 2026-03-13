@@ -115,8 +115,11 @@ export default function middleware(req: NextRequest): NextResponse {
   }
 
   // ── API / upload paths — pass through (proxied to FastAPI by next.config.js)
+  // CRITICAL: Must inject x-tenant-slug so resolve_workspace() on the backend knows the tenant
   if (pathname.startsWith('/api/') || pathname.startsWith('/pm-api/') || pathname.startsWith('/uploads/')) {
-    return NextResponse.next();
+    const apiHeaders = new Headers(req.headers);
+    apiHeaders.set('x-tenant-slug', slug ?? DEFAULT_TENANT);
+    return NextResponse.next({ request: { headers: apiHeaders } });
   }
 
   // ── Auth bypass paths — always accessible
