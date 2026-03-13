@@ -880,7 +880,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             boxShadow='0 -8px 32px rgba(0,0,0,0.6)'>
             <Flex px={4} py={2} align='center' justify='space-between'
               borderBottom='1px solid' borderColor='gray.700' flexShrink={0}>
-              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='blue.300'>PILOT</Text>
+              <Text fontSize='xs' fontFamily='mono' fontWeight='bold' color='blue.300'>AI ASSIST</Text>
               <Box as='button' onClick={() => setPilotOpen(false)}
                 fontSize='lg' color='gray.400' _hover={{ color: 'white' }} cursor='pointer'
                 minH='44px' px={3}>

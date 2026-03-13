@@ -269,9 +269,6 @@ function IngestionBanner() {
         </VStack>
       </Box>
 
-      <Box mt={2}>
-        <Text fontSize="2xs" color="gray.600" fontFamily="mono">Open a ticket to access Pilot AI →</Text>
-      </Box>
     </VStack>
   );
 }
