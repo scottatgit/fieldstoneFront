@@ -121,7 +121,7 @@ export default function middleware(req: NextRequest): NextResponse {
     // Platform/admin mode has no slug — use 'signal' tenant for platform ops
     const effectiveSlug = (mode === 'platform' || mode === 'admin')
       ? 'signal'
-      : (mode === 'demo' ? 'demo' : (slug ?? DEFAULT_TENANT));
+      : (slug ?? DEFAULT_TENANT);
     apiHeaders.set('x-tenant-slug', effectiveSlug);
     return NextResponse.next({ request: { headers: apiHeaders } });
   }
