@@ -4,8 +4,32 @@ import {
   Box, HStack, Text, Input, Button, Badge, Spinner,
 } from '@chakra-ui/react';
 import { Ticket } from './types';
+import { pmFetch } from '@/lib/demoApi';
 
 const PM_API = '/pm-api';
+
+const ACTION_CHIPS: { label: string; message: string }[] = [
+  {
+    label: '🔍 Likely causes',
+    message: 'What are the most likely causes for this issue? Give me a prioritized list to check.',
+  },
+  {
+    label: '❓ Questions to ask',
+    message: 'What questions should I ask the client before starting work?',
+  },
+  {
+    label: '📋 5-min checklist',
+    message: 'Give me a quick 5-minute checklist to triage this ticket onsite.',
+  },
+  {
+    label: '✉️ Closing note',
+    message: 'Draft a professional closing note for this ticket suitable for the client.',
+  },
+  {
+    label: '📝 Internal note',
+    message: 'Write a concise internal technical note summarizing what was done.',
+  },
+];
 
 type Role = 'user' | 'signal';
 
@@ -18,6 +42,11 @@ interface Message {
 
 interface PersistedSession {
   messages: Message[];
+}
+
+interface PilotChatResponse {
+  response?: string;
+  message?: string;
 }
 
 function getStorageKey(ticketKey: string): string {
@@ -73,19 +102,19 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
   const clientName = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'this client';
   const ticketKey  = ticket.ticket_key;
 
-  const makeGreeting = (): Message => ({
+  const makeGreeting = useCallback((): Message => ({
     id: 'welcome',
     role: 'signal',
     content: `Signal AI ready. I have context on ticket #${ticketKey} — ${clientName}. How can I help?`,
     timestamp: Date.now(),
-  });
+  }), [ticketKey, clientName]);
 
   // Initialize messages from localStorage or greeting
   const [messages, setMessages] = useState<Message[]>(() => {
     // SSR guard — localStorage not available server-side
-    if (typeof window === 'undefined') return [makeGreeting()];
+    if (typeof window === 'undefined') return [];
     const saved = loadSession(ticketKey);
-    return saved.length > 0 ? saved : [makeGreeting()];
+    return saved.length > 0 ? saved : [];
   });
 
   const [input,   setInput]   = useState('');
@@ -94,9 +123,19 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
+  // Set initial greeting once on mount (avoids SSR mismatch)
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([makeGreeting()]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Persist messages to localStorage whenever they change
   useEffect(() => {
-    saveSession(ticketKey, messages);
+    if (messages.length > 0) {
+      saveSession(ticketKey, messages);
+    }
   }, [ticketKey, messages]);
 
   // Auto-scroll to bottom on new messages
@@ -130,7 +169,7 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
     setLoading(true);
 
     try {
-      // Build history from prior messages (exclude the welcome greeting to keep context clean)
+      // Build history from prior messages (exclude the welcome greeting)
       const history = messages
         .filter(m => m.id !== 'welcome')
         .slice(-12)
@@ -139,17 +178,16 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
           content: m.content,
         }));
 
-      const res = await fetch(
-        `${PM_API}/api/tickets/${ticketKey}/work/pilot/chat`,
+      // pmFetch handles demo mode routing automatically
+      const data = await pmFetch(
+        `/api/tickets/${ticketKey}/work/pilot/chat`,
+        PM_API,
         {
-          method:      'POST',
-          credentials: 'include',
-          headers:     { 'Content-Type': 'application/json' },
-          body:        JSON.stringify({ message: trimmed, history }),
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ message: trimmed, history }),
         }
-      );
-
-      const data = await res.json();
+      ) as PilotChatResponse;
 
       const aiMsg: Message = {
         id:        (Date.now() + 1).toString(),
@@ -233,6 +271,41 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
 
         <div ref={bottomRef} />
       </Box>
+
+      {/* Action chips */}
+      {!loading && (
+        <Box
+          px={5}
+          pb={2}
+          flexShrink={0}
+          overflowX="auto"
+          css={{
+            '&::-webkit-scrollbar': { height: '3px' },
+            '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' },
+          }}
+        >
+          <HStack spacing={2} minW="max-content">
+            {ACTION_CHIPS.map(chip => (
+              <Button
+                key={chip.label}
+                size="xs"
+                variant="outline"
+                borderColor="gray.700"
+                color="gray.400"
+                fontFamily="mono"
+                fontSize="2xs"
+                py={1}
+                px={2}
+                _hover={{ borderColor: 'blue.500', color: 'white', bg: 'whiteAlpha.50' }}
+                onClick={() => sendMessage(chip.message)}
+                flexShrink={0}
+              >
+                {chip.label}
+              </Button>
+            ))}
+          </HStack>
+        </Box>
+      )}
 
       {/* Input */}
       <Box px={5} py={4} borderTop="1px solid" borderColor="gray.800" flexShrink={0}>
