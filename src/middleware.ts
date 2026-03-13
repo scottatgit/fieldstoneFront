@@ -118,7 +118,11 @@ export default function middleware(req: NextRequest): NextResponse {
   // CRITICAL: Must inject x-tenant-slug so resolve_workspace() on the backend knows the tenant
   if (pathname.startsWith('/api/') || pathname.startsWith('/pm-api/') || pathname.startsWith('/uploads/')) {
     const apiHeaders = new Headers(req.headers);
-    apiHeaders.set('x-tenant-slug', slug ?? DEFAULT_TENANT);
+    // Platform/admin mode has no slug — use 'signal' tenant for platform ops
+    const effectiveSlug = (mode === 'platform' || mode === 'admin')
+      ? 'signal'
+      : (mode === 'demo' ? 'demo' : (slug ?? DEFAULT_TENANT));
+    apiHeaders.set('x-tenant-slug', effectiveSlug);
     return NextResponse.next({ request: { headers: apiHeaders } });
   }
 

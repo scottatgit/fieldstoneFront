@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Flex, VStack, Text, Spinner } from '@chakra-ui/react';
 import { useUser } from '@/lib/useUser';
+import { isDemoMode } from '@/lib/demoApi';
 
 const BASE_DOMAIN    = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
 const SIGNAL_DOMAIN  = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE_DOMAIN);
@@ -31,6 +32,7 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
   const [status, setStatus]     = useState('LOADING...');
   const didRoute = useRef(false);
 
+  const isDemo      = isDemoMode();
   const isBypassPath = [
     '/pm/onboarding',
     '/pm/redirect',
@@ -38,7 +40,7 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
   ].some(p => (pathname ?? '').startsWith(p));
 
   useEffect(() => {
-    if (isBypassPath) { setChecking(false); return; }
+    if (isBypassPath || isDemo) { setChecking(false); return; }
     if (!isLoaded) return;
     if (didRoute.current) return;
 
