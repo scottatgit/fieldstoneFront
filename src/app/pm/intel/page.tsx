@@ -10,7 +10,6 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState, useCallback } from 'react'
 import React from 'react';
-import Link from 'next/link';
 import { pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
@@ -297,10 +296,6 @@ export default function IntelDashboard() {
       <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={6} flexWrap="wrap" gap={3} direction={{ base: "column", md: "row" }}>
         <VStack align="start" spacing={0}>
           <HStack flexWrap="wrap">
-            <Link href="/pm">
-              <Text fontSize="sm" color="blue.400" cursor="pointer">← PM Dashboard</Text>
-            </Link>
-            <Text color="gray.600">/</Text>
             <Heading size={{ base: "sm", md: "md" }} color="gray.100">🧠 Cross-Client Intelligence</Heading>
           </HStack>
           <Text fontSize="xs" color="gray.500">
