@@ -7,6 +7,7 @@ import WorkspaceCreateGate from '@/components/pm/WorkspaceCreateGate';
 import AIKeyGate from '@/components/pm/AIKeyGate';
 import SignalAIConsole from '@/components/pm/SignalAIConsole';
 import { SummaryBar } from '@/components/pm/SummaryBar';
+import { isDemoMode } from '@/lib/demoApi';
 
 type Stage = 'loading' | 'need_workspace' | 'need_ai_key' | 'ready';
 
@@ -16,6 +17,8 @@ export default function SetupPage() {
   const [stage, setStage] = useState<Stage>('loading');
 
   useEffect(() => {
+    // Demo mode — skip all gates, go straight to Signal AI
+    if (isDemoMode()) { setStage('ready'); return; }
     (async () => {
       try {
         const r = await fetch(PM_API + '/api/setup/status', { credentials: 'include' });
