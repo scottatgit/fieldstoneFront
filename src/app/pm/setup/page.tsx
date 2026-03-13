@@ -6,6 +6,7 @@ import pmTheme from '@/components/pm/pmTheme';
 import WorkspaceCreateGate from '@/components/pm/WorkspaceCreateGate';
 import AIKeyGate from '@/components/pm/AIKeyGate';
 import SignalAIConsole from '@/components/pm/SignalAIConsole';
+import { SummaryBar } from '@/components/pm/SummaryBar';
 
 type Stage = 'loading' | 'need_workspace' | 'need_ai_key' | 'ready';
 
@@ -30,6 +31,7 @@ export default function SetupPage() {
 
   return (
     <ChakraProvider theme={pmTheme}>
+      <SummaryBar summary={null} loading={false} />
       {stage === 'loading' && (
         <Center h="100vh" bg="gray.950">
           <Spinner color="blue.400" size="xl" />
