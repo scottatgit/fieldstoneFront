@@ -14,6 +14,7 @@ const BASE_TABS = [
   { label: 'INTEL', href: '/pm/intel'    },
   { label: 'TEAM',  href: '/pm/team'     },
   { label: 'DOCS',  href: '/pm/docs'     },
+  { label: 'SIGNAL', href: '/pm/setup'   },
 ];
 
 const COMING_SOON_MODULES = [
