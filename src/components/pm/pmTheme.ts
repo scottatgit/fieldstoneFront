@@ -7,15 +7,23 @@ const pmTheme = extendTheme({
   },
   styles: {
     global: {
+      'html, body': {
+        overflowX: 'hidden',
+        maxWidth: '100%',
+        width: '100%',
+      },
       body: {
         bg: '#0a0e17',
         color: 'white',
         margin: 0,
         padding: 0,
-        overflowX: 'hidden', overflowY: 'auto',
+        overflowX: 'hidden',
+        overflowY: 'auto',
       },
       '#__next': {
         minHeight: '100dvh',
+        overflowX: 'hidden',
+        maxWidth: '100%',
       },
     },
   },

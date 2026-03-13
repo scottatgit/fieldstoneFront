@@ -289,14 +289,14 @@ export default function IntelDashboard() {
   );
 
   return (
-    <Box bg="gray.900" minH="100dvh" display="flex" flexDirection="column">
+    <Box bg="gray.900" minH="100dvh" display="flex" flexDirection="column" overflowX="hidden" w="100%" sx={{ maxWidth: '100vw', boxSizing: 'border-box' }}>
       <SummaryBar summary={null} loading={false} />
       <DemoBanner />
-      <Box p={{ base: 3, md: 6 }} maxW="1200px" mx="auto">
+      <Box px={{ base: 3, md: 6 }} py={{ base: 3, md: 6 }} w="100%" maxW="1200px" mx="auto" overflowX="hidden">
       {/* Header */}
       <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={6} flexWrap="wrap" gap={3} direction={{ base: "column", md: "row" }}>
         <VStack align="start" spacing={0}>
-          <HStack>
+          <HStack flexWrap="wrap">
             <Link href="/pm">
               <Text fontSize="sm" color="blue.400" cursor="pointer">← PM Dashboard</Text>
             </Link>
@@ -314,17 +314,17 @@ export default function IntelDashboard() {
       </Flex>
 
       {/* Stat strip */}
-      <SimpleGrid columns={{ base: 2, md: 4 }} gap={4} mb={6}>
+      <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 2, md: 4 }} mb={6}>
         {([
           { label: 'Active Outbreaks', value: active.length,    color: active.length    > 0 ? 'red.400'    : 'green.400' },
           { label: 'At-Risk Clients',  value: atRiskAll.length, color: atRiskAll.length > 0 ? 'orange.400' : 'green.400' },
           { label: 'Tools Tracked',    value: tools.length,     color: 'blue.400' },
           { label: 'Resolved Events',  value: resolved.length,  color: 'gray.400' },
         ] as {label:string;value:number;color:string}[]).map(({ label, value, color }) => (
-          <Box key={label} p={3} borderRadius="md" border="1px" borderColor="gray.700" bg="gray.800">
+          <Box key={label} p={{ base: 2, md: 3 }} borderRadius="md" border="1px" borderColor="gray.700" bg="gray.800" minW={0} overflow="hidden">
             <Stat>
-              <StatLabel fontSize="xs" color="gray.500">{label}</StatLabel>
-              <StatNumber fontSize="2xl" color={color}>{value}</StatNumber>
+              <StatLabel fontSize="xs" color="gray.500" whiteSpace="normal" lineHeight="short">{label}</StatLabel>
+              <StatNumber fontSize={{ base: "xl", md: "2xl" }} color={color}>{value}</StatNumber>
             </Stat>
           </Box>
         ))}
@@ -353,7 +353,7 @@ export default function IntelDashboard() {
           </Tab>
         </TabList>
 
-        <TabPanels>
+        <TabPanels overflowX="hidden">
           {/* Outbreaks */}
           <TabPanel px={0}>
             {active.length === 0 ? (
