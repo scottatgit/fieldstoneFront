@@ -7,7 +7,7 @@ import {
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
-import { PilotPanel } from './PilotPanel';
+import TicketSignalAI from './TicketSignalAI';
 import { isDemoMode, demoFetch } from '@/lib/demoApi';
 
 // Demo-aware fetch wrapper for ExecutionView
@@ -849,7 +849,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
-            : <PilotPanel ticket={ticket} ctx={ingestContext} signals={ingestSignals} />
+            : <TicketSignalAI ticket={ticket} />
           }
         </Flex>
 
