@@ -14,7 +14,7 @@ import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 
-const PM_API      = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const PM_API      = process.env.NEXT_PUBLIC_PM_API_URL || '/pm-api';
 const DEFAULT_TECH = process.env.NEXT_PUBLIC_DEFAULT_TECH || 'Scott Everett';
 
 // ─── Effective visit time helper ─────────────────────────────────────────────
