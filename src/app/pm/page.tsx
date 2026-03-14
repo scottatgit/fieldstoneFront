@@ -384,7 +384,7 @@ export default function PMPage() {
   const [summaryLoading, setSummaryL]   = useState(true);
   const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
   const [visitFilter, setVisitFilter]   = useState<VisitFilter>('all');
-  const [myOnly, setMyOnly]             = useState(!isDemoMode());
+  const [myOnly, setMyOnly]             = useState(false);
   const [activeTab, setActiveTab]       = useState(0);
 
   const fetchTickets = useCallback(async () => {
