@@ -567,7 +567,7 @@ I can see the context for this ticket.
   if (endpoint === '/api/tenant/users' && method === 'POST') {
     return { id: 'u-new', tenant_id: 'demo', name: 'New Member', role: 'technician', created_at: new Date().toISOString() };
   }
-if (endpoint === '/api/ingest/run' && method === 'POST') {
+if ((endpoint === '/api/ingest/run' || endpoint === '/api/ingest/email') && method === 'POST') {
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 
