@@ -383,7 +383,7 @@ export default function PMPage() {
   const [loading, setLoading]           = useState(true);
   const [summaryLoading, setSummaryL]   = useState(true);
   const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
-  const [visitFilter, setVisitFilter]   = useState<VisitFilter>(isDemoMode() ? 'all' : 'today');
+  const [visitFilter, setVisitFilter]   = useState<VisitFilter>('all');
   const [myOnly, setMyOnly]             = useState(!isDemoMode());
   const [activeTab, setActiveTab]       = useState(0);
 

@@ -621,10 +621,10 @@ export async function pmFetch(endpoint: string, apiBase: string, options?: Reque
   }
   const tenant = getActiveTenant();
   const headers: Record<string, string> = {
-    'x-tenant-id': tenant,
+    'x-tenant-slug': tenant,
     ...(options?.headers as Record<string, string> || {}),
   };
-  const res = await fetch(`${apiBase}${endpoint}`, { ...options, headers });
+  const res = await fetch(`${apiBase}${endpoint}`, { ...options, headers, credentials: 'include' });
   if (!res.ok) throw new Error(`PM API error: ${res.status} ${res.statusText}`);
   return res.json();
 }
