@@ -240,7 +240,7 @@ function StepLaunch() {
   const runIngest = useCallback(async () => {
     setIngesting(true);
     try {
-      const r = await fetch(PM_API + '/api/ingest/email', { method: 'POST', credentials: 'include' });
+      const r = await fetch('/api/ingest-email', { method: 'POST', credentials: 'include' });
       const d = await r.json();
       setResult({ tickets: d.tickets_imported || d.ticketsImported || 0, emails: d.emails_found || d.emailsFound || 0 });
       toast({ title: 'Ingestion started', status: 'success', duration: 3000, isClosable: true });

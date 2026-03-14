@@ -229,7 +229,7 @@ function IngestionBanner() {
   async function runIngest() {
     setStatus('running'); setMsg('');
     try {
-      const r = await fetch(`${PM_API}/api/ingest/email`, { method: 'POST', credentials: 'include' });
+      const r = await fetch('/api/ingest-email', { method: 'POST', credentials: 'include' });
       const d = await r.json();
       setMsg(d.message || JSON.stringify(d));
       setStatus('done');
