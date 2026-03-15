@@ -382,6 +382,7 @@ export default function PMPage() {
   const [summary, setSummary]           = useState<Summary | null>(null);
   const [loading, setLoading]           = useState(true);
   const [summaryLoading, setSummaryL]   = useState(true);
+  const [fetchError, setFetchError]     = useState<string | null>(null);
   const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
   const [visitFilter, setVisitFilter]   = useState<VisitFilter>('all');
   const [myOnly, setMyOnly]             = useState(false);
@@ -389,10 +390,16 @@ export default function PMPage() {
 
   const fetchTickets = useCallback(async () => {
     try {
+      setFetchError(null);
       const tResp = (await pmFetch('/api/tickets?status=open&limit=200', PM_API)) as any;
       const tData: Ticket[] = Array.isArray(tResp) ? tResp : (tResp?.tickets || []);
       setTickets(tData);
-    } catch (e) { console.error(e); }
+      if (tData.length === 0) setFetchError(`API OK but 0 tickets — PM_API: ${PM_API}, tenant: ${typeof window !== 'undefined' ? window.location.hostname : 'ssr'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setFetchError(`Fetch failed: ${msg} — PM_API: ${PM_API}`);
+      console.error(e);
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -506,6 +513,11 @@ export default function PMPage() {
             <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
           </HStack>
 
+          {fetchError && (
+            <Box px={3} py={2} bg="red.900" border="1px solid" borderColor="red.600" mx={2} my={1} borderRadius="md">
+              <Text fontSize="2xs" fontFamily="mono" color="red.200">⚠️ {fetchError}</Text>
+            </Box>
+          )}
           <TicketQueue
             tickets={filteredTickets}
             loading={loading}
