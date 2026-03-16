@@ -184,6 +184,17 @@ const SIGNAL_CONFIG = [
 ] as const;
 
 // -- Goal 1: Brief with operational header ---------------------------------
+
+type DeduceStatus = 'idle' | 'deducing' | 'success' | 'failed';
+
+function needsDeduce(ticket: Ticket): boolean {
+  if (ticket.deduce_status === 'done') return false;
+  const hasExpectation = !!(ticket.expectation_signal?.trim());
+  const hasConstraint  = !!(ticket.constraint_signal?.trim());
+  const hasDecision    = !!(ticket.decision_signal?.trim());
+  return !hasExpectation && !hasConstraint && !hasDecision;
+}
+
 function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }) {
   const [sections, setSections]     = useState<BriefSections | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -194,6 +205,9 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
     ai_used: string[];
   } | null>(null);
   const [deducing, setDeducing] = useState(false);
+  const [deduceStatus, setDeduceStatus] = useState<DeduceStatus>('idle');
+  const [deduceError, setDeduceError] = useState<string>('');
+  const deduceAttempted = useRef(false);
 
   useEffect(() => {
     setLoading(true);
@@ -212,10 +226,12 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   }, [ticket.ticket_key, refreshKey]);
 
   const toast = useToast();
-  const deduceSignals = useCallback(async () => {
+
+  const runDeduce = useCallback(async (opts?: { auto?: boolean }) => {
     if (deducing) return;
     setDeducing(true);
-    toast({ title: '⚡ Analyzing signals...', status: 'info', duration: 2000, isClosable: true });
+    setDeduceStatus('deducing');
+    setDeduceError('');
     try {
       const r = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/deduce`, { method: 'POST' });
       if (!r.ok) {
@@ -224,16 +240,34 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       }
       const d = await r.json();
       setDeduced(d);
-      const aiCount = d.ai_used?.length ?? 0;
-      toast({ title: `✅ ${aiCount} signal${aiCount !== 1 ? 's' : ''} deduced`, status: 'success', duration: 3000, isClosable: true });
+      setDeduceStatus('success');
+      if (opts?.auto) {
+        setTimeout(() => setDeduceStatus('idle'), 4000);
+      }
+      if (!opts?.auto) {
+        const aiCount = d.ai_used?.length ?? 0;
+        toast({ title: `✅ ${aiCount} signal${aiCount !== 1 ? 's' : ''} deduced`, status: 'success', duration: 3000, isClosable: true });
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error('Deduce failed', msg);
-      toast({ title: '❌ Deduce failed', description: msg.slice(0, 200), status: 'error', duration: 5000, isClosable: true });
+      setDeduceStatus('failed');
+      setDeduceError(msg.slice(0, 200));
+      if (!opts?.auto) {
+        toast({ title: '❌ Deduce failed', description: msg.slice(0, 200), status: 'error', duration: 5000, isClosable: true });
+      }
     } finally {
       setDeducing(false);
     }
   }, [ticket.ticket_key, deducing, toast]);
+
+  // Auto-trigger deduce once on Brief open if signals are missing
+  useEffect(() => {
+    if (deduceAttempted.current) return;
+    if (!needsDeduce(ticket)) return;
+    deduceAttempted.current = true;
+    runDeduce({ auto: true });
+  }, [ticket.ticket_key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return (
     <Flex flex={1} align='center' justify='center' direction='column' gap={3}>
@@ -298,10 +332,32 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
 
       {/* SIGNALS PANEL - all 5 signals with AI deduction fallback */}
       <Box mb={5}>
-        {/* Header with Deduce button */}
-        <HStack mb={3} justify='space-between'>
-          <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' color='gray.500' letterSpacing='widest'>OPERATIONAL SIGNALS</Text>
-          <Box as='button' onClick={deduceSignals} disabled={deducing}
+        {/* Header with inline status + Deduce button */}
+        <HStack mb={3} justify='space-between' align='center'>
+          <HStack spacing={3} align='center'>
+            <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' color='gray.500' letterSpacing='widest'>OPERATIONAL SIGNALS</Text>
+            {/* Inline auto-deduce status indicator */}
+            {deduceStatus === 'deducing' && (
+              <HStack spacing={1.5}>
+                <Spinner size='xs' color='purple.400' thickness='2px' />
+                <Text fontSize='2xs' fontFamily='mono' color='purple.400'>Analyzing signals...</Text>
+              </HStack>
+            )}
+            {deduceStatus === 'success' && (
+              <Text fontSize='2xs' fontFamily='mono' color='green.400'>✅ Signals deduced by AI</Text>
+            )}
+            {deduceStatus === 'failed' && (
+              <HStack spacing={1.5}>
+                <Text fontSize='2xs' fontFamily='mono' color='orange.400'>⚠️ Auto-deduce failed</Text>
+                <Box as='button' onClick={() => { setDeduceStatus('idle'); runDeduce({ auto: true }); }}
+                  fontSize='2xs' fontFamily='mono' color='orange.300' textDecoration='underline' cursor='pointer'
+                  bg='transparent' border='none' p={0}>
+                  Retry
+                </Box>
+              </HStack>
+            )}
+          </HStack>
+          <Box as='button' onClick={() => runDeduce()} disabled={deducing}
             px={3} py={1} borderRadius='md' bg='purple.900' border='1px solid' borderColor='purple.600'
             fontSize='xs' fontFamily='mono' color='purple.300' _hover={{ bg: 'purple.800' }}
             cursor={deducing ? 'not-allowed' : 'pointer'} opacity={deducing ? 0.7 : 1}

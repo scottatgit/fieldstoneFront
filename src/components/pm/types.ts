@@ -36,6 +36,8 @@ export interface Ticket {
   contact_phone?: string | null;
   client_address?: string | null;
   effective_visit_time?: string | null;
+  deduce_status?: string | null;
+  deduced_at?: string | null;
 }
 
 export interface CalendarEvent {

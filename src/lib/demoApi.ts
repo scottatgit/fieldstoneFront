@@ -236,8 +236,9 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
   }
 
   // ── Ticket signals ────────────────────────────────────────────────────────
-  // AI Signal Deduction mock
+  // AI Signal Deduction mock — 1.5s delay simulates real AI latency
   if (endpoint.includes('/signals/deduce')) {
+    await new Promise(r => setTimeout(r, 1500));
     return {
       signals: {
         readiness: 'Parts and remote access are confirmed. Ticket has all information needed for an on-site visit.',
