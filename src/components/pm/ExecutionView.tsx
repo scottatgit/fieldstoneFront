@@ -294,9 +294,7 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
 
       <SectionBlock label='SITUATION'   content={situationContent}   accent='blue'   />
 
-      {sections.additional_notes?.trim() && (
-        <SectionBlock label='ADDITIONAL NOTES' content={sections.additional_notes} accent='gray' />
-      )}
+
 
       {/* SIGNALS PANEL - all 5 signals with AI deduction fallback */}
       <Box mb={5}>
@@ -872,7 +870,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   }, [fetchContext]);
 
 
-  const clientName   = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'Unknown';
+  const clientName   = ticket.client_display_name || ticket.client_key || 'Unknown';
 
   const saveIndicator: Record<SaveState, React.ReactNode> = {
     idle:   null,
