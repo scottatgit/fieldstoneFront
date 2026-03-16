@@ -135,10 +135,21 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
     return { status: 'ok', message: 'Demo mode — expectation input recorded.' };
   }
 
-  // -- Phase 6.5: Close draft GET -------------------------------------------
+  // -- Phase A1: Close draft GET — AI-assisted with outcome_type support -----
   if (endpoint.includes('/close-draft')) {
     const keyMatch = endpoint.match(/tickets\/([^/]+)/);
     const key = keyMatch ? keyMatch[1] : '';
+    const outcomeMatch = endpoint.match(/[?&]outcome_type=([^&]+)/);
+    const outcomeType = outcomeMatch ? outcomeMatch[1] : null;
+    const AI_NOTES: Record<string, string> = {
+      resolved:  'We visited the site and resolved the reported issue by performing a full diagnostic and targeted remediation on the affected systems. All workstations and devices were tested and confirmed fully operational before our departure. The client was briefed on the findings and expressed satisfaction with the outcome. We will follow up within five business days to confirm continued stability.',
+      mitigated: "We visited the site and implemented a temporary workaround to restore functionality for the affected systems while a permanent solution is sourced. The client is operational with current limitations documented and communicated. We are actively coordinating next steps and will schedule a follow-up visit once parts or vendor support are confirmed. We appreciate the client's patience during this process.",
+      at_risk:   'We visited the site and assessed the reported issue, however full resolution was not achievable during this visit due to hardware or vendor dependencies outside our immediate control. A temporary measure has been put in place to minimize disruption, and we have escalated the matter to the appropriate support channels. We will continue to monitor the situation and provide updates as progress is made.',
+      escalated: 'We visited the site and escalated the reported issue to a third-party vendor for specialist intervention. All findings and diagnostic data have been documented and shared with the escalation team. A follow-up appointment is being coordinated and we will communicate timing as soon as it is confirmed. We remain actively involved and will keep the office informed throughout the resolution process.',
+    };
+    const aiNote = outcomeType && AI_NOTES[outcomeType as keyof typeof AI_NOTES]
+      ? AI_NOTES[outcomeType as keyof typeof AI_NOTES]
+      : null;
     return {
       ticket_key: key,
       close_draft: {
@@ -148,8 +159,15 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
           'Schedule a follow-up check-in within 5 business days to confirm continued stability.',
           'We recommend a proactive review of related systems to prevent recurrence.',
         ],
+        ...(aiNote ? { ai_close_note: aiNote, ai_outcome_type: outcomeType, ai_generated: true } : {}),
       },
     };
+  }
+
+  // -- Phase A2: Signal rescore POST ----------------------------------------
+  if (endpoint.includes('/signals/rescore')) {
+    await new Promise(res => setTimeout(res, 400));
+    return { status: 'ok', updated_fields: ['trust_score', 'expectation_signal'] };
   }
 
   // -- Phase 6.5: Checklist POST --------------------------------------------

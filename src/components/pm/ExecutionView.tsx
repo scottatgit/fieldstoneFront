@@ -48,9 +48,12 @@ interface BriefSections {
 }
 
 interface CloseDraft {
-  work_performed:  string;
-  outcome:         string;
-  recommendations: string[];
+  work_performed:   string;
+  outcome:          string;
+  recommendations:  string[];
+  ai_close_note?:   string;
+  ai_outcome_type?: string;
+  ai_generated?:    boolean;
 }
 
 interface ExpSignal {
@@ -93,6 +96,13 @@ const CHECKLIST_LABELS: { key: keyof Checklist; label: string }[] = [
   { key: 'quote_confirmed',       label: 'Quote approval confirmed (if equipment installed)' },
   { key: 'manager_notified',      label: 'Manager notified (if unresolved)' },
 ];
+
+const OUTCOMES = [
+  { key: 'resolved',  label: '✅ Resolved',  color: 'green'  },
+  { key: 'mitigated', label: '⚡ Mitigated', color: 'yellow' },
+  { key: 'at_risk',   label: '⚠️ At Risk',   color: 'orange' },
+  { key: 'escalated', label: '🔴 Escalated', color: 'red'    },
+] as const;
 
 function cleanTitle(raw: string | null | undefined): string {
   if (!raw) return '';
@@ -525,6 +535,8 @@ function VisitTimePicker({ value, onChange }: { value: string; onChange: (v: str
 
 // Combine CloseDraft fields into editable text block
 function draftToText(d: CloseDraft): string {
+  // Prefer AI-generated close note when available
+  if (d.ai_close_note) return d.ai_close_note.trim();
   const lines: string[] = [];
   if (d.work_performed) lines.push(d.work_performed);
   if (d.outcome) lines.push('\nOUTCOME\n' + d.outcome);
@@ -552,6 +564,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftMode, setDraftMode]       = useState<'generated' | 'custom'>('generated');
   const [draftText, setDraftText]       = useState('');
+  const [outcomeType, setOutcomeType]   = useState<string | null>(null);
   const notesDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftReqId                      = useRef(0);
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -573,11 +586,12 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   }, [ticket.ticket_key]);
 
   // ── Refresh close draft (Goal 4) ─────────────────────────────────────────
-  const refreshDraft = useCallback((force = false) => {
+  const refreshDraft = useCallback((force = false, ot?: string) => {
     const reqId = ++draftReqId.current;
     console.log('[draft] refreshDraft called, force=', force, 'reqId=', reqId, 'draftMode=', draftMode);
     setDraftLoading(true);
-    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft`)
+    const otParam = ot ? `?outcome_type=${ot}` : '';
+    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft${otParam}`)
       .then((r: Response) => r.json())
       .then(d => {
         console.log('[draft] response arrived, reqId=', reqId, 'current=', draftReqId.current, 'draft=', d?.close_draft?.work_performed?.slice(0,60));
@@ -592,6 +606,13 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
       })
       .catch(() => setDraftLoading(false));
   }, [ticket.ticket_key, draftMode]);
+
+  // ── Outcome selection — triggers AI close draft refresh ──────────────────
+  function selectOutcome(key: string) {
+    setOutcomeType(key);
+    setDraftMode('generated');  // reset any custom edit
+    refreshDraft(true, key);
+  }
 
   // ── Visit Notes auto-save → triggers draft refresh ───────────────────────
   function handleNotesChange(val: string) {
@@ -795,6 +816,33 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
             ))}
           </VStack>
         </Collapse>
+      </Box>
+
+      {/* ── Outcome Selector — AI-assisted close note trigger ─────────────── */}
+      <Box mb={outcomeType || closeDraft || draftText ? 4 : 6}>
+        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
+          letterSpacing="widest" textTransform="uppercase" mb={2}>OUTCOME</Text>
+        <HStack spacing={2} flexWrap="wrap">
+          {OUTCOMES.map(({ key, label, color }) => (
+            <Box
+              key={key}
+              as="button"
+              onClick={() => selectOutcome(key)}
+              px={3} py={1.5}
+              borderRadius="full"
+              border="1px solid"
+              borderColor={outcomeType === key ? `${color}.500` : 'gray.700'}
+              bg={outcomeType === key ? `${color}.900` : 'gray.900'}
+              color={outcomeType === key ? `${color}.200` : 'gray.500'}
+              fontSize="xs" fontFamily="mono"
+              cursor="pointer"
+              _hover={{ borderColor: `${color}.600`, color: `${color}.300` }}
+              transition="all 0.15s"
+            >
+              {label}
+            </Box>
+          ))}
+        </HStack>
       </Box>
 
       {/* ── Close Draft (live recompute + manual edit mode) ──────────────── */}
