@@ -125,7 +125,7 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
     return () => { cancelled = true; };
   }, [ticket.ticket_key]);
 
-  const clientName   = ticket.client_display_name || ticket.sender_name || ticket.client_key || 'Unknown';
+  const clientName   = ticket.client_display_name || ticket.client_key || 'Unknown';
   const displayTitle = ticket.situation?.trim() || ticket.title_clean || cleanTitle(ticket.title);
   const isDeclining  = (ticket.trust_score ?? 100) < 40;
   const isLowReady   = (ticket.readiness_score ?? 100) < 50;
