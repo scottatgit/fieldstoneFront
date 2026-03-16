@@ -569,6 +569,7 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const draftReqId                      = useRef(0);
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rescoreDebounce                 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toast                           = useToast();
 
@@ -629,6 +630,15 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
         onSaveState('saved');
         setDraftMode('generated'); // reset custom draft on notes change
         refreshDraft(true);
+        // Phase A2: debounced signal rescore from working notes (5s, non-critical)
+        if (rescoreDebounce.current) clearTimeout(rescoreDebounce.current);
+        rescoreDebounce.current = setTimeout(async () => {
+          try {
+            await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/rescore`, { method: 'POST' });
+          } catch {
+            // Silent — rescore is background operation, non-blocking
+          }
+        }, 5000);
       } catch { onSaveState('error'); }
     }, 900);
   }
