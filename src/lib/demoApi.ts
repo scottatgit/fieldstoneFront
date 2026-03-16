@@ -236,6 +236,26 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
   }
 
   // ── Ticket signals ────────────────────────────────────────────────────────
+  // AI Signal Deduction mock
+  if (endpoint.includes('/signals/deduce')) {
+    return {
+      signals: {
+        readiness: 'Parts and remote access are confirmed. Ticket has all information needed for an on-site visit.',
+        trust: 'Long-term client with consistent engagement. No friction or escalation history detected.',
+        expectation: 'Client expects full resolution of the reported issue with verification before technician departure.',
+        constraint: 'Office hours only (9 AM – 5 PM). Avoid patient chair-side disruptions during active procedures.',
+        decision: 'Visit recommended — issue requires hands-on diagnosis and resolution on-site.',
+      },
+      risk_flags: [
+        'Clinical workflow may be impacted if issue persists during patient hours',
+        'Verify equipment and network access before arrival',
+      ],
+      confidence: { readiness: 0.82, trust: 0.88, expectation: 0.79, constraint: 0.71, decision: 0.85 },
+      ai_used: ['readiness', 'trust', 'expectation', 'constraint', 'decision'],
+      existing: { readiness: '', trust: '', expectation: '', constraint: '', decision: '' },
+    };
+  }
+
   if (endpoint.match(/\/api\/tickets\/[^/]+\/signals/)) {
     return DEMO_SIGNALS;
   }

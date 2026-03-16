@@ -8,20 +8,30 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import TicketSignalAI from './TicketSignalAI';
-import { isDemoMode, demoFetch } from '@/lib/demoApi';
+import { isDemoMode, demoFetch, getActiveTenant } from '@/lib/demoApi';
 
 // Demo-aware fetch wrapper for ExecutionView
 async function exFetch(url: string, options?: RequestInit): Promise<Response> {
   if (isDemoMode()) {
-    // Extract endpoint path from full URL for demoFetch routing
-    const endpoint = url.replace(/^https?:\/\/[^/]+/, '');
+    // Strip host + /pm-api prefix for demoFetch routing
+    const endpoint = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/pm-api/, '');
     const data = await demoFetch(endpoint);
     return { ok: true, json: async () => data, status: 200 } as unknown as Response;
   }
-  return fetch(url, options);
+  // Live mode: inject tenant slug + JWT cookie
+  const tenant = getActiveTenant();
+  const merged: RequestInit = {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'x-tenant-slug': tenant,
+      ...(options?.headers as Record<string, string> || {}),
+    },
+  };
+  return fetch(url, merged);
 }
 
-const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const PM_API = '/pm-api';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type ViewMode  = 'door' | 'work';
