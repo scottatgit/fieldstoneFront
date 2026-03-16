@@ -165,11 +165,25 @@ function SectionBlock({ label, content, accent = 'blue' }: { label: string; cont
 }
 
 
+const SIGNAL_CONFIG = [
+  { key: 'readiness',   label: 'READINESS',   accent: '#63B3ED', icon: '⚡' },
+  { key: 'trust',       label: 'TRUST',       accent: '#B794F4', icon: '🤝' },
+  { key: 'expectation', label: 'EXPECTATION', accent: '#9F7AEA', icon: '🎯' },
+  { key: 'constraint',  label: 'CONSTRAINTS', accent: '#F6AD55', icon: '⏱' },
+  { key: 'decision',    label: 'DECISION',    accent: '#68D391', icon: '⚙' },
+] as const;
+
 // -- Goal 1: Brief with operational header ---------------------------------
 function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }) {
   const [sections, setSections]     = useState<BriefSections | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [advancedOpen, setAdvanced] = useState(false);
+  const [deduced, setDeduced] = useState<{
+    signals: Record<string, string>;
+    risk_flags: string[];
+    confidence: Record<string, number>;
+    ai_used: string[];
+  } | null>(null);
+  const [deducing, setDeducing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -186,6 +200,19 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       })
       .catch(() => setLoading(false));
   }, [ticket.ticket_key, refreshKey]);
+
+  const deduceSignals = useCallback(async () => {
+    setDeducing(true);
+    try {
+      const r = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/deduce`, { method: 'POST' });
+      const d = await r.json();
+      setDeduced(d);
+    } catch (e) {
+      console.error('Deduce failed', e);
+    } finally {
+      setDeducing(false);
+    }
+  }, [ticket.ticket_key]);
 
   if (loading) return (
     <Flex flex={1} align='center' justify='center' direction='column' gap={3}>
@@ -246,38 +273,91 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
 
       <SectionBlock label='SITUATION'   content={situationContent}   accent='blue'   />
 
-      <SectionBlock label='EXPECTATION' content={sections.expectation} accent='purple' />
-      <SectionBlock label='CONSTRAINTS' content={sections.constraints} accent='orange' />
-      <SectionBlock label='DECISION'    content={sections.decision}    accent='green'  />
       {sections.additional_notes?.trim() && (
         <SectionBlock label='ADDITIONAL NOTES' content={sections.additional_notes} accent='gray' />
       )}
-      {sections.risk_flags && (
-        <Box mb={5} p={3} borderRadius='md' bg='blackAlpha.400' border='1px solid' borderColor='red.800'>
-          <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' color='red.400' letterSpacing='widest' textTransform='uppercase' mb={2}>
-            RISK FLAGS
-          </Text>
+
+      {/* SIGNALS PANEL - all 5 signals with AI deduction fallback */}
+      <Box mb={5}>
+        {/* Header with Deduce button */}
+        <HStack mb={3} justify='space-between'>
+          <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' color='gray.500' letterSpacing='widest'>OPERATIONAL SIGNALS</Text>
+          <Box as='button' onClick={deduceSignals} disabled={deducing}
+            px={3} py={1} borderRadius='md' bg='purple.900' border='1px solid' borderColor='purple.600'
+            fontSize='xs' fontFamily='mono' color='purple.300' _hover={{ bg: 'purple.800' }}
+            cursor={deducing ? 'not-allowed' : 'pointer'} opacity={deducing ? 0.7 : 1}
+          >
+            {deducing ? '⏳ Analyzing...' : '⚡ AI Deduce All'}
+          </Box>
+        </HStack>
+
+        <VStack spacing={2} align='stretch'>
+          {SIGNAL_CONFIG.map(({ key, label, accent, icon }) => {
+            const ticketVal = ticket[`${key}_signal` as keyof Ticket] as string | null;
+            const deducedVal = deduced?.signals?.[key];
+            const value = ticketVal || deducedVal || '';
+            const isAI = !ticketVal && !!deducedVal && deduced?.ai_used?.includes(key);
+            const confidence = deduced?.confidence?.[key];
+            const isEmpty = !value;
+
+            return (
+              <Box key={key} p={3} borderRadius='md' bg='blackAlpha.300'
+                border='1px solid' borderColor={isEmpty ? 'gray.800' : 'gray.700'}>
+                <HStack mb={isEmpty ? 0 : 1.5} justify='space-between'>
+                  <HStack spacing={1.5}>
+                    <Text fontSize='xs'>{icon}</Text>
+                    <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' letterSpacing='widest'
+                      color={isEmpty ? 'gray.600' : 'gray.400'}>{label}</Text>
+                  </HStack>
+                  {isAI && confidence && (
+                    <Box px={1.5} py={0.5} borderRadius='sm' bg='purple.900' border='1px solid' borderColor='purple.700'>
+                      <Text fontSize='2xs' fontFamily='mono' color='purple.400'>
+                        AI ~{Math.round(confidence * 100)}%
+                      </Text>
+                    </Box>
+                  )}
+                  {ticketVal && (
+                    <Box px={1.5} py={0.5} borderRadius='sm' bg='green.900' border='1px solid' borderColor='green.700'>
+                      <Text fontSize='2xs' fontFamily='mono' color='green.400'>DB ✓</Text>
+                    </Box>
+                  )}
+                </HStack>
+                {isEmpty ? (
+                  <Text fontSize='xs' color='gray.600' fontStyle='italic'>
+                    Not detected — click AI Deduce All to analyze
+                  </Text>
+                ) : (
+                  <Text fontSize='sm' color='gray.200' lineHeight='tall'>{value}</Text>
+                )}
+              </Box>
+            );
+          })}
+        </VStack>
+      </Box>
+
+      {/* RISK FLAGS - always shown */}
+      <Box mb={5} p={3} borderRadius='md' bg='blackAlpha.400' border='1px solid'
+        borderColor={((deduced?.risk_flags?.length ?? 0) > 0 || sections?.risk_flags) ? 'red.800' : 'gray.800'}>
+        <Text fontSize='2xs' fontFamily='mono' fontWeight='bold' letterSpacing='widest' textTransform='uppercase'
+          color={((deduced?.risk_flags?.length ?? 0) > 0 || sections?.risk_flags) ? 'red.400' : 'gray.600'} mb={2}>
+          RISK FLAGS
+        </Text>
+        {sections?.risk_flags ? (
           <Box fontSize='sm' color='red.200' lineHeight='tall'
             dangerouslySetInnerHTML={{ __html: renderInline(sections.risk_flags) }} />
-        </Box>
-      )}
-      {sections.advanced && (
-        <Box mt={4} mb={6}>
-          <Box as='button' onClick={() => setAdvanced(v => !v)}
-            fontSize='xs' fontFamily='mono' color='gray.500'
-            _hover={{ color: 'gray.300' }} cursor='pointer'
-            display='flex' alignItems='center' gap={2} mb={2}>
-            {advancedOpen ? '▾' : '▸'} Advanced Context
-          </Box>
-          <Collapse in={advancedOpen} animateOpacity>
-            <Box p={4} borderRadius='md' bg='gray.900' border='1px solid' borderColor='gray.700'>
-              <Box fontSize='sm' color='gray.400' lineHeight='tall'
-                dangerouslySetInnerHTML={{ __html: renderInline(sections.advanced) }}
-                sx={{ strong: { color: 'gray.200' }, code: { bg: 'gray.800', color: 'green.300', px: 1, borderRadius: 'sm', fontSize: 'xs' } }} />
-            </Box>
-          </Collapse>
-        </Box>
-      )}
+        ) : deduced?.risk_flags?.length ? (
+          <VStack align='stretch' spacing={1}>
+            {deduced.risk_flags.map((rf, i) => (
+              <HStack key={i} spacing={2}>
+                <Text fontSize='xs' color='red.400'>⚠</Text>
+                <Text fontSize='sm' color='red.200'>{rf}</Text>
+              </HStack>
+            ))}
+          </VStack>
+        ) : (
+          <Text fontSize='xs' color='gray.600' fontStyle='italic'>No flags detected — AI Deduce may reveal risks</Text>
+        )}
+      </Box>
     </Box>
   );
 }
