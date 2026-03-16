@@ -211,18 +211,29 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       .catch(() => setLoading(false));
   }, [ticket.ticket_key, refreshKey]);
 
+  const toast = useToast();
   const deduceSignals = useCallback(async () => {
+    if (deducing) return;
     setDeducing(true);
+    toast({ title: '⚡ Analyzing signals...', status: 'info', duration: 2000, isClosable: true });
     try {
       const r = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/deduce`, { method: 'POST' });
+      if (!r.ok) {
+        const errText = await r.text();
+        throw new Error(`API ${r.status}: ${errText.slice(0, 120)}`);
+      }
       const d = await r.json();
       setDeduced(d);
-    } catch (e) {
-      console.error('Deduce failed', e);
+      const aiCount = d.ai_used?.length ?? 0;
+      toast({ title: `✅ ${aiCount} signal${aiCount !== 1 ? 's' : ''} deduced`, status: 'success', duration: 3000, isClosable: true });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('Deduce failed', msg);
+      toast({ title: '❌ Deduce failed', description: msg.slice(0, 200), status: 'error', duration: 5000, isClosable: true });
     } finally {
       setDeducing(false);
     }
-  }, [ticket.ticket_key]);
+  }, [ticket.ticket_key, deducing, toast]);
 
   if (loading) return (
     <Flex flex={1} align='center' justify='center' direction='column' gap={3}>
