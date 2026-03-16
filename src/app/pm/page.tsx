@@ -14,7 +14,7 @@ import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 
-const PM_API      = process.env.NEXT_PUBLIC_PM_API_URL || '/pm-api';
+const PM_API      = '/pm-api'; // always use relative proxy path — NEXT_PUBLIC_PM_API_URL ignored (was set to demo domain on Vercel)
 const DEFAULT_TECH = process.env.NEXT_PUBLIC_DEFAULT_TECH || 'Scott Everett';
 
 // ─── Effective visit time helper ─────────────────────────────────────────────
