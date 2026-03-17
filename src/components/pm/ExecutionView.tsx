@@ -1155,27 +1155,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       <Flex flex={1} position='relative' minH={0}>
         <Flex flex={1} direction='column' overflowX='hidden' align='center' minH={0}>
 
-            {/* Phase 7C: context readiness banner */}
-            {(ingestStatus === 'never_queued' || ingestStatus === 'failed') && (
-              <Box bg="yellow.900" border="1px solid" borderColor="yellow.600" borderRadius="md" p={3} mb={3}>
-                <Flex align="center" justify="space-between" gap={3}>
-                  <Text fontSize="sm" color="yellow.200">
-                    {ingestStatus === 'failed' ? '⚠️ Structured context failed to generate.' : '⏳ Structured context not ready.'}
-                  </Text>
-                  <Button size="xs" colorScheme="yellow" variant="outline" onClick={triggerIngest} isLoading={isPolling} loadingText="Running...">
-                    Run Ingestion
-                  </Button>
-                </Flex>
-              </Box>
-            )}
-            {ingestStatus === 'running' || ingestStatus === 'pending' ? (
-              <Box bg="blue.900" border="1px solid" borderColor="blue.600" borderRadius="md" p={3} mb={3}>
-                <Flex align="center" gap={2}>
-                  <Spinner size="xs" color="blue.300" />
-                  <Text fontSize="sm" color="blue.200">Generating structured context...</Text>
-                </Flex>
-              </Box>
-            ) : null}
+            {/* Phase 7C structured context banner removed — auto-deduce handles this */}
 
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
