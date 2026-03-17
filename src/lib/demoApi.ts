@@ -135,6 +135,26 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
     return { status: 'ok', message: 'Demo mode — expectation input recorded.' };
   }
 
+  // -- Phase Orchestration: POST /close — authoritative close event ----------
+  if ((endpoint.endsWith('/close') || endpoint.match(/\/tickets\/[^/]+\/close$/)) && method === 'POST') {
+    const keyMatch = endpoint.match(/tickets\/([^/]+)/);
+    const key = keyMatch ? keyMatch[1] : 'DEMO-001';
+    const outcomeType = (body as Record<string, string>)?.outcome_type || 'resolved';
+    const driftMap: Record<string, string> = {
+      resolved: 'met', mitigated: 'shifted', at_risk: 'unmet', escalated: 'unmet',
+    };
+    return {
+      ticket_key: key,
+      status: 'closed',
+      closed_at: new Date().toISOString(),
+      outcome_type: outcomeType,
+      expectation_drift_status: driftMap[outcomeType] || 'unknown',
+      intel_scheduled: true,
+      trajectory_scheduled: true,
+      idempotent: false,
+    };
+  }
+
   // -- Phase A1: Close draft GET — AI-assisted with outcome_type support -----
   if (endpoint.includes('/close-draft')) {
     const keyMatch = endpoint.match(/tickets\/([^/]+)/);

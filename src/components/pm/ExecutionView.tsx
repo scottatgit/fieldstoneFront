@@ -15,7 +15,10 @@ async function exFetch(url: string, options?: RequestInit): Promise<Response> {
   if (isDemoMode()) {
     // Strip host + /pm-api prefix for demoFetch routing
     const endpoint = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/pm-api/, '');
-    const data = await demoFetch(endpoint);
+    const method   = (options?.method || 'GET').toUpperCase();
+    let bodyData: unknown;
+    try { bodyData = options?.body ? JSON.parse(options.body as string) : undefined; } catch { bodyData = undefined; }
+    const data = await demoFetch(endpoint, method, bodyData);
     return { ok: true, json: async () => data, status: 200 } as unknown as Response;
   }
   // Live mode: inject tenant slug + JWT cookie
@@ -609,6 +612,8 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
   const [draftMode, setDraftMode]       = useState<'generated' | 'custom'>('generated');
   const [draftText, setDraftText]       = useState('');
   const [outcomeType, setOutcomeType]   = useState<string | null>(null);
+  const [ticketClosed, setTicketClosed] = useState(false);          // Phase Orch: close event fired
+  const [closeLoading, setCloseLoading] = useState(false);          // Phase Orch: close in-flight
   const notesDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftReqId                      = useRef(0);
   const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -657,6 +662,28 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
     setOutcomeType(key);
     setDraftMode('generated');  // reset any custom edit
     refreshDraft(true, key);
+  }
+
+  // ── Close Ticket — authoritative close event (Phase Orchestration) ──────
+  async function handleCloseTicket() {
+    if (!outcomeType || closeLoading || ticketClosed) return;
+    setCloseLoading(true);
+    try {
+      const res = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome_type: outcomeType }),
+      });
+      if (res.ok) {
+        setTicketClosed(true);
+      } else {
+        console.error('[close] POST /close failed', res.status);
+      }
+    } catch (e) {
+      console.error('[close] POST /close error', e);
+    } finally {
+      setCloseLoading(false);
+    }
   }
 
   // ── Visit Notes auto-save → triggers draft refresh ───────────────────────
@@ -974,6 +1001,32 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
           />
           <Text fontSize="2xs" color="gray.600" mt={2} fontFamily="mono">
             {draftMode === 'custom' ? 'Editing manually — notes changes will reset to generated.' : 'Auto-updating with notes and signals.'}
+          </Text>
+        </Box>
+      )}
+
+      {/* ── Close Ticket Button (Phase Orchestration) ────────────────────── */}
+      {outcomeType && !ticketClosed && (
+        <Box mt={2} mb={6}>
+          <Button
+            size="sm"
+            colorScheme="red"
+            variant="outline"
+            isLoading={closeLoading}
+            loadingText="Closing..."
+            onClick={handleCloseTicket}
+            fontFamily="mono"
+            fontSize="xs"
+            letterSpacing="wide"
+          >
+            Close Ticket
+          </Button>
+        </Box>
+      )}
+      {ticketClosed && (
+        <Box mt={2} mb={6}>
+          <Text fontSize="xs" fontFamily="mono" color="green.400">
+            ✓ Ticket closed · {outcomeType} · intel + trajectory updating in background
           </Text>
         </Box>
       )}
