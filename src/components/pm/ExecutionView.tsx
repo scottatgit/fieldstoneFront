@@ -1045,6 +1045,29 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [ingestSignals,  setIngestSignals]  = useState<TicketSignals | null>(null);
   const [ingestStatus,   setIngestStatus]   = useState<string>('never_queued');
   const [isPolling,      setIsPolling]      = useState(false);
+
+  // ── Outcome / Close (slim bar in Work view) ────────────────────────────────
+  const [outcomeType,   setOutcomeType]   = useState<string | null>(null);
+  const [ticketClosed,  setTicketClosed]  = useState(false);
+  const [closeLoading,  setCloseLoading]  = useState(false);
+
+  async function handleCloseTicket() {
+    if (!outcomeType || closeLoading || ticketClosed) return;
+    setCloseLoading(true);
+    try {
+      const res = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome_type: outcomeType }),
+      });
+      if (res.ok) setTicketClosed(true);
+      else console.error('[close] POST /close failed', res.status);
+    } catch (e) {
+      console.error('[close] POST /close error', e);
+    } finally {
+      setCloseLoading(false);
+    }
+  }
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch /context and /ingest/status on ticket open
@@ -1159,7 +1182,56 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
           {viewMode === 'door'
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
-            : <TicketSignalAI ticket={ticket} />
+            : (
+              <Flex direction='column' flex={1} minH={0} overflow='hidden' w='100%'>
+                {/* Signal AI chat — takes all available space */}
+                <Box flex={1} minH={0} overflow='hidden'>
+                  <TicketSignalAI ticket={ticket} />
+                </Box>
+
+                {/* ── Slim OUTCOME bar ─────────────────────────────────── */}
+                <Box flexShrink={0} borderTop='1px solid' borderColor='gray.700'
+                  bg='gray.900' px={4} py={3}>
+                  <Text fontSize='2xs' fontFamily='mono' color='gray.500'
+                    letterSpacing='widest' textTransform='uppercase' mb={2}>Outcome</Text>
+                  <HStack spacing={2} flexWrap='wrap'>
+                    {OUTCOMES.map(({ key, label, color }) => (
+                      <Box as='button' key={key}
+                        onClick={() => { setOutcomeType(key); setTicketClosed(false); }}
+                        px={3} py={1.5} borderRadius='md' border='1px solid'
+                        borderColor={outcomeType === key ? `${color}.500` : 'gray.700'}
+                        bg={outcomeType === key ? `${color}.900` : 'gray.900'}
+                        color={outcomeType === key ? `${color}.200` : 'gray.500'}
+                        fontSize='xs' fontFamily='mono' cursor='pointer'
+                        _hover={{ borderColor: `${color}.400` }}>
+                        {label}
+                      </Box>
+                    ))}
+                  </HStack>
+
+                  {outcomeType && !ticketClosed && (
+                    <Box mt={3}>
+                      <Box as='button' onClick={handleCloseTicket}
+                        px={4} py={2} borderRadius='md' border='1px solid'
+                        borderColor='red.600' bg='red.900' color='red.200'
+                        fontSize='xs' fontFamily='mono' cursor='pointer'
+                        opacity={closeLoading ? 0.6 : 1}
+                        _hover={{ bg: 'red.800' }}>
+                        {closeLoading ? 'Closing…' : '✓ Close Ticket'}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {ticketClosed && (
+                    <Box mt={3}>
+                      <Text fontSize='xs' fontFamily='mono' color='green.400'>
+                        ✓ Closed · {outcomeType} · intel + trajectory updating in background
+                      </Text>
+                    </Box>
+                  )}
+                </Box>
+              </Flex>
+            )
           }
         </Flex>
 
