@@ -160,6 +160,8 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
           'We recommend a proactive review of related systems to prevent recurrence.',
         ],
         ...(aiNote ? { ai_close_note: aiNote, ai_outcome_type: outcomeType, ai_generated: true } : {}),
+        // Phase C2: Expectation drift mock
+        expectation_drift_status: outcomeType === 'resolved' ? 'met' : outcomeType === 'mitigated' ? 'shifted' : outcomeType === 'at_risk' || outcomeType === 'escalated' ? 'unmet' : 'unknown',
       },
     };
   }

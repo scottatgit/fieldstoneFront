@@ -48,12 +48,13 @@ interface BriefSections {
 }
 
 interface CloseDraft {
-  work_performed:   string;
-  outcome:          string;
-  recommendations:  string[];
-  ai_close_note?:   string;
-  ai_outcome_type?: string;
-  ai_generated?:    boolean;
+  work_performed:           string;
+  outcome:                  string;
+  recommendations:          string[];
+  ai_close_note?:           string;
+  ai_outcome_type?:         string;
+  ai_generated?:            boolean;
+  expectation_drift_status?: string;  // Phase C2: met | shifted | unmet | unknown
 }
 
 interface ExpSignal {
@@ -912,6 +913,26 @@ function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
                 variant="subtle" px={2} py={0.5} borderRadius="sm">
                 {draftMode === 'custom' ? 'CUSTOM' : 'GENERATED'}
               </Badge>
+              {/* Phase C2: Expectation drift badge */}
+              {closeDraft?.expectation_drift_status && closeDraft.expectation_drift_status !== 'unknown' && (
+                <span style={{
+                  fontSize: '10px',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  marginLeft: '4px',
+                  ...(closeDraft.expectation_drift_status === 'met'
+                    ? { backgroundColor: '#14532d', color: '#86efac' }
+                    : closeDraft.expectation_drift_status === 'shifted'
+                    ? { backgroundColor: '#451a03', color: '#fcd34d' }
+                    : closeDraft.expectation_drift_status === 'unmet'
+                    ? { backgroundColor: '#450a0a', color: '#fca5a5' }
+                    : { backgroundColor: '#27272a', color: '#a1a1aa' }),
+                }}>
+                  {closeDraft.expectation_drift_status === 'met'     ? '✓ Expectation met'
+                   : closeDraft.expectation_drift_status === 'shifted' ? '⇄ Expectation shifted'
+                   : '✗ Expectation unmet'}
+                </span>
+              )}
             </HStack>
             <HStack spacing={2}>
               {draftLoading && <Spinner size="xs" color="green.400" />}
