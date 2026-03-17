@@ -217,6 +217,10 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   const [deducing, setDeducing] = useState(false);
   const [deduceStatus, setDeduceStatus] = useState<DeduceStatus>('idle');
   const [deduceError, setDeduceError] = useState<string>('');
+  const [trajectory, setTrajectory] = useState<{
+    trend: string; ticket_count: number;
+    avg_trust?: number; avg_readiness?: number; recurrence_rate?: number;
+  } | null>(null);
   const deduceAttempted = useRef(false);
 
   useEffect(() => {
@@ -234,6 +238,19 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       })
       .catch(() => setLoading(false));
   }, [ticket.ticket_key, refreshKey]);
+
+  // Phase B2: fetch client trajectory on ticket load
+  useEffect(() => {
+    setTrajectory(null);
+    if (!ticket?.ticket_key) return;
+    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/client-trajectory`)
+      .then((r: Response) => r.ok ? r.json() : Promise.reject(r.status))
+      .then((d: { trend: string; ticket_count: number; avg_trust?: number; avg_readiness?: number; recurrence_rate?: number }) => {
+        if (d.ticket_count >= 3) setTrajectory(d);
+      })
+      .catch(() => setTrajectory(null));
+  }, [ticket.ticket_key, refreshKey]);
+
 
   const toast = useToast();
 
@@ -314,6 +331,32 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
       {/* Operational Header */}
       <Box mb={6} pb={4} borderBottom='1px solid' borderColor='gray.800'>
         <Text fontSize={{ base: 'xl', md: 'lg' }} fontWeight='bold' color='white' mb={1}>{clientName}</Text>
+        {/* Phase B2: Client trajectory badge */}
+        {trajectory && trajectory.trend !== 'insufficient_data' && (
+          <span style={{
+            display: 'inline-block',
+            fontSize: '0.7rem',
+            padding: '2px 8px',
+            borderRadius: '9999px',
+            marginTop: '4px',
+            background:
+              trajectory.trend === 'improving' ? 'rgba(20,83,45,0.8)' :
+              trajectory.trend === 'degrading' ? 'rgba(127,29,29,0.8)' :
+              trajectory.trend === 'recurring' ? 'rgba(120,53,15,0.8)' :
+              'rgba(39,39,42,0.8)',
+            color:
+              trajectory.trend === 'improving' ? '#86efac' :
+              trajectory.trend === 'degrading' ? '#fca5a5' :
+              trajectory.trend === 'recurring' ? '#fcd34d' :
+              '#a1a1aa',
+          }}>
+            {trajectory.trend === 'improving'  ? '▲ Improving relationship' :
+             trajectory.trend === 'degrading'  ? '▼ Degrading relationship' :
+             trajectory.trend === 'recurring'  ? '↻ Recurring issues' :
+             '→ Stable'}
+            {' · '}{trajectory.ticket_count} tickets
+          </span>
+        )}
         {contactName && (
           <Text fontSize='sm' color='gray.400'>Contact: {contactName}</Text>
         )}

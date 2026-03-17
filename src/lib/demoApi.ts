@@ -253,6 +253,11 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
     return { ...DEMO_CONTEXT, ticket_key: key, client_key: ticket?.client_key ?? 'demo-client', situation: ticket?.situation ?? 'System Issue' };
   }
 
+  // ── Phase B2: Client trajectory ───────────────────────────────────────────
+  if (endpoint.includes('/client-trajectory')) {
+    return { trend: 'stable', ticket_count: 4, avg_trust: 72, avg_readiness: 68, recurrence_rate: 0.1 };
+  }
+
   // ── Ticket signals ────────────────────────────────────────────────────────
   // AI Signal Deduction mock — 1.5s delay simulates real AI latency
   if (endpoint.includes('/signals/deduce')) {
