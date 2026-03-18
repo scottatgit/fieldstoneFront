@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Box, Button, Flex, HStack, VStack, Text, Badge, Spinner,
-  Textarea, Select, Collapse, useToast, Divider, Checkbox,
+  Textarea, Select, Collapse, useToast, Divider, Checkbox, useBreakpointValue,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ticket, TicketContext, TicketSignals } from './types';
@@ -467,6 +467,7 @@ interface NoteEntry {
   content: string;
   author: string | null;
   note_type: string | null;
+  note_source: string;         // N3b: 'manual' | 'ai_chat' | 'system' | 'import'
   note_category: string;       // N2: classifier output
   route_acct_mgmt: number;     // N2: routing flag
   route_sales: number;         // N2: routing flag
@@ -519,7 +520,11 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [savedNotes,  setSavedNotes]  = useState<NoteEntry[]>([]);
   const notesLoaded                   = useRef(false);
   const noteStatusTimer               = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showAllNotes, setShowAllNotes] = useState(false);
+  const [showAllNotes,   setShowAllNotes]   = useState(false);
+  // N3 Mobile: collapsible sections (mobile only)
+  const isMobile                            = useBreakpointValue({ base: true, md: false });
+  const [chatExpanded,   setChatExpanded]   = useState(false);  // default collapsed on mobile
+  const [notesExpanded,  setNotesExpanded]  = useState(true);   // default expanded on mobile
 
   async function handleCloseTicket() {
     if (!outcomeType || closeLoading || ticketClosed) return;
@@ -549,6 +554,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       content: text,
       author: 'tech',
       note_type: 'tech_note',
+      note_source: 'manual',        // N3b: human-authored
       note_category: 'work_note',   // classifier will correct on refresh
       route_acct_mgmt: 0,
       route_sales: 0,
@@ -709,29 +715,59 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
             ? <DoorView ticket={ticket} refreshKey={refreshKey} />
             : (
               <Flex direction='column' flex={1} minH={0} overflow='hidden' w='100%'>
-                {/* Signal AI chat — takes all available space */}
-                <Box flex={1} minH={0} overflow='hidden'>
-                  <TicketSignalAI ticket={ticket} />
+                {/* Signal AI chat — collapsible on mobile, always expanded on desktop */}
+                <Box flexShrink={0} display={isMobile && !chatExpanded ? 'block' : undefined}
+                  flex={isMobile ? undefined : 1} minH={0}>
+                  {/* Mobile collapse header */}
+                  {isMobile && (
+                    <Box as='button' w='100%' onClick={() => setChatExpanded(v => !v)}
+                      display='flex' alignItems='center' justifyContent='space-between'
+                      px={4} minH='44px' borderBottom='1px solid'
+                      borderColor='gray.800' bg='gray.950'
+                      _hover={{ bg: 'gray.900' }} cursor='pointer'>
+                      <Text fontSize='2xs' fontFamily='mono' color='gray.500'
+                        letterSpacing='widest' textTransform='uppercase'>Signal AI Chat</Text>
+                      <Text fontSize='xs' color='gray.600'>{chatExpanded ? '▲' : '▼'}</Text>
+                    </Box>
+                  )}
+                  <Collapse in={isMobile ? chatExpanded : true} animateOpacity>
+                    <Box flex={1} minH={0} overflow='hidden' h={isMobile ? '300px' : '100%'}>
+                      <TicketSignalAI ticket={ticket} />
+                    </Box>
+                  </Collapse>
                 </Box>
 
                 {/* ── Notes section ─────────────────────────────────── */}
                 <Box flexShrink={0} borderTop='1px solid' borderColor='gray.800'
                   bg='gray.950' px={4} pt={3} pb={2}>
-                  {/* Header + show all toggle */}
-                  <HStack justify='space-between' align='center' mb={2}>
+                  {/* Header + show all toggle + mobile collapse trigger */}
+                  <HStack justify='space-between' align='center' mb={isMobile && notesExpanded ? 2 : 0}
+                    as={isMobile ? 'button' : undefined}
+                    onClick={isMobile ? () => setNotesExpanded(v => !v) : undefined}
+                    w='100%' minH={isMobile ? '44px' : undefined}
+                    cursor={isMobile ? 'pointer' : undefined}>
                     <Text fontSize='2xs' fontFamily='mono' color='gray.500'
                       letterSpacing='widest' textTransform='uppercase'>Notes</Text>
-                    <Box as='button'
-                      onClick={() => setShowAllNotes(v => !v)}
-                      px={2} py={0.5} borderRadius='sm' border='1px solid'
-                      borderColor='gray.700' bg='transparent'
-                      color='gray.500' fontSize='2xs' fontFamily='mono'
-                      cursor='pointer' _hover={{ color: 'gray.300', borderColor: 'gray.500' }}
-                      transition='all 0.1s'>
-                      {showAllNotes ? 'Tech only' : 'Show all'}
-                    </Box>
+                    <HStack spacing={2}>
+                      {/* Show all toggle — only visible when expanded or on desktop */}
+                      {(!isMobile || notesExpanded) && (
+                        <Box as='button'
+                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllNotes(v => !v); }}
+                          px={2} py={0.5} borderRadius='sm' border='1px solid'
+                          borderColor='gray.700' bg='transparent'
+                          color='gray.500' fontSize='2xs' fontFamily='mono'
+                          cursor='pointer' _hover={{ color: 'gray.300', borderColor: 'gray.500' }}
+                          transition='all 0.1s'>
+                          {showAllNotes ? 'Tech only' : 'Show all'}
+                        </Box>
+                      )}
+                      {isMobile && (
+                        <Text fontSize='xs' color='gray.600'>{notesExpanded ? '▲' : '▼'}</Text>
+                      )}
+                    </HStack>
                   </HStack>
 
+                  <Collapse in={isMobile ? notesExpanded : true} animateOpacity>
                   {/* Input row */}
                   <Flex gap={2} align='flex-start' mb={2}>
                     <Textarea
@@ -784,7 +820,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
                   {/* Saved notes list */}
                   {savedNotes.length > 0 ? (
-                    <VStack align='stretch' spacing={0} maxH='220px' overflowY='auto'
+                    <VStack align='stretch' spacing={0} minH='120px' maxH='220px' overflowY='auto'
                       css={{ '&::-webkit-scrollbar': { width: '3px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}>
                       {savedNotes.map((note, idx) => (
                         <Box key={note.id ?? idx}
@@ -845,6 +881,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                       No notes yet — add context above
                     </Text>
                   )}
+                  </Collapse>
                 </Box>
 
                 {/* ── Slim OUTCOME bar ─────────────────────────────────── */}
@@ -873,6 +910,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                         px={4} py={2} borderRadius='md' border='1px solid'
                         borderColor='red.600' bg='red.900' color='red.200'
                         fontSize='xs' fontFamily='mono' cursor='pointer'
+                        minH='44px'
                         opacity={closeLoading ? 0.6 : 1}
                         pointerEvents={closeLoading ? 'none' : 'auto'}
                         _hover={{ bg: 'red.800' }}>

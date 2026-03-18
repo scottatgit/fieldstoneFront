@@ -204,7 +204,7 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
         pmFetch(`/api/tickets/${ticketKey}/notes`, PM_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: trimmed, author: 'tech', type: 'visit_note' }),
+          body: JSON.stringify({ content: trimmed, author: 'tech', note_source: 'manual', type: 'visit_note' }),
         }).catch(() => {/* non-critical */});
       }
     } catch {
