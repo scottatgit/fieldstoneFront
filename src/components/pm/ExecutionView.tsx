@@ -467,10 +467,23 @@ interface NoteEntry {
   content: string;
   author: string | null;
   note_type: string | null;
+  note_category: string;       // N2: classifier output
+  route_acct_mgmt: number;     // N2: routing flag
+  route_sales: number;         // N2: routing flag
+  route_followup: number;      // N2: routing flag
+  category_confirmed: number;  // N2: human correction flag
   created_at: string;
   intel_candidate: number;
   intel_reason: string | null;
 }
+
+const NOTE_CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
+  // work_note intentionally omitted — default, no badge
+  client_request:    { label: '💬 request', color: 'blue'   },
+  quote_opportunity: { label: '💰 quote',   color: 'green'  },
+  risk_concern:      { label: '⚠️ risk',    color: 'orange' },
+  follow_up:         { label: '🔁 follow',  color: 'purple' },
+};
 
 type NoteStatus = 'idle' | 'saving' | 'saved' | 'updated';
 
@@ -506,6 +519,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [savedNotes,  setSavedNotes]  = useState<NoteEntry[]>([]);
   const notesLoaded                   = useRef(false);
   const noteStatusTimer               = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showAllNotes, setShowAllNotes] = useState(false);
 
   async function handleCloseTicket() {
     if (!outcomeType || closeLoading || ticketClosed) return;
@@ -535,6 +549,11 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       content: text,
       author: 'tech',
       note_type: 'tech_note',
+      note_category: 'work_note',   // classifier will correct on refresh
+      route_acct_mgmt: 0,
+      route_sales: 0,
+      route_followup: 0,
+      category_confirmed: 0,
       created_at: new Date().toISOString(),
       intel_candidate: text.length > 80 ? 1 : 0,
       intel_reason: null,
@@ -549,7 +568,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
       });
       if (res.ok) {
         setNoteStatus('saved');
-        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes${showAllNotes ? '?show_all=true' : ''}`)
           .then((r: Response) => r.ok ? r.json() : Promise.reject())
           .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
           .catch(() => {});
@@ -616,27 +635,18 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchContext]);
 
-  // ── Fetch saved notes when Work tab opens ───────────────────────────────
+  // ── Fetch saved notes: on Work tab mount + on showAllNotes toggle ──────────
   useEffect(() => {
     if (viewMode !== 'work') return;
-    if (notesLoaded.current) return;
     notesLoaded.current = true;
-    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
+    const url = showAllNotes
+      ? `${PM_API}/api/tickets/${ticket.ticket_key}/notes?show_all=true`
+      : `${PM_API}/api/tickets/${ticket.ticket_key}/notes`;
+    exFetch(url)
       .then((r: Response) => r.ok ? r.json() : Promise.reject())
       .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
       .catch(() => {});
-  }, [viewMode, ticket.ticket_key]);
-
-  // ── Fetch saved notes when Work tab opens ───────────────────────────────
-  useEffect(() => {
-    if (viewMode !== 'work') return;
-    if (notesLoaded.current) return;
-    notesLoaded.current = true;
-    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
-      .then((r: Response) => r.ok ? r.json() : Promise.reject())
-      .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
-      .catch(() => {});
-  }, [viewMode, ticket.ticket_key]);
+  }, [viewMode, ticket.ticket_key, showAllNotes]);
 
 
   const clientName   = ticket.client_display_name || ticket.client_key || 'Unknown';
@@ -707,9 +717,20 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                 {/* ── Notes section ─────────────────────────────────── */}
                 <Box flexShrink={0} borderTop='1px solid' borderColor='gray.800'
                   bg='gray.950' px={4} pt={3} pb={2}>
-                  {/* Header */}
-                  <Text fontSize='2xs' fontFamily='mono' color='gray.500'
-                    letterSpacing='widest' textTransform='uppercase' mb={2}>Notes</Text>
+                  {/* Header + show all toggle */}
+                  <HStack justify='space-between' align='center' mb={2}>
+                    <Text fontSize='2xs' fontFamily='mono' color='gray.500'
+                      letterSpacing='widest' textTransform='uppercase'>Notes</Text>
+                    <Box as='button'
+                      onClick={() => setShowAllNotes(v => !v)}
+                      px={2} py={0.5} borderRadius='sm' border='1px solid'
+                      borderColor='gray.700' bg='transparent'
+                      color='gray.500' fontSize='2xs' fontFamily='mono'
+                      cursor='pointer' _hover={{ color: 'gray.300', borderColor: 'gray.500' }}
+                      transition='all 0.1s'>
+                      {showAllNotes ? 'Tech only' : 'Show all'}
+                    </Box>
+                  </HStack>
 
                   {/* Input row */}
                   <Flex gap={2} align='flex-start' mb={2}>
@@ -771,7 +792,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                           borderBottom='1px solid'
                           borderColor='gray.800'
                           _last={{ borderBottom: 'none' }}>
-                          <HStack spacing={2} mb={0.5}>
+                          <HStack spacing={2} mb={0.5} flexWrap='wrap'>
                             <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
                               {formatNoteTime(note.created_at)}
                             </Text>
@@ -779,6 +800,29 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                               <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
                                 · {note.author}
                               </Text>
+                            )}
+                            {/* N2: category badge — work_note is default, no badge */}
+                            {note.note_category && note.note_category !== 'work_note' && (() => {
+                              const badge = NOTE_CATEGORY_BADGE[note.note_category];
+                              if (!badge) return null;
+                              return (
+                                <Box px={1.5} py={0.5} borderRadius='sm'
+                                  bg={`${badge.color}.950`} border='1px solid'
+                                  borderColor={`${badge.color}.800`}>
+                                  <Text fontSize='2xs' fontFamily='mono' color={`${badge.color}.400`}>
+                                    {badge.label}
+                                  </Text>
+                                </Box>
+                              );
+                            })()}
+                            {/* ai_chat badge — visible in show-all mode */}
+                            {note.author === 'ai_chat' && (
+                              <Box px={1.5} py={0.5} borderRadius='sm'
+                                bg='gray.800' border='1px solid' borderColor='gray.700'>
+                                <Text fontSize='2xs' fontFamily='mono' color='gray.500'>
+                                  💬 ai
+                                </Text>
+                              </Box>
                             )}
                             {note.intel_candidate === 1 && (
                               <Box px={1.5} py={0.5} borderRadius='sm'
