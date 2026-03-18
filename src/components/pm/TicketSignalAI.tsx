@@ -197,6 +197,16 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
       };
 
       setMessages(prev => [...prev, aiMsg]);
+
+      // Persist tech message as ticket_note for intel extraction
+      // Only substantive messages (>30 chars), skip demo mode
+      if (trimmed.length > 30 && process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+        pmFetch(`/api/tickets/${ticketKey}/notes`, PM_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: trimmed, author: 'tech', type: 'visit_note' }),
+        }).catch(() => {/* non-critical */});
+      }
     } catch {
       setMessages(prev => [
         ...prev,
