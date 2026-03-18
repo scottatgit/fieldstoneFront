@@ -7,7 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { pmFetch } from '../../../lib/demoApi';
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const API = '/pm-api'; // always use relative proxy — hardcoded to avoid localhost fallback on Vercel
 
 interface BillingStatus {
   tenant: string;

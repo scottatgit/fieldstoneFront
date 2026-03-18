@@ -14,7 +14,7 @@ import { DemoBanner } from '@/components/pm/DemoBanner';
 import { pmFetch, isDemoMode } from '@/lib/demoApi';
 import pmTheme from '@/components/pm/pmTheme';
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const API = '/pm-api'; // always use relative proxy — hardcoded to avoid localhost fallback on Vercel
 
 interface TenantUser {
   id: string;

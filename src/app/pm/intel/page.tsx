@@ -14,7 +14,7 @@ import { pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 
-const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
+const API = '/pm-api'; // always use relative proxy — hardcoded to avoid localhost fallback on Vercel
 
 interface OutbreakEvent {
   tool_id: string;
@@ -224,7 +224,7 @@ export default function IntelDashboard() {
       params.set('limit', '50');
       const res = await pmFetch(`/api/intel?${params}`, API);
       setIntelEntries((res as any)?.items ?? []);
-    } catch { /* silent */ } finally { setIntelLoading(false); }
+    } catch (e) { console.error('[Intel] fetchIntel error:', e); } finally { setIntelLoading(false); }
   }, [intelFilter]);
 
 

@@ -45,7 +45,7 @@ interface MetricsData {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const PM_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8100';
+const PM_API = '/pm-api'; // always use relative proxy
 
 const CHART_BASE = {
   responsive: true,
