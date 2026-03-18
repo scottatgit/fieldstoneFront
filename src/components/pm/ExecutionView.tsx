@@ -67,55 +67,7 @@ interface ExpSignal {
   human_inputs:     { type: string; author: string; note: string | null; created_at: string }[];
 }
 
-interface Checklist {
-  spoke_with_manager:    boolean;
-  walkthrough_completed: boolean;
-  checked_additional:    boolean;
-  systems_verified:      boolean;
-  photos_uploaded:       boolean;
-  quote_confirmed:       boolean;
-  manager_notified:      boolean;
-}
 
-
-
-
-
-const EMPTY_CHECKLIST: Checklist = {
-  spoke_with_manager:    false,
-  walkthrough_completed: false,
-  checked_additional:    false,
-  systems_verified:      false,
-  photos_uploaded:       false,
-  quote_confirmed:       false,
-  manager_notified:      false,
-};
-
-const CHECKLIST_LABELS: { key: keyof Checklist; label: string }[] = [
-  { key: 'spoke_with_manager',    label: 'Spoke with Office Manager' },
-  { key: 'walkthrough_completed', label: 'Final walkthrough completed' },
-  { key: 'checked_additional',    label: 'Checked for additional issues' },
-  { key: 'systems_verified',      label: 'Verified PMS / Imaging / Phones operational' },
-  { key: 'photos_uploaded',       label: 'Photos uploaded (if install)' },
-  { key: 'quote_confirmed',       label: 'Quote approval confirmed (if equipment installed)' },
-  { key: 'manager_notified',      label: 'Manager notified (if unresolved)' },
-];
-
-const OUTCOMES = [
-  { key: 'resolved',  label: '✅ Resolved',  color: 'green'  },
-  { key: 'mitigated', label: '⚡ Mitigated', color: 'yellow' },
-  { key: 'at_risk',   label: '⚠️ At Risk',   color: 'orange' },
-  { key: 'escalated', label: '🔴 Escalated', color: 'red'    },
-] as const;
-
-function cleanTitle(raw: string | null | undefined): string {
-  if (!raw) return '';
-  let t = raw.replace(/[\r\n]+/g, ' ').trim();
-  t = t.replace(/^(Fw|Re|Fwd):\s*/i, '');
-  t = t.replace(/^Project\s+Ticket#?\d+\/[^\/]+\/[^\/]+\//i, '').trim();
-  t = t.replace(/^Project\s+Ticket\s*#?\d+\s*[-–]?\s*/i, '').trim();
-  return t || raw.trim();
-}
 
 function formatVisitDatetime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -494,544 +446,42 @@ function DoorView({ ticket, refreshKey }: { ticket: Ticket; refreshKey: number }
   );
 }
 
-
-
-// ── Custom Visit Time Picker (mobile-friendly) ────────────────────────────────
-function parseISOToParts(iso: string | null): { date: string; hour: string; minute: string; ampm: 'AM' | 'PM' } {
-  if (!iso) return { date: '', hour: '9', minute: '00', ampm: 'AM' };
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return { date: '', hour: '9', minute: '00', ampm: 'AM' };
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  let h = d.getHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  const snap = [0, 15, 30, 45].reduce((prev, cur) => Math.abs(cur - d.getMinutes()) < Math.abs(prev - d.getMinutes()) ? cur : prev, 0);
-  return { date: dateStr, hour: String(h), minute: pad(snap), ampm };
+function cleanTitle(raw: string | null | undefined): string {
+  if (!raw) return '';
+  let t = raw.replace(/[\r\n]+/g, ' ').trim();
+  t = t.replace(/^(Fw|Re|Fwd):\s*/i, '');
+  t = t.replace(/^Project\s+Ticket#?\d+\/[^\/]+\/[^\/]+\//i, '').trim();
+  t = t.replace(/^Project\s+Ticket\s*#?\d+\s*[-–]?\s*/i, '').trim();
+  return t || raw.trim();
 }
 
-function partsToISO(date: string, hour: string, minute: string, ampm: 'AM' | 'PM'): string {
-  if (!date) return '';
-  let h = parseInt(hour, 10) % 12;
-  if (ampm === 'PM') h += 12;
-  return `${date}T${String(h).padStart(2, '0')}:${minute}`;
+const OUTCOMES = [
+  { key: 'resolved',  label: '✅ Resolved',  color: 'green'  },
+  { key: 'mitigated', label: '⚡ Mitigated', color: 'yellow' },
+  { key: 'at_risk',   label: '⚠️ At Risk',   color: 'orange' },
+  { key: 'escalated', label: '🔴 Escalated', color: 'red'    },
+] as const;
+
+interface NoteEntry {
+  id: number;
+  content: string;
+  author: string | null;
+  note_type: string | null;
+  created_at: string;
+  intel_candidate: number;
+  intel_reason: string | null;
 }
 
-function VisitTimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const initial = parseISOToParts(value);
-  const [date,  setDate]  = useState(initial.date);
-  const [hour,  setHour]  = useState(initial.hour);
-  const [min,   setMin]   = useState(initial.minute);
-  const [ampm,  setAmpm]  = useState<'AM' | 'PM'>(initial.ampm);
+type NoteStatus = 'idle' | 'saving' | 'saved' | 'updated';
 
-  const emit = (d: string, h: string, m: string, ap: 'AM' | 'PM') => {
-    const iso = partsToISO(d, h, m, ap);
-    if (iso) onChange(iso);
-  };
-
-  const inputStyle = {
-    bg: 'gray.900', border: '1px solid', borderColor: 'gray.700', borderRadius: 'md',
-    color: 'gray.200', fontSize: 'sm', px: 2, py: 2, cursor: 'pointer',
-    minH: '44px',
-    _focus: { outline: 'none', borderColor: 'blue.500' },
-    sx: { colorScheme: 'dark' },
-  } as const;
-
-  return (
-    <Box>
-      {/* Date row */}
-      <Box as='input' type='date' value={date}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDate(e.target.value); emit(e.target.value, hour, min, ampm); }}
-        w='full' mb={2} {...inputStyle} />
-      {/* Time row */}
-      <HStack spacing={2}>
-        {/* Hour */}
-        <Box as='select' value={hour}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setHour(e.target.value); emit(date, e.target.value, min, ampm); }}
-          flex={1} {...inputStyle}>
-          {[1,2,3,4,5,6,7,8,9,10,11,12].map(h => (
-            <option key={h} value={String(h)}>{h}</option>
-          ))}
-        </Box>
-        {/* Minute */}
-        <Box as='select' value={min}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setMin(e.target.value); emit(date, hour, e.target.value, ampm); }}
-          flex={1} {...inputStyle}>
-          {['00','15','30','45'].map(m => (
-            <option key={m} value={m}>:{m}</option>
-          ))}
-        </Box>
-        {/* AM/PM toggle */}
-        <HStack spacing={0} border='1px solid' borderColor='gray.700' borderRadius='md' overflow='hidden' flexShrink={0}>
-          {([['AM'], ['PM']] as const).map(([ap]) => (
-            <Box key={ap} as='button' onClick={() => { setAmpm(ap); emit(date, hour, min, ap); }}
-              px={3} minH='44px'
-              bg={ampm === ap ? 'blue.800' : 'gray.900'}
-              color={ampm === ap ? 'blue.200' : 'gray.500'}
-              fontSize='sm' fontWeight='bold' cursor='pointer'
-              borderRight={ap === 'AM' ? '1px solid' : 'none'} borderColor='gray.700'>
-              {ap}
-            </Box>
-          ))}
-        </HStack>
-      </HStack>
-    </Box>
-  );
-}
-
-
-// Combine CloseDraft fields into editable text block
-function draftToText(d: CloseDraft): string {
-  // Prefer AI-generated close note when available
-  if (d.ai_close_note) return d.ai_close_note.trim();
-  const lines: string[] = [];
-  if (d.work_performed) lines.push(d.work_performed);
-  if (d.outcome) lines.push('\nOUTCOME\n' + d.outcome);
-  if (d.recommendations?.length) {
-    lines.push('\nRECOMMENDATIONS');
-    d.recommendations.forEach(r => lines.push('• ' + r));
-  }
-  return lines.join('\n').trim();
-}
-
-// ── WorkingLayer: humanized expectation + visit time + checklist + live draft ─
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function WorkingLayer({ ticket, onSaveState, onDraftReady }: {
-  ticket: Ticket; onSaveState: (s: SaveState) => void; onDraftReady?: () => void;
-}) {
-  const [expSignal, setExpSignal]       = useState<ExpSignal | null>(null);
-  const [closeDraft, setCloseDraft]     = useState<CloseDraft | null>(null);
-  const [visitNotes, setVisitNotes]     = useState('');
-  const [visitDt, setVisitDt]           = useState(ticket.visit_datetime || '');
-  const [expType, setExpType]           = useState('confirm');
-  const [expNote, setExpNote]           = useState('');
-  const [submitting, setSubmitting]     = useState(false);
-  const [checklist, setChecklist]       = useState<Checklist>(EMPTY_CHECKLIST);
-  const [checklistOpen, setChecklistOpen] = useState(false);
-  const [draftLoading, setDraftLoading] = useState(false);
-  const [draftMode, setDraftMode]       = useState<'generated' | 'custom'>('generated');
-  const [draftText, setDraftText]       = useState('');
-  const [outcomeType, setOutcomeType]   = useState<string | null>(null);
-  const [ticketClosed, setTicketClosed] = useState(false);          // Phase Orch: close event fired
-  const [closeLoading, setCloseLoading] = useState(false);          // Phase Orch: close in-flight
-  const notesDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftReqId                      = useRef(0);
-  const dtDebounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const checkDebounce                   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rescoreDebounce                 = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const toast                           = useToast();
-
-  // ── Initial load ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    Promise.all([
-      exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/expectation`).then(r => r.json()),
-      exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft`).then(r => r.json()),
-    ]).then(([exp, draft]) => {
-      setExpSignal(exp);
-      const d = draft.close_draft || null;
-      setCloseDraft(d);
-      if (d) setDraftText(draftToText(d));
-    }).catch(console.error);
-  }, [ticket.ticket_key]);
-
-  // ── Refresh close draft (Goal 4) ─────────────────────────────────────────
-  const refreshDraft = useCallback((force = false, ot?: string) => {
-    const reqId = ++draftReqId.current;
-    console.log('[draft] refreshDraft called, force=', force, 'reqId=', reqId, 'draftMode=', draftMode);
-    setDraftLoading(true);
-    const otParam = ot ? `?outcome_type=${ot}` : '';
-    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close-draft${otParam}`)
-      .then((r: Response) => r.json())
-      .then(d => {
-        console.log('[draft] response arrived, reqId=', reqId, 'current=', draftReqId.current, 'draft=', d?.close_draft?.work_performed?.slice(0,60));
-        if (reqId !== draftReqId.current) return; // stale response — discard
-        const draft = d.close_draft || null;
-        setCloseDraft(draft);
-        if (draft && (force || draftMode === 'generated')) {
-          setDraftText(draftToText(draft));
-          setDraftMode('generated');
-        }
-        setDraftLoading(false);
-      })
-      .catch(() => setDraftLoading(false));
-  }, [ticket.ticket_key, draftMode]);
-
-  // ── Outcome selection — triggers AI close draft refresh ──────────────────
-  function selectOutcome(key: string) {
-    setOutcomeType(key);
-    setDraftMode('generated');  // reset any custom edit
-    refreshDraft(true, key);
-  }
-
-  // ── Close Ticket — authoritative close event (Phase Orchestration) ──────
-  async function handleCloseTicket() {
-    if (!outcomeType || closeLoading || ticketClosed) return;
-    setCloseLoading(true);
-    try {
-      const res = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outcome_type: outcomeType }),
-      });
-      if (res.ok) {
-        setTicketClosed(true);
-      } else {
-        console.error('[close] POST /close failed', res.status);
-      }
-    } catch (e) {
-      console.error('[close] POST /close error', e);
-    } finally {
-      setCloseLoading(false);
-    }
-  }
-
-  // ── Visit Notes auto-save → triggers draft refresh ───────────────────────
-  function handleNotesChange(val: string) {
-    setVisitNotes(val);
-    onSaveState('saving');
-    if (notesDebounce.current) clearTimeout(notesDebounce.current);
-    notesDebounce.current = setTimeout(async () => {
-      try {
-        console.log('[notes] POSTing note, len=', val.length);
-        await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: val, author: 'PM', type: 'visit_note' }),
-        });
-        onSaveState('saved');
-        setDraftMode('generated'); // reset custom draft on notes change
-        refreshDraft(true);
-        // Phase A2: debounced signal rescore from working notes (5s, non-critical)
-        if (rescoreDebounce.current) clearTimeout(rescoreDebounce.current);
-        rescoreDebounce.current = setTimeout(async () => {
-          try {
-            await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/rescore`, { method: 'POST' });
-          } catch {
-            // Silent — rescore is background operation, non-blocking
-          }
-        }, 5000);
-      } catch { onSaveState('error'); }
-    }, 900);
-  }
-
-  // ── Visit datetime auto-save (Goal 3) ────────────────────────────────────
-  function handleVisitDtChange(val: string) {
-    setVisitDt(val);
-    onSaveState('saving');
-    if (dtDebounce.current) clearTimeout(dtDebounce.current);
-    dtDebounce.current = setTimeout(async () => {
-      try {
-        await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/visit-datetime`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visit_datetime: val || null }),
-        });
-        onSaveState('saved');
-      } catch { onSaveState('error'); }
-    }, 900);
-  }
-
-  // ── Expectation input submit → triggers draft refresh (Goal 4) ───────────
-  async function submitExpInput() {
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/signals/expectation/input`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: expType, note: expNote || null, author: 'PM' }),
-      });
-      const data = await res.json();
-      setExpSignal(data);
-      setExpNote('');
-      toast({ title: 'Expectation updated', status: 'success', duration: 2000, isClosable: true });
-      onDraftReady?.();
-      setDraftMode('generated');
-      refreshDraft(true);
-    } catch { toast({ title: 'Failed to update expectation', status: 'error', duration: 3000 }); }
-    finally { setSubmitting(false); }
-  }
-
-  // ── Checklist auto-save → triggers draft refresh (Goal 5) ────────────────
-  function handleChecklistChange(key: keyof Checklist, val: boolean) {
-    const next = { ...checklist, [key]: val };
-    setChecklist(next);
-    onSaveState('saving');
-    if (checkDebounce.current) clearTimeout(checkDebounce.current);
-    checkDebounce.current = setTimeout(async () => {
-      try {
-        await fetch(`${PM_API}/api/tickets/${ticket.ticket_key}/checklist`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(next),
-        });
-        onSaveState('saved');
-        setDraftMode('generated');
-        refreshDraft(true);
-      } catch { onSaveState('error'); }
-    }, 600);
-  }
-
-  const checkedCount = Object.values(checklist).filter(Boolean).length;
-
-  // ── Goal 2: Human-readable type labels ───────────────────────────────────
-  const _typeLabel: Record<string, string> = {
-    confirm:  'confirm',
-    escalate: 'escalate',
-    weaken:   'weaken',
-  };
-  const inputBadgeColor = (t: string) =>
-    t === 'escalate' ? 'red' : t === 'weaken' ? 'orange' : 'green';
-
-  return (
-    <Box flex={1} px={{ base: 3, md: 6 }} py={{ base: 3, md: 5 }} pb={{ base: 8, md: 8 }}
-      css={{ '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}
-      maxW="760px" mx="auto" w="full">
-
-      {/* ── Goal 3: Visit Time (custom mobile picker) ───────────────────────── */}
-      <Box mb={6}>
-        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
-          letterSpacing="widest" textTransform="uppercase" mb={2}>Visit Time</Text>
-        <VisitTimePicker value={visitDt} onChange={handleVisitDtChange} />
-      </Box>
-
-      {/* ── Goal 2: Client Expectation (humanized) ────────────────────────── */}
-      <Box mb={6} p={4} borderRadius="md" bg="gray.900" border="1px solid" borderColor="gray.700">
-        <HStack justify="space-between" mb={3}>
-          <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="purple.400"
-            letterSpacing="widest" textTransform="uppercase">Client Expectation</Text>
-          {expSignal && expSignal.confidence_state === 'high' && (
-            <Badge colorScheme="green" fontSize="2xs" fontFamily="mono">Verified</Badge>
-          )}
-          {expSignal && expSignal.confidence_state === 'medium' && (
-            <Badge colorScheme="yellow" fontSize="2xs" fontFamily="mono">Reviewed</Badge>
-          )}
-        </HStack>
-        {expSignal ? (
-          <>
-            <Text fontSize="sm" color="gray.200" mb={3} lineHeight="tall">
-              {expSignal.effective_value || expSignal.auto_value || 'No expectation on file'}
-            </Text>
-            {expSignal.human_inputs?.length > 0 && (
-              <VStack align="stretch" spacing={1} mb={3}>
-                {expSignal.human_inputs?.map((inp, i) => (
-                  <HStack key={i} spacing={2}>
-                    <Badge colorScheme={inputBadgeColor(inp.type)} fontSize="2xs">
-                      {inp.type === 'confirm' ? 'confirmed' : inp.type === 'escalate' ? 'adjusted' : 'clarified'}
-                    </Badge>
-                    <Text fontSize="xs" color="gray.400">{inp.author}</Text>
-                    {inp.note && <Text fontSize="xs" color="gray.300" noOfLines={1}>{inp.note}</Text>}
-                  </HStack>
-                ))}
-              </VStack>
-            )}
-            <Divider borderColor="gray.700" mb={3} />
-            <HStack spacing={2} align="flex-start">
-              <Select value={expType} onChange={e => setExpType(e.target.value)}
-                size="sm" bg="gray.800" borderColor="gray.600" color="gray.300"
-                fontSize="xs" w="175px" flexShrink={0}
-                _focus={{ borderColor: 'purple.500', boxShadow: 'none' }}>
-                <option value="confirm">✔ Confirm expectation</option>
-                <option value="escalate">⚠ Adjust expectation</option>
-                <option value="weaken">➕ Add clarification</option>
-              </Select>
-              <Textarea value={expNote} onChange={e => setExpNote(e.target.value)}
-                placeholder="Add context or correction..." size="sm" bg="gray.800"
-                borderColor="gray.600" color="gray.200" fontSize="xs" rows={2} flex={1}
-                _focus={{ borderColor: 'purple.500', boxShadow: 'none' }}
-                _placeholder={{ color: 'gray.600' }} resize="none" />
-              <Box as="button" onClick={submitExpInput}
-                px={3} py="6px" bg="purple.700" color="white" fontSize="xs"
-                borderRadius="md" _hover={{ bg: 'purple.600' }} cursor="pointer"
-                flexShrink={0} opacity={submitting ? 0.6 : 1}>
-                {submitting ? '...' : 'Save'}
-              </Box>
-            </HStack>
-          </>
-        ) : <Flex justify="center" py={4}><Spinner size="sm" color="purple.400" /></Flex>}
-      </Box>
-
-      {/* ── Visit Notes ──────────────────────────────────────────────────── */}
-      <Box mb={4}>
-        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
-          letterSpacing="widest" textTransform="uppercase" mb={2}>Visit Notes</Text>
-        <Textarea value={visitNotes} onChange={e => {
-            handleNotesChange(e.target.value);
-            // Auto-grow
-            const el = e.target;
-            el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
-          }}
-          placeholder="Field observations, actions taken, parts used..."
-          bg="gray.900" borderColor="gray.700" color="gray.200" fontSize="sm" rows={4}
-          minH="120px"
-          _focus={{ borderColor: 'blue.500', boxShadow: 'none' }}
-          _placeholder={{ color: 'gray.600' }} resize="none"
-          overflow="hidden" />
-      </Box>
-
-      {/* ── Goal 5: SOP Completion Checklist ────────────────────────────── */}
-      <Box mb={6} p={4} borderRadius="md" bg="gray.900" border="1px solid" borderColor="gray.700">
-        <HStack justify="space-between" mb={2}>
-          <Box as="button" onClick={() => setChecklistOpen(v => !v)}
-            display="flex" alignItems="center" gap={2} cursor="pointer"
-            _hover={{ color: 'white' }}>
-            <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="teal.400"
-              letterSpacing="widest" textTransform="uppercase">
-              {checklistOpen ? '▾' : '▸'} Completion Checklist
-            </Text>
-          </Box>
-          <Text fontSize="2xs" fontFamily="mono" color={checkedCount === 7 ? 'green.400' : 'gray.500'}>
-            {checkedCount} / 7 Best Practices
-          </Text>
-        </HStack>
-        <Collapse in={checklistOpen} animateOpacity>
-          <VStack align="stretch" spacing={2} pt={2}>
-            {CHECKLIST_LABELS.map(({ key, label }) => (
-              <Checkbox
-                key={key}
-                isChecked={checklist[key]}
-                onChange={e => handleChecklistChange(key, e.target.checked)}
-                size="sm"
-                colorScheme="teal"
-                sx={{ '.chakra-checkbox__label': { fontSize: 'xs', color: 'gray.300' } }}
-              >
-                {label}
-              </Checkbox>
-            ))}
-          </VStack>
-        </Collapse>
-      </Box>
-
-      {/* ── Outcome Selector — AI-assisted close note trigger ─────────────── */}
-      <Box mb={outcomeType || closeDraft || draftText ? 4 : 6}>
-        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="blue.400"
-          letterSpacing="widest" textTransform="uppercase" mb={2}>OUTCOME</Text>
-        <HStack spacing={2} flexWrap="wrap">
-          {OUTCOMES.map(({ key, label, color }) => (
-            <Box
-              key={key}
-              as="button"
-              onClick={() => selectOutcome(key)}
-              px={3} py={1.5}
-              borderRadius="full"
-              border="1px solid"
-              borderColor={outcomeType === key ? `${color}.500` : 'gray.700'}
-              bg={outcomeType === key ? `${color}.900` : 'gray.900'}
-              color={outcomeType === key ? `${color}.200` : 'gray.500'}
-              fontSize="xs" fontFamily="mono"
-              cursor="pointer"
-              _hover={{ borderColor: `${color}.600`, color: `${color}.300` }}
-              transition="all 0.15s"
-            >
-              {label}
-            </Box>
-          ))}
-        </HStack>
-      </Box>
-
-      {/* ── Close Draft (live recompute + manual edit mode) ──────────────── */}
-      {(closeDraft || draftText) && (
-        <Box p={4} borderRadius="md" bg="gray.900" border="1px solid"
-          borderColor={draftMode === 'custom' ? 'yellow.700' : 'gray.700'}
-          mb={6} opacity={draftLoading ? 0.7 : 1} transition="opacity 0.2s, border-color 0.2s">
-          <HStack justify="space-between" mb={3}>
-            <HStack spacing={2}>
-              <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="green.400"
-                letterSpacing="widest" textTransform="uppercase">Close Draft</Text>
-              <Badge
-                fontSize="2xs" fontFamily="mono" colorScheme={draftMode === 'custom' ? 'yellow' : 'green'}
-                variant="subtle" px={2} py={0.5} borderRadius="sm">
-                {draftMode === 'custom' ? 'CUSTOM' : 'GENERATED'}
-              </Badge>
-              {/* Phase C2: Expectation drift badge */}
-              {closeDraft?.expectation_drift_status && closeDraft.expectation_drift_status !== 'unknown' && (
-                <span style={{
-                  fontSize: '10px',
-                  padding: '2px 8px',
-                  borderRadius: '9999px',
-                  marginLeft: '4px',
-                  ...(closeDraft.expectation_drift_status === 'met'
-                    ? { backgroundColor: '#14532d', color: '#86efac' }
-                    : closeDraft.expectation_drift_status === 'shifted'
-                    ? { backgroundColor: '#451a03', color: '#fcd34d' }
-                    : closeDraft.expectation_drift_status === 'unmet'
-                    ? { backgroundColor: '#450a0a', color: '#fca5a5' }
-                    : { backgroundColor: '#27272a', color: '#a1a1aa' }),
-                }}>
-                  {closeDraft.expectation_drift_status === 'met'     ? '✓ Expectation met'
-                   : closeDraft.expectation_drift_status === 'shifted' ? '⇄ Expectation shifted'
-                   : '✗ Expectation unmet'}
-                </span>
-              )}
-            </HStack>
-            <HStack spacing={2}>
-              {draftLoading && <Spinner size="xs" color="green.400" />}
-              {draftMode === 'custom' && (
-                <Button size="xs" variant="ghost" color="gray.400"
-                  _hover={{ color: 'white' }}
-                  onClick={() => {
-                    if (closeDraft) { setDraftText(draftToText(closeDraft)); }
-                    setDraftMode('generated');
-                  }}>Reset</Button>
-              )}
-            </HStack>
-          </HStack>
-          <Textarea
-            value={draftText}
-            onChange={e => { setDraftText(e.target.value); setDraftMode('custom'); }}
-            bg="transparent"
-            border="none"
-            borderRadius="md"
-            color="gray.300"
-            fontSize="sm"
-            lineHeight="tall"
-            resize="none"
-            minH="180px"
-            p={0}
-            _focus={{ outline: 'none', boxShadow: 'none', border: 'none' }}
-            _hover={{ border: 'none' }}
-            placeholder="Close draft will appear here once visit notes are added..."
-            sx={{
-              height: 'auto',
-              overflow: 'hidden',
-              fontFamily: 'inherit',
-            }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = 'auto';
-              el.style.height = el.scrollHeight + 'px';
-            }}
-          />
-          <Text fontSize="2xs" color="gray.600" mt={2} fontFamily="mono">
-            {draftMode === 'custom' ? 'Editing manually — notes changes will reset to generated.' : 'Auto-updating with notes and signals.'}
-          </Text>
-        </Box>
-      )}
-
-      {/* ── Close Ticket Button (Phase Orchestration) ────────────────────── */}
-      {outcomeType && !ticketClosed && (
-        <Box mt={2} mb={6}>
-          <Button
-            size="sm"
-            colorScheme="red"
-            variant="outline"
-            isLoading={closeLoading}
-            loadingText="Closing..."
-            onClick={handleCloseTicket}
-            fontFamily="mono"
-            fontSize="xs"
-            letterSpacing="wide"
-          >
-            Close Ticket
-          </Button>
-        </Box>
-      )}
-      {ticketClosed && (
-        <Box mt={2} mb={6}>
-          <Text fontSize="xs" fontFamily="mono" color="green.400">
-            ✓ Ticket closed · {outcomeType} · intel + trajectory updating in background
-          </Text>
-        </Box>
-      )}
-    </Box>
-  );
+function formatNoteTime(iso: string): string {
+  try {
+    const d = new Date(iso + 'Z');
+    return d.toLocaleString('en-US', {
+      month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  } catch { return iso; }
 }
 
 // -- Main ExecutionView -------------------------------------------------------
@@ -1050,6 +500,12 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [outcomeType,   setOutcomeType]   = useState<string | null>(null);
   const [ticketClosed,  setTicketClosed]  = useState(false);
   const [closeLoading,  setCloseLoading]  = useState(false);
+  // ── Notes section state ────────────────────────────────────────────────
+  const [noteText,    setNoteText]    = useState('');
+  const [noteStatus,  setNoteStatus]  = useState<NoteStatus>('idle');
+  const [savedNotes,  setSavedNotes]  = useState<NoteEntry[]>([]);
+  const notesLoaded                   = useRef(false);
+  const noteStatusTimer               = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleCloseTicket() {
     if (!outcomeType || closeLoading || ticketClosed) return;
@@ -1067,6 +523,43 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     } finally {
       setCloseLoading(false);
     }
+  }
+
+  async function handleSaveNote() {
+    const text = noteText.trim();
+    if (!text) return;
+    if (noteStatusTimer.current) clearTimeout(noteStatusTimer.current);
+    setNoteStatus('saving');
+    const optimisticNote: NoteEntry = {
+      id: Date.now(),
+      content: text,
+      author: 'tech',
+      note_type: 'tech_note',
+      created_at: new Date().toISOString(),
+      intel_candidate: text.length > 80 ? 1 : 0,
+      intel_reason: null,
+    };
+    setSavedNotes(prev => [optimisticNote, ...prev]);
+    setNoteText('');
+    try {
+      const res = await exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, author: 'tech', type: 'tech_note' }),
+      });
+      if (res.ok) {
+        setNoteStatus('saved');
+        exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
+          .then((r: Response) => r.ok ? r.json() : Promise.reject())
+          .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
+          .catch(() => {});
+      } else {
+        setNoteStatus('idle');
+      }
+    } catch {
+      setNoteStatus('idle');
+    }
+    noteStatusTimer.current = setTimeout(() => setNoteStatus('updated'), 3000);
   }
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1122,6 +615,28 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     fetchContext();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchContext]);
+
+  // ── Fetch saved notes when Work tab opens ───────────────────────────────
+  useEffect(() => {
+    if (viewMode !== 'work') return;
+    if (notesLoaded.current) return;
+    notesLoaded.current = true;
+    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
+      .then((r: Response) => r.ok ? r.json() : Promise.reject())
+      .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
+      .catch(() => {});
+  }, [viewMode, ticket.ticket_key]);
+
+  // ── Fetch saved notes when Work tab opens ───────────────────────────────
+  useEffect(() => {
+    if (viewMode !== 'work') return;
+    if (notesLoaded.current) return;
+    notesLoaded.current = true;
+    exFetch(`${PM_API}/api/tickets/${ticket.ticket_key}/notes`)
+      .then((r: Response) => r.ok ? r.json() : Promise.reject())
+      .then((d: { notes: NoteEntry[] }) => setSavedNotes(d.notes || []))
+      .catch(() => {});
+  }, [viewMode, ticket.ticket_key]);
 
 
   const clientName   = ticket.client_display_name || ticket.client_key || 'Unknown';
@@ -1189,6 +704,105 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                   <TicketSignalAI ticket={ticket} />
                 </Box>
 
+                {/* ── Notes section ─────────────────────────────────── */}
+                <Box flexShrink={0} borderTop='1px solid' borderColor='gray.800'
+                  bg='gray.950' px={4} pt={3} pb={2}>
+                  {/* Header */}
+                  <Text fontSize='2xs' fontFamily='mono' color='gray.500'
+                    letterSpacing='widest' textTransform='uppercase' mb={2}>Notes</Text>
+
+                  {/* Input row */}
+                  <Flex gap={2} align='flex-start' mb={2}>
+                    <Textarea
+                      value={noteText}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNoteText(e.target.value)}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSaveNote(); }
+                      }}
+                      placeholder='Add a note...'
+                      size='sm'
+                      rows={2}
+                      resize='none'
+                      bg='gray.900'
+                      borderColor='gray.700'
+                      color='gray.200'
+                      fontSize='sm'
+                      flex={1}
+                      _focus={{ borderColor: 'gray.500', boxShadow: 'none' }}
+                      _placeholder={{ color: 'gray.600' }}
+                    />
+                    <Flex direction='column' align='flex-end' gap={1} flexShrink={0}>
+                      <Box as='button'
+                        onClick={handleSaveNote}
+                        disabled={!noteText.trim() || noteStatus === 'saving'}
+                        px={3} py={2} borderRadius='md'
+                        bg={noteText.trim() ? 'gray.700' : 'gray.800'}
+                        color={noteText.trim() ? 'gray.200' : 'gray.600'}
+                        fontSize='xs' fontFamily='mono'
+                        cursor={noteText.trim() ? 'pointer' : 'default'}
+                        border='1px solid'
+                        borderColor={noteText.trim() ? 'gray.600' : 'gray.800'}
+                        _hover={{ bg: noteText.trim() ? 'gray.600' : 'gray.800' }}
+                        minH='44px' minW='72px'
+                        transition='all 0.15s'
+                      >
+                        {noteStatus === 'saving' ? 'Saving…' : 'Save'}
+                      </Box>
+                      {/* Inline status */}
+                      <Text fontSize='2xs' fontFamily='mono' color={
+                        noteStatus === 'saving' ? 'yellow.500' :
+                        noteStatus === 'saved'  ? 'green.400' :
+                        noteStatus === 'updated' ? 'gray.500' : 'transparent'
+                      } textAlign='right' minH='14px'>
+                        {noteStatus === 'saving'  ? 'Saving…' :
+                         noteStatus === 'saved'   ? 'Saved' :
+                         noteStatus === 'updated' ? 'Updated just now' : ''}
+                      </Text>
+                    </Flex>
+                  </Flex>
+
+                  {/* Saved notes list */}
+                  {savedNotes.length > 0 ? (
+                    <VStack align='stretch' spacing={0} maxH='220px' overflowY='auto'
+                      css={{ '&::-webkit-scrollbar': { width: '3px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}>
+                      {savedNotes.map((note, idx) => (
+                        <Box key={note.id ?? idx}
+                          py={2}
+                          borderBottom='1px solid'
+                          borderColor='gray.800'
+                          _last={{ borderBottom: 'none' }}>
+                          <HStack spacing={2} mb={0.5}>
+                            <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
+                              {formatNoteTime(note.created_at)}
+                            </Text>
+                            {note.author && (
+                              <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
+                                · {note.author}
+                              </Text>
+                            )}
+                            {note.intel_candidate === 1 && (
+                              <Box px={1.5} py={0.5} borderRadius='sm'
+                                bg='purple.950' border='1px solid' borderColor='purple.800'>
+                                <Text fontSize='2xs' fontFamily='mono' color='purple.400'>
+                                  🔬 intel candidate
+                                </Text>
+                              </Box>
+                            )}
+                          </HStack>
+                          <Text fontSize='sm' color='gray.300' lineHeight='tall'
+                            whiteSpace='pre-wrap'>
+                            {note.content}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  ) : (
+                    <Text fontSize='xs' fontFamily='mono' color='gray.700' py={1}>
+                      No notes yet — add context above
+                    </Text>
+                  )}
+                </Box>
+
                 {/* ── Slim OUTCOME bar ─────────────────────────────────── */}
                 <Box flexShrink={0} borderTop='1px solid' borderColor='gray.700'
                   bg='gray.900' px={4} py={3}>
@@ -1216,6 +830,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                         borderColor='red.600' bg='red.900' color='red.200'
                         fontSize='xs' fontFamily='mono' cursor='pointer'
                         opacity={closeLoading ? 0.6 : 1}
+                        pointerEvents={closeLoading ? 'none' : 'auto'}
                         _hover={{ bg: 'red.800' }}>
                         {closeLoading ? 'Closing…' : '✓ Close Ticket'}
                       </Box>
