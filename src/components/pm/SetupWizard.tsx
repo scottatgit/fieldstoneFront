@@ -79,7 +79,7 @@ function StepEmail({ onNext }: { onNext: () => void }) {
       await fetch(PM_API + '/api/settings', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imap_host: host, imap_port: port, imap_user: email, imap_pass: pass }),
+        body: JSON.stringify({ settings: { imap_host: host, imap_port: port, imap_user: email, imap_pass: pass } }),
       });
       const r2 = await fetch(PM_API + '/api/imap/test', { method: 'POST', credentials: 'include' });
       const d = await r2.json();
