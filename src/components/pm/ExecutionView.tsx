@@ -3,6 +3,7 @@ import React from 'react';
 import {
   Box, Button, Flex, HStack, VStack, Text, Badge, Spinner,
   Textarea, Select, Collapse, useToast, Divider, Checkbox, useBreakpointValue,
+  Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverArrow,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ticket, TicketContext, TicketSignals } from './types';
@@ -488,6 +489,15 @@ const NOTE_CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
 
 type NoteStatus = 'idle' | 'saving' | 'saved' | 'updated';
 
+// N2b: Category correction picker options
+const CATEGORY_OPTIONS: Array<{ value: string; label: string; color: string }> = [
+  { value: 'work_note',         label: '🔧 Work Note',         color: 'gray'   },
+  { value: 'client_request',    label: '💬 Client Request',    color: 'blue'   },
+  { value: 'quote_opportunity', label: '💰 Quote Opportunity', color: 'green'  },
+  { value: 'risk_concern',      label: '⚠️ Risk / Concern',    color: 'orange' },
+  { value: 'follow_up',         label: '🔁 Follow Up',         color: 'purple' },
+];
+
 function formatNoteTime(iso: string): string {
   try {
     const d = new Date(iso + 'Z');
@@ -520,6 +530,9 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
   const [savedNotes,  setSavedNotes]  = useState<NoteEntry[]>([]);
   const notesLoaded                   = useRef(false);
   const noteStatusTimer               = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // N2b: category correction
+  const [correctingNoteId, setCorrectingNoteId] = useState<number | null>(null);
+  const [noteErrors,       setNoteErrors]       = useState<Record<string, string>>({});
   const [showAllNotes,   setShowAllNotes]   = useState(false);
   // N3 Mobile: collapsible sections (mobile only)
   const isMobile                            = useBreakpointValue({ base: true, md: false });
@@ -587,6 +600,38 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
     noteStatusTimer.current = setTimeout(() => setNoteStatus('updated'), 3000);
   }
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── N2b: Category correction ─────────────────────────────────────────────────
+  const handleCategoryCorrection = useCallback(async (
+    noteId: number, newCategory: string, prevCategory: string
+  ) => {
+    if (newCategory === prevCategory) return;
+    setNoteErrors(e => { const n = { ...e }; delete n[String(noteId)]; return n; });
+    setSavedNotes(prev => prev.map(n =>
+      n.id === noteId ? { ...n, note_category: newCategory, category_confirmed: 1 } : n
+    ));
+    try {
+      const r = await exFetch(
+        `/pm-api/api/tickets/${ticket.ticket_key}/notes/${noteId}`,
+        {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ note_category: newCategory }),
+        }
+      );
+      const data = await r.json();
+      if (r.ok && data.note) {
+        setSavedNotes(prev => prev.map(n => n.id === noteId ? { ...data.note } : n));
+      } else {
+        throw new Error(data.detail || 'PATCH failed');
+      }
+    } catch {
+      setSavedNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, note_category: prevCategory, category_confirmed: 0 } : n
+      ));
+      setNoteErrors(e => ({ ...e, [String(noteId)]: 'Could not save — tap to retry' }));
+    }
+  }, [ticket.ticket_key]);
 
   // Fetch /context and /ingest/status on ticket open
   const fetchContext = useCallback(async () => {
@@ -824,29 +869,39 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                       css={{ '&::-webkit-scrollbar': { width: '3px' }, '&::-webkit-scrollbar-thumb': { background: '#2D3748', borderRadius: '2px' } }}>
                       {savedNotes.map((note, idx) => (
                         <Box key={note.id ?? idx}
-                          py={2}
+                          py={2} px={1}
                           borderBottom='1px solid'
                           borderColor='gray.800'
                           _last={{ borderBottom: 'none' }}>
-                          <HStack spacing={2} mb={0.5} flexWrap='wrap'>
+                          {/* Header row: time · author · badges · edit trigger */}
+                          <HStack spacing={2} mb={0.5} flexWrap='wrap' align='center'>
                             <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
                               {formatNoteTime(note.created_at)}
                             </Text>
-                            {note.author && (
+                            {note.author && note.author !== 'ai_chat' && (
                               <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
                                 · {note.author}
                               </Text>
                             )}
-                            {/* N2: category badge — work_note is default, no badge */}
+                            {/* N2b: category badge — tappable to open correction popover */}
                             {note.note_category && note.note_category !== 'work_note' && (() => {
                               const badge = NOTE_CATEGORY_BADGE[note.note_category];
                               if (!badge) return null;
+                              const confirmed = note.category_confirmed === 1;
                               return (
-                                <Box px={1.5} py={0.5} borderRadius='sm'
-                                  bg={`${badge.color}.950`} border='1px solid'
-                                  borderColor={`${badge.color}.800`}>
-                                  <Text fontSize='2xs' fontFamily='mono' color={`${badge.color}.400`}>
-                                    {badge.label}
+                                <Box as='button'
+                                  onClick={() => setCorrectingNoteId(
+                                    correctingNoteId === note.id ? null : note.id
+                                  )}
+                                  px={1.5} py={0.5} borderRadius='sm'
+                                  bg={confirmed ? `${badge.color}.900` : `${badge.color}.950`}
+                                  border='1px solid'
+                                  borderColor={`${badge.color}.${confirmed ? '700' : '800'}`}
+                                  cursor='pointer'
+                                  _hover={{ borderColor: `${badge.color}.600` }}>
+                                  <Text fontSize='2xs' fontFamily='mono'
+                                    color={`${badge.color}.${confirmed ? '300' : '400'}`}>
+                                    {badge.label}{confirmed ? ' ✓' : ''}
                                   </Text>
                                 </Box>
                               );
@@ -864,15 +919,83 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                               <Box px={1.5} py={0.5} borderRadius='sm'
                                 bg='purple.950' border='1px solid' borderColor='purple.800'>
                                 <Text fontSize='2xs' fontFamily='mono' color='purple.400'>
-                                  🔬 intel candidate
+                                  🔬
                                 </Text>
                               </Box>
                             )}
+                            {/* N2b: edit trigger — always visible, right-aligned */}
+                            <Box flex={1} />
+                            <Popover
+                              isOpen={correctingNoteId === note.id}
+                              onClose={() => setCorrectingNoteId(null)}
+                              placement='bottom-end'
+                              isLazy
+                              closeOnBlur
+                            >
+                              <PopoverTrigger>
+                                <Box as='button'
+                                  onClick={() => setCorrectingNoteId(
+                                    correctingNoteId === note.id ? null : note.id
+                                  )}
+                                  px={1} py={0.5} borderRadius='sm'
+                                  color='gray.700' fontSize='2xs'
+                                  cursor='pointer' minH='24px' minW='24px'
+                                  _hover={{ color: 'gray.400', bg: 'gray.800' }}
+                                  transition='all 0.1s'>
+                                  ✏️
+                                </Box>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                bg='gray.900' border='1px solid'
+                                borderColor='gray.700' w='180px'
+                                _focus={{ boxShadow: 'none' }}
+                                boxShadow='dark-lg'>
+                                <PopoverArrow bg='gray.900' />
+                                <PopoverBody p={1}>
+                                  <Text fontSize='2xs' fontFamily='mono' color='gray.600'
+                                    px={2} pt={1} pb={1.5} letterSpacing='wider'>
+                                    CATEGORY
+                                  </Text>
+                                  {CATEGORY_OPTIONS.map(opt => (
+                                    <Box as='button' key={opt.value} w='100%'
+                                      textAlign='left' px={2} py={1.5}
+                                      borderRadius='sm' display='block'
+                                      bg={note.note_category === opt.value
+                                        ? `${opt.color}.900` : 'transparent'}
+                                      color={note.note_category === opt.value
+                                        ? `${opt.color}.300` : 'gray.400'}
+                                      fontSize='2xs' fontFamily='mono'
+                                      cursor='pointer'
+                                      _hover={{ bg: 'gray.800', color: 'gray.200' }}
+                                      onClick={() => {
+                                        setCorrectingNoteId(null);
+                                        handleCategoryCorrection(
+                                          note.id, opt.value, note.note_category
+                                        );
+                                      }}>
+                                      {opt.label}
+                                      {note.note_category === opt.value && ' ●'}
+                                    </Box>
+                                  ))}
+                                </PopoverBody>
+                              </PopoverContent>
+                            </Popover>
                           </HStack>
                           <Text fontSize='sm' color='gray.300' lineHeight='tall'
                             whiteSpace='pre-wrap'>
                             {note.content}
                           </Text>
+                          {/* N2b: inline correction error */}
+                          {noteErrors[String(note.id)] && (
+                            <Text fontSize='2xs' fontFamily='mono' color='red.400'
+                              mt={0.5} cursor='pointer'
+                              onClick={() => {
+                                setNoteErrors(e => { const n={...e}; delete n[note.id]; return n; });
+                                setCorrectingNoteId(note.id);
+                              }}>
+                              {noteErrors[String(note.id)]}
+                            </Text>
+                          )}
                         </Box>
                       ))}
                     </VStack>
