@@ -65,6 +65,31 @@ function ActionCard({ action, onConfirm, onDismiss }: {
       </Box>
     );
   }
+  // Microsoft OAuth — show branded button instead of generic CONFIRM
+  if (action.type === 'connect_microsoft_oauth') {
+    return (
+      <Box mt={3} p={4} bg="gray.800" borderRadius="lg" border="1px solid" borderColor="blue.600">
+        <Text fontSize="xs" color="blue.400" fontFamily="mono" letterSpacing="wider" mb={2}>MICROSOFT OAUTH REQUIRED</Text>
+        <Text fontSize="sm" color="gray.300" fontFamily="mono" mb={4}>
+          Microsoft has disabled Basic Auth for M365 accounts. Click below to authorize Signal via OAuth — no password needed.
+        </Text>
+        <HStack spacing={3}>
+          <Button
+            size="sm"
+            bg="#2f7de0"
+            color="white"
+            fontFamily="mono"
+            _hover={{ bg: "#1a6cc7" }}
+            leftIcon={<Text fontSize="xs">⊞</Text>}
+            onClick={onConfirm}
+          >
+            Connect with Microsoft →
+          </Button>
+          <Button size="sm" variant="ghost" color="gray.500" fontFamily="mono" onClick={onDismiss}>Cancel</Button>
+        </HStack>
+      </Box>
+    );
+  }
   return (
     <Box mt={3} p={4} bg="gray.800" borderRadius="lg" border="1px solid" borderColor="blue.800">
       <Text fontSize="xs" color="blue.400" fontFamily="mono" letterSpacing="wider" mb={2}>PROPOSED ACTION</Text>
@@ -118,12 +143,41 @@ export default function SignalAIConsole() {
 
   useEffect(() => {
     // Opening greeting
-    setMessages([{
+    const msgs: Message[] = [{
       id: "welcome",
       role: "signal",
       content: "Welcome to Signal.\n\nI can help you configure your workspace, set up email monitoring, upload documentation, create SOPs, and more.\n\nWhat would you like to do first?",
       timestamp: Date.now(),
-    }]);
+    }];
+
+    // Check URL params for OAuth callback results
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('ms_connected') === '1') {
+        msgs.push({
+          id: 'ms_connected',
+          role: 'signal',
+          content: '✅ Microsoft mailbox connected successfully.\n\nSignal will start monitoring your inbox on the next ingestion cycle. You can trigger ingestion now by saying "run ingestion".',
+          timestamp: Date.now() + 1,
+        });
+        // Clean up URL param without navigation
+        const url = new URL(window.location.href);
+        url.searchParams.delete('ms_connected');
+        window.history.replaceState({}, '', url.toString());
+      } else if (params.get('ms_error')) {
+        const errMsg = decodeURIComponent(params.get('ms_error') || 'unknown_error');
+        msgs.push({
+          id: 'ms_error',
+          role: 'signal',
+          content: `⚠️ Microsoft authorization failed: ${errMsg}\n\nPlease try again or check your Azure app registration. Say "connect Microsoft" to retry.`,
+          timestamp: Date.now() + 1,
+        });
+        const url = new URL(window.location.href);
+        url.searchParams.delete('ms_error');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+    setMessages(msgs);
   }, []);
 
   useEffect(() => {
@@ -193,6 +247,21 @@ export default function SignalAIConsole() {
           status: "error", duration: 5000, isClosable: true,
         });
       } else {
+        // Microsoft OAuth redirect — navigate to auth_url
+        if (d.auth_url) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(), role: "signal",
+            content: "Redirecting you to Microsoft to authorize access...\n\nYou will be returned here after authorizing.",
+            timestamp: Date.now(),
+          }]);
+          setMessages(prev => prev.map(m =>
+            m.id === msgId && m.action
+              ? { ...m, action: { ...m.action, status: "confirmed" as ActionStatus } }
+              : m
+          ));
+          setTimeout(() => { window.location.href = d.auth_url; }, 800);
+          return;
+        }
         // Success — confirm and show result bubble
         setMessages(prev => prev.map(m =>
           m.id === msgId && m.action
