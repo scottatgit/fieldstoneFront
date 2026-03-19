@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box, VStack, HStack, Text, Input, Button, Badge,
   InputGroup, InputRightElement, IconButton,
-  Spinner, useToast, Divider,
+  Spinner, useToast, Divider, Alert, AlertIcon,
 } from '@chakra-ui/react';
 
 const PM_API = '/pm-api';
@@ -68,7 +68,94 @@ function StepEmail({ onNext }: { onNext: () => void }) {
   const [pass, setPass] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [msg, setMsg] = useState('');
+
+  // Microsoft OAuth state
+  const [detectedProvider, setDetectedProvider] = useState<'microsoft' | 'google' | 'imap' | null>(null);
+  const [detectingProvider, setDetectingProvider] = useState(false);
+  const [msConnected, setMsConnected] = useState(false);
+  const [msError, setMsError] = useState('');
+  const [authError, setAuthError] = useState(false);
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [connectingMs, setConnectingMs] = useState(false);
+
   const toast = useToast();
+
+  // On mount: check URL params for OAuth callback result + fetch tenant info
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ms_connected') === '1') {
+      setMsConnected(true);
+      setStatus('ok');
+      setMsg('Microsoft mailbox connected');
+    }
+    const errParam = params.get('ms_error');
+    if (errParam) {
+      setMsError(decodeURIComponent(errParam));
+      setStatus('error');
+      setMsg('Microsoft connection failed');
+    }
+
+    // Fetch tenant slug for OAuth start URL
+    fetch(PM_API + '/api/auth/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.slug) setTenantSlug(d.slug); })
+      .catch(() => {});
+
+    // Fetch setup status to check connection_status
+    fetch(PM_API + '/api/setup/status', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.connection_status === 'auth_error') setAuthError(true);
+        if (d?.connection_status === 'connected' && d?.imap_config?.provider === 'microsoft_graph') {
+          setMsConnected(true);
+          setStatus('ok');
+          setMsg('Microsoft mailbox connected — ' + (d?.imap_config?.mailbox || ''));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Detect provider from email domain via MX lookup
+  const detectProvider = useCallback(async (emailVal: string) => {
+    if (!emailVal || !emailVal.includes('@')) { setDetectedProvider(null); return; }
+    setDetectingProvider(true);
+    try {
+      const r = await fetch(`/api/auth/detect-provider?email=${encodeURIComponent(emailVal)}`);
+      const d = await r.json();
+      setDetectedProvider(d.provider === 'microsoft' ? 'microsoft' : d.provider === 'google' ? 'google' : 'imap');
+    } catch { setDetectedProvider(null); }
+    finally { setDetectingProvider(false); }
+  }, []);
+
+  // Debounce provider detection on email change
+  useEffect(() => {
+    if (!email) { setDetectedProvider(null); return; }
+    const t = setTimeout(() => detectProvider(email), 600);
+    return () => clearTimeout(t);
+  }, [email, detectProvider]);
+
+  const connectMicrosoft = useCallback(async () => {
+    if (!tenantSlug) {
+      toast({ title: 'Cannot determine tenant. Please refresh and try again.', status: 'warning', duration: 3000, isClosable: true });
+      return;
+    }
+    setConnectingMs(true);
+    try {
+      const r = await fetch(`/api/auth/microsoft/start?tenant_slug=${encodeURIComponent(tenantSlug)}`);
+      const d = await r.json();
+      if (d.auth_url) {
+        window.location.href = d.auth_url;
+      } else {
+        toast({ title: 'Could not generate Microsoft auth URL', status: 'error', duration: 3000, isClosable: true });
+      }
+    } catch (e: unknown) {
+      toast({ title: 'Error starting Microsoft auth', status: 'error', duration: 3000, isClosable: true });
+    } finally {
+      setConnectingMs(false);
+    }
+  }, [tenantSlug, toast]);
+
   const test = useCallback(async () => {
     if (!email || !pass) {
       toast({ title: 'Fill in email and password', status: 'warning', duration: 2000, isClosable: true });
@@ -87,37 +174,117 @@ function StepEmail({ onNext }: { onNext: () => void }) {
       else { setStatus('error'); setMsg(d.error || d.detail || 'Could not connect'); }
     } catch (e: unknown) { setStatus('error'); setMsg(e instanceof Error ? e.message : 'Error'); }
   }, [host, port, email, pass, toast]);
+
   return (
     <VStack spacing={5} align="stretch">
       <VStack align="start" spacing={1}>
         <Text fontSize="lg" fontWeight="black" color="white" fontFamily="mono">Connect Your Inbox</Text>
         <Text fontSize="sm" color="gray.400">Signal reads your support email to automatically capture and analyze tickets. We only read, never send.</Text>
       </VStack>
-      <Field label="IMAP Server" hint="Gmail: imap.gmail.com  |  Office 365: outlook.office365.com">
-        <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
-          value={host} onChange={e => setHost(e.target.value)}
-          _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
-      </Field>
-      <Field label="Port" hint="Usually 993 for SSL">
-        <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
-          value={port} onChange={e => setPort(e.target.value)}
-          _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
-      </Field>
+
+      {/* Auth error reconnect warning */}
+      {authError && !msConnected && (
+        <Box p={3} bg="orange.900" borderRadius="md" border="1px solid" borderColor="orange.700">
+          <HStack justify="space-between">
+            <Text fontSize="xs" color="orange.300" fontFamily="mono">⚠️ Microsoft connection needs attention.</Text>
+            <Button size="xs" colorScheme="orange" fontFamily="mono"
+              onClick={connectMicrosoft} isLoading={connectingMs} loadingText="CONNECTING...">
+              RECONNECT MICROSOFT →
+            </Button>
+          </HStack>
+        </Box>
+      )}
+
+      {/* Microsoft OAuth success banner */}
+      {msConnected && (
+        <Box p={3} bg="green.900" borderRadius="md" border="1px solid" borderColor="green.700">
+          <Text fontSize="xs" color="green.300" fontFamily="mono">✅ {msg || 'Microsoft mailbox connected'}</Text>
+        </Box>
+      )}
+
+      {/* Microsoft OAuth error banner */}
+      {msError && (
+        <Box p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
+          <Text fontSize="xs" color="red.300" fontFamily="mono">❌ Microsoft error: {msError}</Text>
+        </Box>
+      )}
+
       <Field label="Email Address">
-        <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
-          type="email" value={email} placeholder="support@yourcompany.com"
-          onChange={e => setEmail(e.target.value)}
-          _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+        <HStack spacing={2}>
+          <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+            type="email" value={email} placeholder="support@yourcompany.com"
+            onChange={e => setEmail(e.target.value)}
+            _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+          {detectingProvider && <Spinner size="xs" color="gray.500" />}
+        </HStack>
+        {detectedProvider === 'microsoft' && (
+          <Text fontSize="10px" color="blue.400" fontFamily="mono" mt={1}>↑ Microsoft / Outlook domain detected</Text>
+        )}
+        {detectedProvider === 'google' && (
+          <Text fontSize="10px" color="gray.500" fontFamily="mono" mt={1}>↑ Google Workspace detected — use App Password below</Text>
+        )}
       </Field>
-      <Field label="Password / App Password"
-        hint="Gmail users: create an App Password at myaccount.google.com/apppasswords">
-        <SecretInput value={pass} placeholder="App password or email password" onChange={setPass} />
-      </Field>
+
+      {/* Microsoft connect button — shown when microsoft domain detected or already connected */}
+      {(detectedProvider === 'microsoft' || msConnected) && (
+        <Box p={4} bg="gray.800" borderRadius="md" border="1px solid" borderColor={msConnected ? 'green.700' : 'blue.800'}>
+          <VStack align="start" spacing={2}>
+            <HStack justify="space-between" w="100%">
+              <VStack align="start" spacing={0}>
+                <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">Microsoft / Office 365</Text>
+                <Text fontSize="10px" color="gray.500" fontFamily="mono">OAuth2 — no password needed</Text>
+              </VStack>
+              {msConnected
+                ? <Badge colorScheme="green" fontSize="9px" fontFamily="mono">CONNECTED</Badge>
+                : <Badge colorScheme="blue" fontSize="9px" fontFamily="mono">RECOMMENDED</Badge>
+              }
+            </HStack>
+            {!msConnected && (
+              <Button size="sm" colorScheme="blue" fontFamily="mono" w="100%"
+                onClick={connectMicrosoft} isLoading={connectingMs} loadingText="OPENING MICROSOFT...">
+                🔐 CONNECT WITH MICROSOFT
+              </Button>
+            )}
+            {msConnected && (
+              <Button size="xs" variant="ghost" color="gray.500" fontFamily="mono"
+                onClick={connectMicrosoft} isLoading={connectingMs}>
+                Reconnect
+              </Button>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {/* Manual IMAP section — always visible as fallback */}
+      <Box>
+        <Text fontSize="10px" color="gray.600" fontFamily="mono" mb={3} textTransform="uppercase" letterSpacing="wider">
+          {detectedProvider === 'microsoft' ? '— or configure IMAP manually —' : 'IMAP Configuration'}
+        </Text>
+        <VStack spacing={3}>
+          <Field label="IMAP Server" hint="Gmail: imap.gmail.com  |  Office 365: outlook.office365.com">
+            <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+              value={host} onChange={e => setHost(e.target.value)}
+              _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+          </Field>
+          <Field label="Port" hint="Usually 993 for SSL">
+            <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+              value={port} onChange={e => setPort(e.target.value)}
+              _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+          </Field>
+          <Field label="Password / App Password"
+            hint="Gmail users: create an App Password at myaccount.google.com/apppasswords">
+            <SecretInput value={pass} placeholder="App password or email password" onChange={setPass} />
+          </Field>
+        </VStack>
+      </Box>
+
       <StatusBadge status={status} message={msg} />
       <HStack spacing={3} pt={2}>
-        <Button size="sm" colorScheme="blue" fontFamily="mono" onClick={test}
-          isLoading={status === 'loading'} loadingText="TESTING...">TEST CONNECTION</Button>
-        {status === 'ok' && (
+        {!msConnected && (
+          <Button size="sm" colorScheme="blue" fontFamily="mono" onClick={test}
+            isLoading={status === 'loading'} loadingText="TESTING...">TEST IMAP</Button>
+        )}
+        {(status === 'ok' || msConnected) && (
           <Button size="sm" colorScheme="green" fontFamily="mono" onClick={onNext}>NEXT: AI SETUP</Button>
         )}
         <Button size="sm" variant="ghost" color="gray.500" fontFamily="mono" onClick={onNext}>SKIP</Button>
