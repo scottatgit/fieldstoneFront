@@ -122,6 +122,7 @@ function StepEmail({ onNext }: { onNext: () => void }) {
   const [authError, setAuthError] = useState(false);
   const [tenantSlug, setTenantSlug] = useState('');
   const [connectingMs, setConnectingMs] = useState(false);
+  const [showAdminHelp, setShowAdminHelp] = useState(false);
 
   // Setup status (for connection panel)
   const [setupStatus, setSetupStatus] = useState<{
@@ -446,12 +447,106 @@ function StepEmail({ onNext }: { onNext: () => void }) {
             </Button>
           )}
 
-          <Box p={3} bg="gray.900" borderRadius="md" border="1px solid" borderColor="gray.800">
-            <Text fontSize="10px" color="gray.500" fontFamily="mono">
-              ℹ️ Microsoft disabled Basic Auth (IMAP password login) in Oct 2022.
-              OAuth is required for all M365 and Outlook accounts.
-            </Text>
-          </Box>
+          <VStack spacing={2} align="stretch">
+            <Box p={3} bg="gray.900" borderRadius="md" border="1px solid" borderColor="gray.800">
+              <Text fontSize="10px" color="gray.500" fontFamily="mono">
+                ℹ️ Microsoft disabled Basic Auth (IMAP password login) in Oct 2022.
+                OAuth is required for all M365 and Outlook accounts.
+              </Text>
+            </Box>
+
+            {/* Admin consent help section */}
+            <Box p={3} bg="gray.900" borderRadius="md" border="1px solid" borderColor="blue.900">
+              <HStack justify="space-between" mb={showAdminHelp ? 3 : 0}>
+                <HStack spacing={2}>
+                  <Text fontSize="10px" color="blue.400" fontFamily="mono">🔑 IT ADMIN?</Text>
+                  <Text fontSize="10px" color="gray.500" fontFamily="mono">
+                    Your org may require admin consent before users can connect.
+                  </Text>
+                </HStack>
+                <Button size="xs" variant="ghost" color="blue.400" fontFamily="mono"
+                  onClick={() => setShowAdminHelp(s => !s)}>
+                  {showAdminHelp ? 'HIDE ▲' : 'SHOW ▼'}
+                </Button>
+              </HStack>
+
+              {showAdminHelp && (
+                <VStack align="stretch" spacing={3}>
+                  <Text fontSize="10px" color="gray.400" fontFamily="mono">
+                    If users see an &quot;Admin approval required&quot; message during sign-in,
+                    a Global Admin for your Microsoft 365 organization must grant
+                    one-time consent for Signal. This only needs to be done once per org.
+                  </Text>
+
+                  <VStack align="stretch" spacing={1}>
+                    <Text fontSize="9px" color="gray.600" fontFamily="mono" textTransform="uppercase" letterSpacing="wider">
+                      ADMIN CONSENT URL — open this as your org&apos;s Global Admin:
+                    </Text>
+                    <Box
+                      p={2}
+                      bg="gray.800"
+                      borderRadius="sm"
+                      border="1px solid"
+                      borderColor="gray.700"
+                      cursor="pointer"
+                      onClick={() => {
+                        const domain = email?.includes('@')
+                          ? email.split('@')[1]
+                          : 'yourdomain.com';
+                        const url = `https://login.microsoftonline.com/${domain}/adminconsent?client_id=77bfb03f-7a7f-479d-8c9b-98dc27d4afb1&redirect_uri=https://api.fieldstone.pro/api/auth/microsoft/callback`;
+                        navigator.clipboard?.writeText(url).catch(() => {});
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      <Text fontSize="9px" color="blue.300" fontFamily="mono" wordBreak="break-all">
+                        {`https://login.microsoftonline.com/${
+                          email?.includes('@')
+                            ? email.split('@')[1]
+                            : 'yourdomain.com'
+                        }/adminconsent?client_id=77bfb03f-7a7f-479d-8c9b-98dc27d4afb1&redirect_uri=https://api.fieldstone.pro/api/auth/microsoft/callback`}
+                      </Text>
+                    </Box>
+                    <Text fontSize="9px" color="gray.600" fontFamily="mono">
+                      ↑ Click to open in new tab — also copies to clipboard. Replace domain if needed.
+                    </Text>
+                  </VStack>
+
+                  <HStack spacing={2}>
+                    <Button
+                      size="xs"
+                      colorScheme="blue"
+                      variant="outline"
+                      fontFamily="mono"
+                      onClick={() => {
+                        const domain = email?.includes('@')
+                          ? email.split('@')[1]
+                          : 'yourdomain.com';
+                        const url = `https://login.microsoftonline.com/${domain}/adminconsent?client_id=77bfb03f-7a7f-479d-8c9b-98dc27d4afb1&redirect_uri=https://api.fieldstone.pro/api/auth/microsoft/callback`;
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      OPEN CONSENT PAGE →
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      color="gray.500"
+                      fontFamily="mono"
+                      onClick={() => {
+                        const domain = email?.includes('@')
+                          ? email.split('@')[1]
+                          : 'yourdomain.com';
+                        const url = `https://login.microsoftonline.com/${domain}/adminconsent?client_id=77bfb03f-7a7f-479d-8c9b-98dc27d4afb1&redirect_uri=https://api.fieldstone.pro/api/auth/microsoft/callback`;
+                        navigator.clipboard?.writeText(url).catch(() => {});
+                      }}
+                    >
+                      COPY URL
+                    </Button>
+                  </HStack>
+                </VStack>
+              )}
+            </Box>
+          </VStack>
         </VStack>
       )}
 
