@@ -10,6 +10,7 @@ import {
 const PM_API = '/pm-api';
 
 type Status = 'idle' | 'loading' | 'ok' | 'error';
+type Provider = 'microsoft' | 'google' | 'imap';
 const STEPS = ['Email', 'AI', 'Integrations', 'Launch'];
 
 function SecretInput({ value, placeholder, onChange }: {
@@ -61,83 +62,159 @@ function StatusBadge({ status, message }: { status: Status; message?: string }) 
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Provider card button
+// ──────────────────────────────────────────────────────────────────────────────
+function ProviderCard({
+  id, icon, label, sub, badge, badgeColor, selected, onClick,
+}: {
+  id: Provider; icon: string; label: string; sub: string;
+  badge?: string; badgeColor?: string; selected: boolean; onClick: () => void;
+}) {
+  return (
+    <Box
+      flex="1" p={3} borderRadius="md" cursor="pointer"
+      border="1px solid"
+      borderColor={selected ? 'blue.500' : 'gray.700'}
+      bg={selected ? 'gray.800' : 'gray.900'}
+      _hover={{ borderColor: selected ? 'blue.400' : 'gray.600', bg: 'gray.800' }}
+      transition="all 0.15s"
+      onClick={onClick}
+    >
+      <VStack align="start" spacing={1}>
+        <HStack justify="space-between" w="100%">
+          <Text fontSize="lg">{icon}</Text>
+          {badge && (
+            <Badge colorScheme={badgeColor || 'gray'} fontSize="8px" fontFamily="mono">
+              {badge}
+            </Badge>
+          )}
+        </HStack>
+        <Text fontSize="xs" fontWeight="bold" color={selected ? 'white' : 'gray.300'}
+          fontFamily="mono" lineHeight="tight">{label}</Text>
+        <Text fontSize="9px" color="gray.500" fontFamily="mono">{sub}</Text>
+      </VStack>
+    </Box>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// StepEmail — three-path provider selector
+// ──────────────────────────────────────────────────────────────────────────────
 function StepEmail({ onNext }: { onNext: () => void }) {
+  // IMAP fields (Google / manual IMAP)
   const [host, setHost] = useState('imap.gmail.com');
   const [port, setPort] = useState('993');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
-  const [status, setStatus] = useState<Status>('idle');
-  const [msg, setMsg] = useState('');
+  const [testStatus, setTestStatus] = useState<Status>('idle');
+  const [testMsg, setTestMsg] = useState('');
+
+  // Provider selection
+  const [selectedProvider, setSelectedProvider] = useState<Provider>('microsoft');
 
   // Microsoft OAuth state
-  const [detectedProvider, setDetectedProvider] = useState<'microsoft' | 'google' | 'imap' | null>(null);
+  const [detectedProvider, setDetectedProvider] = useState<Provider | null>(null);
   const [detectingProvider, setDetectingProvider] = useState(false);
   const [msConnected, setMsConnected] = useState(false);
+  const [msMailbox, setMsMailbox] = useState('');
   const [msError, setMsError] = useState('');
   const [authError, setAuthError] = useState(false);
   const [tenantSlug, setTenantSlug] = useState('');
   const [connectingMs, setConnectingMs] = useState(false);
 
+  // Setup status (for connection panel)
+  const [setupStatus, setSetupStatus] = useState<{
+    imap_connected?: boolean;
+    connection_status?: string;
+    imap_config?: { provider?: string; mailbox?: string; host?: string };
+  } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
   const toast = useToast();
 
-  // On mount: check URL params for OAuth callback result + fetch tenant info
+  // ── On mount ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Handle OAuth callback URL params
     const params = new URLSearchParams(window.location.search);
     if (params.get('ms_connected') === '1') {
       setMsConnected(true);
-      setStatus('ok');
-      setMsg('Microsoft mailbox connected');
     }
     const errParam = params.get('ms_error');
     if (errParam) {
       setMsError(decodeURIComponent(errParam));
-      setStatus('error');
-      setMsg('Microsoft connection failed');
     }
 
-    // Fetch tenant slug for OAuth start URL
+    // Fetch tenant slug
     fetch(PM_API + '/api/auth/me', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.slug) setTenantSlug(d.slug); })
       .catch(() => {});
 
-    // Fetch setup status to check connection_status
+    // Fetch setup status → derive selected provider + connected state
+    setStatusLoading(true);
     fetch(PM_API + '/api/setup/status', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.connection_status === 'auth_error') setAuthError(true);
-        if (d?.connection_status === 'connected' && d?.imap_config?.provider === 'microsoft_graph') {
+        if (!d) return;
+        setSetupStatus(d);
+
+        const cfg = d.imap_config || {};
+        const connStatus = d.connection_status;
+
+        if (connStatus === 'auth_error') setAuthError(true);
+
+        // Derive which provider panel to open
+        if (cfg.provider === 'microsoft_graph') {
+          setSelectedProvider('microsoft');
           setMsConnected(true);
-          setStatus('ok');
-          setMsg('Microsoft mailbox connected — ' + (d?.imap_config?.mailbox || ''));
+          setMsMailbox(cfg.mailbox || '');
+          if (cfg.mailbox) setEmail(cfg.mailbox);
+        } else if (cfg.host === 'imap.gmail.com') {
+          setSelectedProvider('google');
+          setHost('imap.gmail.com');
+          setPort('993');
+          if (cfg.mailbox || (d as Record<string, unknown>).imap_user) {
+            setEmail((cfg.mailbox || (d as Record<string, unknown>).imap_user) as string);
+          }
+        } else if (cfg.host) {
+          setSelectedProvider('imap');
+          setHost(cfg.host);
+          setPort(String(cfg.port || '993'));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setStatusLoading(false));
   }, []);
 
-  // Detect provider from email domain via MX lookup
+  // ── Provider detection from email ─────────────────────────────────────────
   const detectProvider = useCallback(async (emailVal: string) => {
     if (!emailVal || !emailVal.includes('@')) { setDetectedProvider(null); return; }
     setDetectingProvider(true);
     try {
       const r = await fetch(`/api/auth/detect-provider?email=${encodeURIComponent(emailVal)}`);
       const d = await r.json();
-      setDetectedProvider(d.provider === 'microsoft' ? 'microsoft' : d.provider === 'google' ? 'google' : 'imap');
+      const p: Provider = d.provider === 'microsoft' ? 'microsoft' : d.provider === 'google' ? 'google' : 'imap';
+      setDetectedProvider(p);
+      // Auto-switch panel if detected provider differs from selected
+      setSelectedProvider(p);
     } catch { setDetectedProvider(null); }
     finally { setDetectingProvider(false); }
   }, []);
 
-  // Debounce provider detection on email change
   useEffect(() => {
     if (!email) { setDetectedProvider(null); return; }
-    const t = setTimeout(() => detectProvider(email), 600);
+    const t = setTimeout(() => detectProvider(email), 700);
     return () => clearTimeout(t);
   }, [email, detectProvider]);
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   const connectMicrosoft = useCallback(async () => {
     if (!tenantSlug) {
-      toast({ title: 'Cannot determine tenant. Please refresh and try again.', status: 'warning', duration: 3000, isClosable: true });
+      toast({ title: 'Cannot determine tenant. Please refresh.', status: 'warning', duration: 3000, isClosable: true });
       return;
     }
     setConnectingMs(true);
@@ -149,19 +226,19 @@ function StepEmail({ onNext }: { onNext: () => void }) {
       } else {
         toast({ title: 'Could not generate Microsoft auth URL', status: 'error', duration: 3000, isClosable: true });
       }
-    } catch (e: unknown) {
+    } catch {
       toast({ title: 'Error starting Microsoft auth', status: 'error', duration: 3000, isClosable: true });
     } finally {
       setConnectingMs(false);
     }
   }, [tenantSlug, toast]);
 
-  const test = useCallback(async () => {
+  const testImap = useCallback(async () => {
     if (!email || !pass) {
       toast({ title: 'Fill in email and password', status: 'warning', duration: 2000, isClosable: true });
       return;
     }
-    setStatus('loading'); setMsg('');
+    setTestStatus('loading'); setTestMsg('');
     try {
       await fetch(PM_API + '/api/settings', {
         method: 'POST', credentials: 'include',
@@ -170,124 +247,312 @@ function StepEmail({ onNext }: { onNext: () => void }) {
       });
       const r2 = await fetch(PM_API + '/api/imap/test', { method: 'POST', credentials: 'include' });
       const d = await r2.json();
-      if (d.success || d.ok) { setStatus('ok'); setMsg(d.message || 'Inbox reachable'); }
-      else { setStatus('error'); setMsg(d.error || d.detail || 'Could not connect'); }
-    } catch (e: unknown) { setStatus('error'); setMsg(e instanceof Error ? e.message : 'Error'); }
+      if (d.success || d.ok) { setTestStatus('ok'); setTestMsg(d.message || 'Inbox reachable'); }
+      else { setTestStatus('error'); setTestMsg(d.error || d.detail || 'Could not connect'); }
+    } catch (e: unknown) { setTestStatus('error'); setTestMsg(e instanceof Error ? e.message : 'Error'); }
   }, [host, port, email, pass, toast]);
+
+  const triggerSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await fetch(PM_API + '/api/ingest/email', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      toast({ title: 'Sync triggered — check back in ~30s', status: 'success', duration: 3000, isClosable: true });
+    } catch {
+      toast({ title: 'Could not trigger sync', status: 'error', duration: 2000, isClosable: true });
+    } finally {
+      setSyncing(false);
+    }
+  }, [toast]);
+
+  // ── Derived display values ─────────────────────────────────────────────────
+  const cfg = setupStatus?.imap_config || {};
+  const connStatus = setupStatus?.connection_status;
+  const isConnected = setupStatus?.imap_connected === true || msConnected;
+
+  const providerLabel =
+    cfg.provider === 'microsoft_graph' ? 'Microsoft Graph' :
+    cfg.host === 'imap.gmail.com' ? 'Google / Gmail' :
+    cfg.host ? `IMAP · ${cfg.host}` : 'Unknown';
+
+  const connectedMailbox = msMailbox || cfg.mailbox || '';
+
+  // Is Microsoft already connected?
+  const msAlreadyConnected = msConnected || cfg.provider === 'microsoft_graph';
 
   return (
     <VStack spacing={5} align="stretch">
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <VStack align="start" spacing={1}>
-        <Text fontSize="lg" fontWeight="black" color="white" fontFamily="mono">Connect Your Inbox</Text>
-        <Text fontSize="sm" color="gray.400">Signal reads your support email to automatically capture and analyze tickets. We only read, never send.</Text>
+        <Text fontSize="lg" fontWeight="black" color="white" fontFamily="mono">CONNECT YOUR INBOX</Text>
+        <Text fontSize="sm" color="gray.400">
+          Signal reads your support email to automatically capture and analyze tickets.
+          We only read — never send.
+        </Text>
       </VStack>
 
-      {/* Auth error reconnect warning */}
-      {authError && !msConnected && (
+      {/* ── Connection status panel ──────────────────────────────────────── */}
+      {statusLoading ? (
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <HStack spacing={2}>
+            <Spinner size="xs" color="gray.500" />
+            <Text fontSize="xs" color="gray.600" fontFamily="mono">Checking connection status...</Text>
+          </HStack>
+        </Box>
+      ) : authError && !msAlreadyConnected ? (
+        /* Auth error state */
         <Box p={3} bg="orange.900" borderRadius="md" border="1px solid" borderColor="orange.700">
           <HStack justify="space-between">
-            <Text fontSize="xs" color="orange.300" fontFamily="mono">⚠️ Microsoft connection needs attention.</Text>
+            <VStack align="start" spacing={0}>
+              <HStack>
+                <Badge colorScheme="orange" fontSize="9px" fontFamily="mono">AUTH ERROR</Badge>
+                <Text fontSize="xs" color="orange.300" fontFamily="mono">
+                  ⚠️ Microsoft connection needs reauthorization
+                </Text>
+              </HStack>
+              <Text fontSize="10px" color="gray.500" fontFamily="mono">
+                Provider: microsoft_graph | Status: auth_error
+              </Text>
+            </VStack>
             <Button size="xs" colorScheme="orange" fontFamily="mono"
               onClick={connectMicrosoft} isLoading={connectingMs} loadingText="CONNECTING...">
-              RECONNECT MICROSOFT →
+              RECONNECT →
             </Button>
           </HStack>
         </Box>
-      )}
-
-      {/* Microsoft OAuth success banner */}
-      {msConnected && (
-        <Box p={3} bg="green.900" borderRadius="md" border="1px solid" borderColor="green.700">
-          <Text fontSize="xs" color="green.300" fontFamily="mono">✅ {msg || 'Microsoft mailbox connected'}</Text>
+      ) : isConnected ? (
+        /* Connected state */
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="green.800">
+          <HStack justify="space-between">
+            <VStack align="start" spacing={0}>
+              <HStack>
+                <Badge colorScheme="green" fontSize="9px" fontFamily="mono">CONNECTED</Badge>
+                <Text fontSize="xs" color="gray.300" fontFamily="mono">
+                  {providerLabel}{connectedMailbox ? ` · ${connectedMailbox}` : ''}
+                </Text>
+              </HStack>
+              <Text fontSize="10px" color="gray.500" fontFamily="mono">
+                Provider: {cfg.provider || 'imap'} | Status: {connStatus || 'connected'}
+              </Text>
+            </VStack>
+            <Button size="xs" colorScheme="blue" fontFamily="mono"
+              onClick={triggerSync} isLoading={syncing} loadingText="SYNCING...">
+              SYNC NOW
+            </Button>
+          </HStack>
+        </Box>
+      ) : (
+        /* Not connected */
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="xs" color="gray.500" fontFamily="mono">No email source connected</Text>
         </Box>
       )}
 
-      {/* Microsoft OAuth error banner */}
+      {/* ── OAuth success/error banners ──────────────────────────────────── */}
+      {msConnected && !msError && (
+        <Box p={2} bg="green.900" borderRadius="md" border="1px solid" borderColor="green.700">
+          <Text fontSize="xs" color="green.300" fontFamily="mono">
+            ✅ Microsoft mailbox connected{connectedMailbox ? ` — ${connectedMailbox}` : ''}
+          </Text>
+        </Box>
+      )}
       {msError && (
-        <Box p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
+        <Box p={2} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
           <Text fontSize="xs" color="red.300" fontFamily="mono">❌ Microsoft error: {msError}</Text>
         </Box>
       )}
 
-      <Field label="Email Address">
-        <HStack spacing={2}>
-          <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
-            type="email" value={email} placeholder="support@yourcompany.com"
-            onChange={e => setEmail(e.target.value)}
-            _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
-          {detectingProvider && <Spinner size="xs" color="gray.500" />}
+      {/* ── Provider selector ────────────────────────────────────────────── */}
+      <VStack align="stretch" spacing={2}>
+        <Text fontSize="9px" color="gray.600" fontFamily="mono" textTransform="uppercase" letterSpacing="wider">
+          SELECT PROVIDER
+        </Text>
+        <HStack spacing={2} align="stretch">
+          <ProviderCard
+            id="microsoft"
+            icon="🔷"
+            label="MICROSOFT / OFFICE 365"
+            sub="OAuth2 — no password"
+            badge={msAlreadyConnected ? 'CONNECTED' : 'RECOMMENDED'}
+            badgeColor={msAlreadyConnected ? 'green' : 'blue'}
+            selected={selectedProvider === 'microsoft'}
+            onClick={() => setSelectedProvider('microsoft')}
+          />
+          <ProviderCard
+            id="google"
+            icon="🔴"
+            label="GOOGLE / GMAIL"
+            sub="App Password"
+            badge={cfg.host === 'imap.gmail.com' && isConnected ? 'CONNECTED' : undefined}
+            badgeColor="green"
+            selected={selectedProvider === 'google'}
+            onClick={() => { setSelectedProvider('google'); setHost('imap.gmail.com'); setPort('993'); }}
+          />
+          <ProviderCard
+            id="imap"
+            icon="🔲"
+            label="MANUAL IMAP"
+            sub="Custom server"
+            badge="LEGACY"
+            badgeColor="gray"
+            selected={selectedProvider === 'imap'}
+            onClick={() => setSelectedProvider('imap')}
+          />
         </HStack>
-        {detectedProvider === 'microsoft' && (
-          <Text fontSize="10px" color="blue.400" fontFamily="mono" mt={1}>↑ Microsoft / Outlook domain detected</Text>
-        )}
-        {detectedProvider === 'google' && (
-          <Text fontSize="10px" color="gray.500" fontFamily="mono" mt={1}>↑ Google Workspace detected — use App Password below</Text>
-        )}
-      </Field>
+      </VStack>
 
-      {/* Microsoft connect button — shown when microsoft domain detected or already connected */}
-      {(detectedProvider === 'microsoft' || msConnected) && (
-        <Box p={4} bg="gray.800" borderRadius="md" border="1px solid" borderColor={msConnected ? 'green.700' : 'blue.800'}>
-          <VStack align="start" spacing={2}>
-            <HStack justify="space-between" w="100%">
-              <VStack align="start" spacing={0}>
-                <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="mono">Microsoft / Office 365</Text>
-                <Text fontSize="10px" color="gray.500" fontFamily="mono">OAuth2 — no password needed</Text>
-              </VStack>
-              {msConnected
-                ? <Badge colorScheme="green" fontSize="9px" fontFamily="mono">CONNECTED</Badge>
-                : <Badge colorScheme="blue" fontSize="9px" fontFamily="mono">RECOMMENDED</Badge>
-              }
+      <Divider borderColor="gray.800" />
+
+      {/* ── Microsoft panel ──────────────────────────────────────────────── */}
+      {selectedProvider === 'microsoft' && (
+        <VStack spacing={3} align="stretch">
+          <Field label="Email Address">
+            <HStack spacing={2}>
+              <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+                type="email" value={email} placeholder="you@yourcompany.com"
+                onChange={e => setEmail(e.target.value)}
+                _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+              {detectingProvider && <Spinner size="xs" color="gray.500" />}
             </HStack>
-            {!msConnected && (
-              <Button size="sm" colorScheme="blue" fontFamily="mono" w="100%"
-                onClick={connectMicrosoft} isLoading={connectingMs} loadingText="OPENING MICROSOFT...">
-                🔐 CONNECT WITH MICROSOFT
-              </Button>
+            {detectedProvider && detectedProvider !== 'microsoft' && (
+              <Text fontSize="10px" color="orange.400" fontFamily="mono" mt={1}>
+                ↑ Domain looks like {detectedProvider} — consider switching provider above
+              </Text>
             )}
-            {msConnected && (
-              <Button size="xs" variant="ghost" color="gray.500" fontFamily="mono"
-                onClick={connectMicrosoft} isLoading={connectingMs}>
-                Reconnect
-              </Button>
-            )}
-          </VStack>
-        </Box>
+          </Field>
+
+          {msAlreadyConnected ? (
+            <VStack align="stretch" spacing={2}>
+              <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="green.700">
+                <HStack justify="space-between">
+                  <Text fontSize="xs" color="green.300" fontFamily="mono">
+                    ✅ Connected as {connectedMailbox || email}
+                  </Text>
+                  <Button size="xs" variant="ghost" color="gray.500" fontFamily="mono"
+                    onClick={connectMicrosoft} isLoading={connectingMs}>
+                    Reconnect
+                  </Button>
+                </HStack>
+              </Box>
+            </VStack>
+          ) : (
+            <Button size="sm" colorScheme="blue" fontFamily="mono" w="100%"
+              onClick={connectMicrosoft} isLoading={connectingMs} loadingText="OPENING MICROSOFT...">
+              🔐 CONNECT WITH MICROSOFT
+            </Button>
+          )}
+
+          <Box p={3} bg="gray.900" borderRadius="md" border="1px solid" borderColor="gray.800">
+            <Text fontSize="10px" color="gray.500" fontFamily="mono">
+              ℹ️ Microsoft disabled Basic Auth (IMAP password login) in Oct 2022.
+              OAuth is required for all M365 and Outlook accounts.
+            </Text>
+          </Box>
+        </VStack>
       )}
 
-      {/* Manual IMAP section — always visible as fallback */}
-      <Box>
-        <Text fontSize="10px" color="gray.600" fontFamily="mono" mb={3} textTransform="uppercase" letterSpacing="wider">
-          {detectedProvider === 'microsoft' ? '— or configure IMAP manually —' : 'IMAP Configuration'}
-        </Text>
-        <VStack spacing={3}>
+      {/* ── Google / Gmail panel ─────────────────────────────────────────── */}
+      {selectedProvider === 'google' && (
+        <VStack spacing={3} align="stretch">
+          <Field label="Gmail Address">
+            <HStack spacing={2}>
+              <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+                type="email" value={email} placeholder="support@yourcompany.com"
+                onChange={e => setEmail(e.target.value)}
+                _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+              {detectingProvider && <Spinner size="xs" color="gray.500" />}
+            </HStack>
+            {detectedProvider === 'microsoft' && (
+              <Text fontSize="10px" color="orange.400" fontFamily="mono" mt={1}>
+                ↑ Microsoft domain detected — use the Microsoft tab instead
+              </Text>
+            )}
+          </Field>
+          <HStack spacing={3}>
+            <Field label="IMAP Host">
+              <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+                value={host} onChange={e => setHost(e.target.value)}
+                _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+            </Field>
+            <Field label="Port">
+              <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+                value={port} onChange={e => setPort(e.target.value)}
+                _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+            </Field>
+          </HStack>
+          <Field
+            label="App Password"
+            hint="Create at myaccount.google.com/apppasswords — requires 2FA enabled on your Google account">
+            <SecretInput value={pass} placeholder="xxxx xxxx xxxx xxxx" onChange={setPass} />
+          </Field>
+          <StatusBadge status={testStatus} message={testMsg} />
+          <Button size="sm" colorScheme="blue" fontFamily="mono"
+            onClick={testImap} isLoading={testStatus === 'loading'} loadingText="TESTING...">
+            TEST CONNECTION
+          </Button>
+        </VStack>
+      )}
+
+      {/* ── Manual IMAP panel ────────────────────────────────────────────── */}
+      {selectedProvider === 'imap' && (
+        <VStack spacing={3} align="stretch">
+          <Box p={3} bg="gray.900" borderRadius="md" border="1px solid" borderColor="orange.800">
+            <Text fontSize="10px" color="orange.400" fontFamily="mono">
+              ⚠️ Microsoft 365 accounts cannot use IMAP — Basic Auth was permanently disabled
+              in Oct 2022. Use the Microsoft option above for any @outlook.com, @hotmail.com,
+              or Office 365 mailboxes.
+            </Text>
+          </Box>
           <Field label="IMAP Server" hint="Gmail: imap.gmail.com  |  Office 365: outlook.office365.com">
             <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
               value={host} onChange={e => setHost(e.target.value)}
               _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
           </Field>
-          <Field label="Port" hint="Usually 993 for SSL">
+          <Field label="Port" hint="Usually 993 for SSL/TLS">
             <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
               value={port} onChange={e => setPort(e.target.value)}
               _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
           </Field>
+          <Field label="Email Address">
+            <HStack spacing={2}>
+              <Input size="sm" bg="gray.800" borderColor="gray.700" color="white" fontFamily="mono"
+                type="email" value={email} placeholder="support@yourcompany.com"
+                onChange={e => setEmail(e.target.value)}
+                _placeholder={{ color: 'gray.600' }} _focus={{ borderColor: 'blue.400', boxShadow: 'none' }} />
+              {detectingProvider && <Spinner size="xs" color="gray.500" />}
+            </HStack>
+            {detectedProvider === 'microsoft' && (
+              <Text fontSize="10px" color="orange.400" fontFamily="mono" mt={1}>
+                ↑ Microsoft domain detected — switch to the Microsoft tab above
+              </Text>
+            )}
+          </Field>
           <Field label="Password / App Password"
             hint="Gmail users: create an App Password at myaccount.google.com/apppasswords">
-            <SecretInput value={pass} placeholder="App password or email password" onChange={setPass} />
+            <SecretInput value={pass} placeholder="App password or mail password" onChange={setPass} />
           </Field>
+          <StatusBadge status={testStatus} message={testMsg} />
+          <Button size="sm" colorScheme="blue" fontFamily="mono"
+            onClick={testImap} isLoading={testStatus === 'loading'} loadingText="TESTING...">
+            TEST IMAP
+          </Button>
         </VStack>
-      </Box>
+      )}
 
-      <StatusBadge status={status} message={msg} />
+      {/* ── Navigation ───────────────────────────────────────────────────── */}
       <HStack spacing={3} pt={2}>
-        {!msConnected && (
-          <Button size="sm" colorScheme="blue" fontFamily="mono" onClick={test}
-            isLoading={status === 'loading'} loadingText="TESTING...">TEST IMAP</Button>
+        {(testStatus === 'ok' || msAlreadyConnected) && (
+          <Button size="sm" colorScheme="green" fontFamily="mono" onClick={onNext}>
+            NEXT: AI SETUP
+          </Button>
         )}
-        {(status === 'ok' || msConnected) && (
-          <Button size="sm" colorScheme="green" fontFamily="mono" onClick={onNext}>NEXT: AI SETUP</Button>
-        )}
-        <Button size="sm" variant="ghost" color="gray.500" fontFamily="mono" onClick={onNext}>SKIP</Button>
+        <Button size="sm" variant="ghost" color="gray.500" fontFamily="mono" onClick={onNext}>
+          SKIP
+        </Button>
       </HStack>
     </VStack>
   );
