@@ -200,8 +200,8 @@ function StepEmail({ onNext }: { onNext: () => void }) {
       const d = await r.json();
       const p: Provider = d.provider === 'microsoft' ? 'microsoft' : d.provider === 'google' ? 'google' : 'imap';
       setDetectedProvider(p);
-      // Auto-switch panel if detected provider differs from selected
-      setSelectedProvider(p);
+      // Note: we intentionally do NOT auto-switch selectedProvider here.
+      // The user manually chose a provider card — detection only drives hint text.
     } catch { setDetectedProvider(null); }
     finally { setDetectingProvider(false); }
   }, []);
