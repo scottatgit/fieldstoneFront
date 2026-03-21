@@ -17,6 +17,15 @@ const SUGGESTED_PROMPTS = [
   { label: 'Ask Signal a question', icon: '?' },
 ];
 
+const INGESTION_STAGES = [
+  { label: 'Connecting to mailbox...', duration: 2500 },
+  { label: 'Authenticating...', duration: 2000 },
+  { label: 'Retrieving messages...', duration: 6000 },
+  { label: 'Parsing ticket data...', duration: 8000 },
+  { label: 'Processing tickets...', duration: 12000 },
+  { label: 'Finishing up...', duration: 999999 },
+];
+
 type Role = 'user' | 'signal';
 type ActionStatus = 'pending' | 'confirmed' | 'failed' | 'dismissed';
 
@@ -136,6 +145,8 @@ export default function SignalAIConsole() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ingestionStage, setIngestionStage] = useState<string | null>(null);
+  const ingestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -220,6 +231,10 @@ export default function SignalAIConsole() {
     // Find action before any state mutation
     const msg = messages.find(m => m.id === msgId);
     if (!msg?.action) return;
+    // Start visual progress for ingestion actions
+    if (msg.action.type === 'run_ingestion') {
+      startIngestionProgress();
+    }
     try {
       const r = await fetch(PM_API + "/api/signal/action", {
         method: "POST", credentials: "include",
@@ -234,9 +249,10 @@ export default function SignalAIConsole() {
             ? { ...m, action: { ...m.action, status: "failed" as ActionStatus } }
             : m
         ));
+        stopIngestionProgress();
         setMessages(prev => [...prev, {
           id: Date.now().toString(), role: "signal",
-          content: `⚠️ Action failed: ${d.message || "Unknown error"}${
+          content: `⚠️ Action failed: ${d.message || "Unknown error"} ${
             d.detail && typeof d.detail === "string" ? `\n\nDetail: ${d.detail}` : ""
           }`,
           timestamp: Date.now(),
@@ -247,6 +263,7 @@ export default function SignalAIConsole() {
           status: "error", duration: 5000, isClosable: true,
         });
       } else {
+        stopIngestionProgress();
         // Microsoft OAuth redirect — navigate to auth_url
         if (d.auth_url) {
           setMessages(prev => [...prev, {
@@ -275,6 +292,7 @@ export default function SignalAIConsole() {
         }]);
       }
     } catch {
+      stopIngestionProgress();
       // Network error — revert to pending so user can retry
       setMessages(prev => prev.map(m =>
         m.id === msgId && m.action
@@ -287,12 +305,33 @@ export default function SignalAIConsole() {
         status: "error", duration: 5000, isClosable: true,
       });
     }
-  }, [messages, toast]);
+  }, [messages, toast, startIngestionProgress, stopIngestionProgress]);
 
   const dismissAction = useCallback((msgId: string) => {
     setMessages(prev => prev.map(m =>
       m.id === msgId && m.action ? { ...m, action: { ...m.action, status: "dismissed" } } : m
     ));
+  }, []);
+
+  const startIngestionProgress = useCallback(() => {
+    let idx = 0;
+    setIngestionStage(INGESTION_STAGES[0].label);
+    const advance = () => {
+      idx += 1;
+      if (idx < INGESTION_STAGES.length) {
+        setIngestionStage(INGESTION_STAGES[idx].label);
+        ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[idx].duration);
+      }
+    };
+    ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[0].duration);
+  }, []);
+
+  const stopIngestionProgress = useCallback(() => {
+    if (ingestionTimerRef.current) {
+      clearTimeout(ingestionTimerRef.current);
+      ingestionTimerRef.current = null;
+    }
+    setIngestionStage(null);
   }, []);
 
   const handleFile = useCallback(async (file: File) => {
@@ -355,6 +394,28 @@ export default function SignalAIConsole() {
                 <Spinner size="xs" color="blue.400" />
                 <Text fontSize="xs" color="gray.400" fontFamily="mono">Signal is thinking...</Text>
               </HStack>
+            </Box>
+          </Box>
+        )}
+        {ingestionStage && (
+          <Box display="flex" justifyContent="flex-start" mb={3}>
+            <Box px={4} py={3} bg="blue.950" borderRadius="xl" border="1px solid" borderColor="blue.700"
+              maxW="360px">
+              <VStack spacing={2} align="start">
+                <HStack spacing={2}>
+                  <Spinner size="xs" color="blue.400" speed="0.8s" />
+                  <Text fontSize="xs" color="blue.300" fontFamily="mono" fontWeight="bold" letterSpacing="wider">
+                    INGESTING EMAIL
+                  </Text>
+                </HStack>
+                <HStack spacing={2} pl={1}>
+                  <Spinner size="xs" color="blue.500" speed="1.4s" />
+                  <Text fontSize="xs" color="blue.200" fontFamily="mono">{ingestionStage}</Text>
+                </HStack>
+                <Text fontSize="9px" color="blue.600" fontFamily="mono" pl={1}>
+                  This may take 30&#8211;90 seconds depending on mailbox size
+                </Text>
+              </VStack>
             </Box>
           </Box>
         )}
