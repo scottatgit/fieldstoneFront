@@ -394,7 +394,10 @@ export default function PMPage() {
       const tResp = (await pmFetch('/api/tickets?status=open&limit=200', PM_API)) as any;
       const tData: Ticket[] = Array.isArray(tResp) ? tResp : (tResp?.tickets || []);
       setTickets(tData);
-      if (tData.length === 0) setFetchError(`API OK but 0 tickets — PM_API: ${PM_API}, tenant: ${typeof window !== 'undefined' ? window.location.hostname : 'ssr'}`);
+      if (tData.length === 0) {
+        const slug = typeof window !== 'undefined' ? (window.location.hostname.split('.')[0]) : 'ssr';
+        setFetchError(`API OK but 0 tickets for workspace '${slug}' — check ingestion or email setup`);
+      };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setFetchError(`Fetch failed: ${msg} — PM_API: ${PM_API}`);
