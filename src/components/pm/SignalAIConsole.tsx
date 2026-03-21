@@ -227,6 +227,27 @@ export default function SignalAIConsole() {
     } finally { setLoading(false); inputRef.current?.focus(); }
   }, [messages, loading]);
 
+  const startIngestionProgress = useCallback(() => {
+    let idx = 0;
+    setIngestionStage(INGESTION_STAGES[0].label);
+    const advance = () => {
+      idx += 1;
+      if (idx < INGESTION_STAGES.length) {
+        setIngestionStage(INGESTION_STAGES[idx].label);
+        ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[idx].duration);
+      }
+    };
+    ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[0].duration);
+  }, []);
+
+  const stopIngestionProgress = useCallback(() => {
+    if (ingestionTimerRef.current) {
+      clearTimeout(ingestionTimerRef.current);
+      ingestionTimerRef.current = null;
+    }
+    setIngestionStage(null);
+  }, []);
+
   const confirmAction = useCallback(async (msgId: string) => {
     // Find action before any state mutation
     const msg = messages.find(m => m.id === msgId);
@@ -311,27 +332,6 @@ export default function SignalAIConsole() {
     setMessages(prev => prev.map(m =>
       m.id === msgId && m.action ? { ...m, action: { ...m.action, status: "dismissed" } } : m
     ));
-  }, []);
-
-  const startIngestionProgress = useCallback(() => {
-    let idx = 0;
-    setIngestionStage(INGESTION_STAGES[0].label);
-    const advance = () => {
-      idx += 1;
-      if (idx < INGESTION_STAGES.length) {
-        setIngestionStage(INGESTION_STAGES[idx].label);
-        ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[idx].duration);
-      }
-    };
-    ingestionTimerRef.current = setTimeout(advance, INGESTION_STAGES[0].duration);
-  }, []);
-
-  const stopIngestionProgress = useCallback(() => {
-    if (ingestionTimerRef.current) {
-      clearTimeout(ingestionTimerRef.current);
-      ingestionTimerRef.current = null;
-    }
-    setIngestionStage(null);
   }, []);
 
   const handleFile = useCallback(async (file: File) => {
