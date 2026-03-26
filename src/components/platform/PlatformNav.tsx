@@ -7,10 +7,12 @@ import { SignalUserButton } from '@/components/SignalUserButton';
 const NAV_ITEMS = [
   { label: 'ACTIVITY',     href: '/platform'                },
   { label: 'TENANTS',      href: '/platform/tenants'        },
+  { label: 'USERS',        href: '/platform/users'          },
   { label: 'BILLING',      href: '/platform/billing'        },
   { label: 'SETUP',        href: '/platform/setup'          },
   { label: 'ADMIN',        href: '/platform/admin'          },
   { label: 'INTEGRATIONS', href: '/platform/integrations'   },
+  { label: 'SECURITY',     href: '/platform/security'       },
 ];
 
 const COMING_SOON = [{ label: 'AI PROPOSALS', href: '/platform/proposals' }];
@@ -30,15 +32,21 @@ export function PlatformNav() {
       <Flex flex={1} overflowX="auto" align="stretch" css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
         <HStack spacing={0} align="stretch">
           {NAV_ITEMS.map(item => {
-            const isActive = item.href === '/platform' ? pathname === '/platform' : pathname.startsWith(item.href);
+            const isActive = item.href === '/platform'
+              ? pathname === '/platform'
+              : pathname.startsWith(item.href);
+            const isSecurity = item.href === '/platform/security';
             return (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
                 <Flex align="center" justify="center" px={4} minH="44px" minW="60px"
-                  borderBottom="2px solid" borderColor={isActive ? 'orange.400' : 'transparent'}
-                  color={isActive ? 'white' : 'gray.500'}
-                  _hover={{ color: 'gray.200', borderColor: isActive ? 'orange.400' : 'gray.600' }}
+                  borderBottom="2px solid"
+                  borderColor={isActive ? (isSecurity ? 'orange.300' : 'orange.400') : 'transparent'}
+                  color={isActive ? 'white' : isSecurity ? 'orange.700' : 'gray.500'}
+                  _hover={{ color: isSecurity ? 'orange.400' : 'gray.200', borderColor: isActive ? (isSecurity ? 'orange.300' : 'orange.400') : 'gray.600' }}
                   transition="all 0.15s" cursor="pointer">
-                  <Text fontSize="xs" fontWeight={isActive ? 'black' : 'medium'} fontFamily="mono" letterSpacing="wider">{item.label}</Text>
+                  <Text fontSize="xs" fontWeight={isActive ? 'black' : 'medium'} fontFamily="mono" letterSpacing="wider">
+                    {isSecurity ? '🔐 ' : ''}{item.label}
+                  </Text>
                 </Flex>
               </Link>
             );

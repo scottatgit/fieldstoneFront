@@ -8,7 +8,6 @@ import { clearUserCache } from '@/lib/useUser';
 const BASE_DOMAIN   = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
 const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE_DOMAIN);
 
-/** If running on a tenant subdomain, return the slug; else null. */
 function getTenantHint(): string | null {
   if (typeof window === 'undefined') return null;
   const hostname = window.location.hostname;
@@ -18,17 +17,29 @@ function getTenantHint(): string | null {
   return reserved.has(slug) ? null : slug;
 }
 
+type Step = 'credentials' | 'totp';
+
 export default function LoginPage() {
   const router = useRouter();
+
+  // Credentials step
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [tenantHint, setHint]   = useState<string | null>(null);
+
+  // TOTP step
+  const [step, setStep]         = useState<Step>('credentials');
+  const [mfaToken, setMfaToken] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+
+  // Shared
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
-  const [tenantHint, setHint]   = useState<string | null>(null);
 
   useEffect(() => { setHint(getTenantHint()); }, []);
 
-  async function handleSubmit(e: FormEvent) {
+  // ── Step 1: email + password ──────────────────────────────────────────
+  async function handleCredentials(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -41,19 +52,24 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.detail === 'invalid_credentials'
-          ? 'Invalid email or password.'  
-          : data.detail || 'Login failed. Please try again.');
+        setError(
+          data.detail === 'invalid_credentials'
+            ? 'Invalid email or password.'
+            : data.detail || 'Login failed. Please try again.'
+        );
         return;
       }
-      clearUserCache();
-      // Redirect to workspace or /redirect
-      if (data.slug) {
-        const proto = window.location.protocol;
-        window.location.href = `${proto}//${data.slug}.${SIGNAL_DOMAIN}/pm`;
-      } else {
-        router.push('/redirect');
+
+      // MFA required — move to TOTP step
+      if (data.mfa_required && data.mfa_token) {
+        setMfaToken(data.mfa_token);
+        setTotpCode('');
+        setStep('totp');
+        return;
       }
+
+      // Full session issued — redirect
+      finishLogin(data);
     } catch {
       setError('Network error. Please check your connection.');
     } finally {
@@ -61,86 +77,148 @@ export default function LoginPage() {
     }
   }
 
+  // ── Step 2: TOTP or recovery code ────────────────────────────────────
+  async function handleTotp(e: FormEvent) {
+    e.preventDefault();
+    if (!totpCode.trim()) { setError('Enter your 6-digit code or recovery code.'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/totp-verify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mfa_token: mfaToken, code: totpCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) {
+          setError('Too many attempts. Please wait a moment and try again.');
+        } else {
+          setError('Invalid code. Try your authenticator app or a recovery code.');
+        }
+        return;
+      }
+      clearUserCache();
+      finishLogin(data);
+    } catch {
+      setError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function finishLogin(data: { slug?: string }) {
+    clearUserCache();
+    if (data.slug) {
+      const proto = window.location.protocol;
+      window.location.href = `${proto}//${data.slug}.${SIGNAL_DOMAIN}/pm`;
+    } else {
+      router.push('/redirect');
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: '#0d1117', gap: '24px', padding: '20px',
-    }}>
-      {/* Brand header */}
-      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <span style={{
-            fontSize: '13px', fontWeight: '900', fontFamily: 'monospace',
-            letterSpacing: '0.2em', color: '#63B3ED',
-          }}>SIGNAL</span>
-        </Link>
-        <p style={{ color: '#4a5568', fontSize: '12px', fontFamily: 'monospace', marginTop: '4px', letterSpacing: '0.1em' }}>
-          by Fieldstone
-        </p>
-        {tenantHint && (
-          <p style={{ color: '#63B3ED', fontSize: '11px', fontFamily: 'monospace', marginTop: '4px', opacity: 0.8 }}>
-            Signing in to <strong style={{ textTransform: 'uppercase' }}>{tenantHint}</strong> workspace
-          </p>
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+
+        {/* Logo */}
+        <div className="mb-8 text-center">
+          <span className="text-orange-400 font-black font-mono tracking-widest text-xl">⚡ SIGNAL</span>
+          {tenantHint && (
+            <p className="mt-1 text-xs text-gray-500 font-mono">{tenantHint}</p>
+          )}
+        </div>
+
+        {/* ── Credentials step ── */}
+        {step === 'credentials' && (
+          <form onSubmit={handleCredentials} className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono text-gray-500 mb-1 tracking-wider">EMAIL</label>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                required autoFocus
+                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 font-mono"
+                placeholder="you@company.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-gray-500 mb-1 tracking-wider">PASSWORD</label>
+              <input
+                type="password" value={password} onChange={e => setPassword(e.target.value)}
+                required
+                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 font-mono"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-950 border border-red-800 px-3 py-2 text-xs text-red-400 font-mono">{error}</div>
+            )}
+
+            <button
+              type="submit" disabled={loading}
+              className="w-full rounded-lg bg-orange-500 hover:bg-orange-400 disabled:opacity-50 px-4 py-2.5 text-sm font-black font-mono text-gray-950 tracking-wider transition-colors"
+            >
+              {loading ? 'SIGNING IN...' : 'SIGN IN'}
+            </button>
+
+            <div className="text-center">
+              <Link href="/forgot-password" className="text-xs text-gray-600 hover:text-gray-400 font-mono transition-colors">
+                Forgot password?
+              </Link>
+            </div>
+          </form>
         )}
+
+        {/* ── TOTP step ── */}
+        {step === 'totp' && (
+          <form onSubmit={handleTotp} className="space-y-4">
+            <div className="rounded-lg bg-gray-900 border border-orange-900 px-4 py-3 text-center">
+              <p className="text-xs text-orange-400 font-mono tracking-wider font-bold mb-1">TWO-FACTOR REQUIRED</p>
+              <p className="text-xs text-gray-500 font-mono">Enter the code from your authenticator app,<br />or use a recovery code.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-gray-500 mb-1 tracking-wider">AUTHENTICATION CODE</label>
+              <input
+                type="text"
+                value={totpCode}
+                onChange={e => setTotpCode(e.target.value.trim())}
+                required autoFocus
+                maxLength={20}
+                placeholder="000000"
+                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-3 text-xl text-white placeholder-gray-700 focus:outline-none focus:border-orange-500 font-mono tracking-[0.5em] text-center"
+                inputMode="numeric"
+              />
+              <p className="mt-1 text-xs text-gray-600 font-mono text-center">Recovery codes are longer — enter as-is</p>
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-950 border border-red-800 px-3 py-2 text-xs text-red-400 font-mono">{error}</div>
+            )}
+
+            <button
+              type="submit" disabled={loading || !totpCode.trim()}
+              className="w-full rounded-lg bg-orange-500 hover:bg-orange-400 disabled:opacity-50 px-4 py-2.5 text-sm font-black font-mono text-gray-950 tracking-wider transition-colors"
+            >
+              {loading ? 'VERIFYING...' : 'VERIFY'}
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setStep('credentials'); setError(''); setTotpCode(''); }}
+                className="text-xs text-gray-600 hover:text-gray-400 font-mono transition-colors"
+              >
+                ← Back to login
+              </button>
+            </div>
+          </form>
+        )}
+
       </div>
-
-      {/* Login card */}
-      <form onSubmit={handleSubmit} style={{
-        background: '#111827', border: '1px solid #1f2937',
-        borderRadius: '8px', padding: '32px', width: '100%', maxWidth: '380px',
-        boxShadow: '0 0 40px rgba(99,179,237,0.06)',
-        display: 'flex', flexDirection: 'column', gap: '16px',
-      }}>
-        <div>
-          <label style={{ display: 'block', color: '#9ca3af', fontSize: '11px', fontFamily: 'monospace', marginBottom: '6px', letterSpacing: '0.1em' }}>EMAIL</label>
-          <input
-            type="email" required autoComplete="email" value={email}
-            onChange={e => setEmail(e.target.value)}
-            style={{
-              width: '100%', background: '#1f2937', border: '1px solid #374151',
-              borderRadius: '6px', padding: '10px 12px', color: '#fff',
-              fontSize: '14px', outline: 'none', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', color: '#9ca3af', fontSize: '11px', fontFamily: 'monospace', marginBottom: '6px', letterSpacing: '0.1em' }}>PASSWORD</label>
-          <input
-            type="password" required autoComplete="current-password" value={password}
-            onChange={e => setPassword(e.target.value)}
-            style={{
-              width: '100%', background: '#1f2937', border: '1px solid #374151',
-              borderRadius: '6px', padding: '10px 12px', color: '#fff',
-              fontSize: '14px', outline: 'none', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-        {error && (
-          <p style={{ color: '#fc8181', fontSize: '12px', fontFamily: 'monospace', margin: 0 }}>{error}</p>
-        )}
-        <button
-          type="submit" disabled={loading}
-          style={{
-            background: loading ? '#2d3748' : '#4299e1', color: '#fff',
-            border: 'none', borderRadius: '6px', padding: '11px',
-            fontSize: '13px', fontFamily: 'monospace', fontWeight: '700',
-            letterSpacing: '0.1em', cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 0.2s',
-          }}
-        >
-          {loading ? 'SIGNING IN...' : 'SIGN IN'}
-        </button>
-        <p style={{ textAlign: 'center', color: '#4a5568', fontSize: '11px', fontFamily: 'monospace', margin: 0 }}>
-          <Link href="/signup" style={{ color: '#63B3ED', textDecoration: 'none' }}>Create account</Link>
-          {' · '}
-          <Link href="/forgot-password" style={{ color: '#4a5568', textDecoration: 'none' }}>Forgot password?</Link>
-        </p>
-      </form>
-
-      <p style={{ color: '#4a5568', fontSize: '13px', fontFamily: 'monospace' }}>
-        <Link href="/" style={{ color: '#4a5568', textDecoration: 'none' }}>← back to fieldstone.pro</Link>
-      </p>
     </div>
   );
 }
