@@ -20,6 +20,7 @@ const BYPASS_PATHS = [
   '/login', '/signup', '/sso-callback',
   '/redirect', '/pm/redirect', '/pm/onboarding',
   '/invite', '/forgot-password',
+  '/reset-password',    // token redemption link from email
 ];
 
 // ─── Host Classification ──────────────────────────────────────────────────────
