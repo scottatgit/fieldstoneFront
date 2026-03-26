@@ -3,7 +3,8 @@ declare module 'qrcode' {
     width?: number;
     margin?: number;
     color?: { dark?: string; light?: string };
+    errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H';
   }
-  function toDataURL(text: string, options?: QRCodeOptions): Promise<string>;
-  export = toDataURL;
+  export function toDataURL(text: string, options?: QRCodeOptions): Promise<string>;
+  export function toString(text: string, options?: QRCodeOptions): Promise<string>;
 }

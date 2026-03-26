@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminFetchDirect } from '@/lib/adminFetch';
 import { useUser } from '@/lib/useUser';
 import { useRouter } from 'next/navigation';
-import QRCode = require('qrcode');
+import * as QRCode from 'qrcode';
 
 interface MfaStatus { mfa_enabled: boolean; recovery_codes_remaining: number; }
 type Step = 'status' | 'setup' | 'recovery' | 'disable';
