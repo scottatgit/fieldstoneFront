@@ -10,31 +10,44 @@ import { Step2CreateWorkspace }   from './step2-create-workspace';
 import { Step2JoinWorkspace }     from './step2-join-workspace';
 import { Step3NextSteps }         from './step3-next-steps';
 
+const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || 'signal.fieldstone.pro';
+
 type Step = 'path-select' | 'create' | 'join' | 'next-steps';
 
 function OnboardingInner() {
   const searchParams = useSearchParams();
   const router       = useRouter();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
 
   const inviteToken = searchParams.get('invite');
 
+  // P1b: Lock step to 'join' immediately when invite token is present.
+  // P5:  No invite + already has workspace → route straight to their workspace.
   const [step,        setStep]        = useState<Step>(inviteToken ? 'join' : 'path-select');
   const [activeToken, setActiveToken] = useState<string | null>(inviteToken);
 
-  // Redirect to login if not authed
+  // Redirect to login if not authed, preserving invite param for return
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       const returnUrl = encodeURIComponent(
-        `/pm/onboarding${inviteToken ? `?invite=${inviteToken}` : ''}` 
+        `/pm/onboarding${inviteToken ? `?invite=${inviteToken}` : ''}`
       );
       router.replace(`/login?redirect_url=${returnUrl}`);
     }
   }, [isLoaded, isSignedIn, inviteToken, router]);
 
+  // P1b: Keep step locked to 'join' whenever inviteToken is present — no escape
   useEffect(() => {
     if (inviteToken) { setActiveToken(inviteToken); setStep('join'); }
   }, [inviteToken]);
+
+  // P5: User already has a workspace (slug present) and arrived without an invite.
+  // This means they signed up normally — route them directly to their workspace.
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user?.slug && !inviteToken) {
+      window.location.href = `https://${user.slug}.${SIGNAL_DOMAIN}/pm`;
+    }
+  }, [isLoaded, isSignedIn, user, inviteToken]);
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -49,28 +62,50 @@ function OnboardingInner() {
     );
   }
 
+  // P5: Render spinner while routing existing-workspace users away
+  if (user?.slug && !inviteToken) {
+    return (
+      <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
+        <VStack spacing={3}>
+          <Spinner color="blue.400" size="lg" />
+          <Text fontSize="xs" color="gray.500" fontFamily="mono">Routing to your workspace...</Text>
+        </VStack>
+      </Box>
+    );
+  }
+
   return (
     <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center" p={4}>
       <Box w="full" maxW="480px" bg="gray.900" border="1px solid" borderColor="gray.700" borderRadius="xl" p={{ base: 6, md: 8 }}>
-        {step === 'path-select' && (
+
+        {/* P1b: path-select only shown when no invite is present */}
+        {step === 'path-select' && !inviteToken && (
           <Step1PathSelect
             onCreate={() => setStep('create')}
             onJoin={() => setStep('join')}
           />
         )}
+
         {step === 'create' && (
           <Step2CreateWorkspace
             onSuccess={() => setStep('next-steps')}
             onBack={() => setStep('path-select')}
           />
         )}
+
+        {/* P1b: join step — back button disabled when invite is locked */}
         {step === 'join' && (
           <Step2JoinWorkspace
             inviteToken={activeToken}
             onSuccess={() => setStep('next-steps')}
-            onBack={() => { setActiveToken(null); setStep('path-select'); }}
+            onBack={() => {
+              if (inviteToken) return; // P1b: no escape from invite join
+              setActiveToken(null);
+              setStep('path-select');
+            }}
           />
         )}
+
         {step === 'next-steps' && <Step3NextSteps />}
       </Box>
     </Box>

@@ -36,8 +36,12 @@ export default function SignUpPage() {
         return;
       }
       clearUserCache();
-      // Always go to onboarding — workspace is set up there
-      window.location.href = `https://${SIGNAL_DOMAIN}/pm/onboarding`;
+      // P1a: Preserve ?invite= param so invited users land on join step
+      const _invite = new URLSearchParams(window.location.search).get('invite');
+      const _dest = _invite
+        ? `https://${SIGNAL_DOMAIN}/pm/onboarding?invite=${_invite}`
+        : `https://${SIGNAL_DOMAIN}/pm/onboarding`;
+      window.location.href = _dest;
     } catch {
       setError('Network error. Please check your connection.');
     } finally {
