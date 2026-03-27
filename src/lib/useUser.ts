@@ -12,9 +12,10 @@ export interface SignalUser {
   name: string;
   email: string;
   role: string;
-  tenant_id: string;
-  slug: string;
-  tenant_name: string;
+  tenant_id: string | null;
+  slug: string | null;
+  tenant_name: string | null;
+  email_verified: boolean;
 }
 
 interface UseUserResult {
@@ -46,6 +47,10 @@ export function useUser(): UseUserResult {
       });
       if (res.ok) {
         const data: SignalUser = await res.json();
+        // Normalize: email_verified defaults to true for legacy users
+        if (data.email_verified === undefined) {
+          (data as SignalUser).email_verified = true;
+        }
         _cache = { user: data, ts: Date.now() };
         setUser(data);
       } else {

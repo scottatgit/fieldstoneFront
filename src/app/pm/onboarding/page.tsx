@@ -41,13 +41,8 @@ function OnboardingInner() {
     if (inviteToken) { setActiveToken(inviteToken); setStep('join'); }
   }, [inviteToken]);
 
-  // P5: User already has a workspace (slug present) and arrived without an invite.
-  // This means they signed up normally — route them directly to their workspace.
-  useEffect(() => {
-    if (isLoaded && isSignedIn && user?.slug && !inviteToken) {
-      window.location.href = `https://${user.slug}.${SIGNAL_DOMAIN}/pm`;
-    }
-  }, [isLoaded, isSignedIn, user, inviteToken]);
+  // P5 REMOVED: Users no longer auto-routed from onboarding.
+  // New users arrive here without a workspace and must complete the create step.
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -62,17 +57,7 @@ function OnboardingInner() {
     );
   }
 
-  // P5: Render spinner while routing existing-workspace users away
-  if (user?.slug && !inviteToken) {
-    return (
-      <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center">
-        <VStack spacing={3}>
-          <Spinner color="blue.400" size="lg" />
-          <Text fontSize="xs" color="gray.500" fontFamily="mono">Routing to your workspace...</Text>
-        </VStack>
-      </Box>
-    );
-  }
+
 
   return (
     <Box minH="100svh" bg="gray.950" display="flex" alignItems="center" justifyContent="center" p={4}>

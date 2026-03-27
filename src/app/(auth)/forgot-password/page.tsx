@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Turnstile } from '@marsidev/react-turnstile';
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
 type Phase = 'form' | 'sent';
 
@@ -10,20 +13,29 @@ export default function ForgotPasswordPage() {
   const [phase, setPhase]     = useState<Phase>('form');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+  const [cfToken, setCfToken] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    if (!cfToken) { setError('Please complete the human verification below.'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/auth/request-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), cf_turnstile_token: cfToken }),
       });
-      // Always show sent confirmation to prevent email enumeration
       if (res.ok || res.status === 404) {
         setPhase('sent');
+      } else if (res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        if (data.detail === 'captcha_failed') {
+          setError('Human verification failed. Please try again.');
+          setCfToken('');
+        } else {
+          setError(data.detail || 'Something went wrong. Please try again.');
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.detail || 'Something went wrong. Please try again.');
@@ -78,11 +90,26 @@ export default function ForgotPasswordPage() {
               style={inputStyle}
             />
           </div>
+
+          {/* Cloudflare Turnstile CAPTCHA */}
+          {TURNSTILE_SITE_KEY && (
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={setCfToken}
+                onError={() => { setCfToken(''); setError('CAPTCHA error. Please refresh and try again.'); }}
+                onExpire={() => setCfToken('')}
+              />
+            </div>
+          )}
+
           {error && <div style={errorStyle}>{error}</div>}
           <button
             type='submit'
-            disabled={loading}
-            style={loading ? { ...buttonStyle, opacity: 0.6 } : buttonStyle}
+            disabled={loading || (TURNSTILE_SITE_KEY !== '' && !cfToken)}
+            style={(loading || (TURNSTILE_SITE_KEY !== '' && !cfToken))
+              ? { ...buttonStyle, opacity: 0.6, cursor: 'not-allowed' }
+              : buttonStyle}
           >
             {loading ? 'Sending...' : 'Send Reset Link'}
           </button>

@@ -53,12 +53,27 @@ export function WorkspaceGuard({ children }: { children: React.ReactNode }) {
 
     // user is loaded and signed in
     didRoute.current = true;
-    const currentSlug = getCurrentSlug();
 
     if (!user) {
       setChecking(false);
       return;
     }
+
+    // Phase 11a: Email not verified — send to verify-pending
+    if (!user.email_verified) {
+      setStatus('EMAIL VERIFICATION REQUIRED...');
+      window.location.href = `https://${SIGNAL_DOMAIN}/verify-pending`;
+      return;
+    }
+
+    // Phase 11b: Verified but no workspace yet — send to onboarding to create one
+    if (!user.slug || !user.tenant_id) {
+      setStatus('SETTING UP WORKSPACE...');
+      window.location.href = `https://${SIGNAL_DOMAIN}/pm/onboarding`;
+      return;
+    }
+
+    const currentSlug = getCurrentSlug();
 
     // On platform domain (no slug) — redirect to user's workspace
     if (currentSlug === null) {
