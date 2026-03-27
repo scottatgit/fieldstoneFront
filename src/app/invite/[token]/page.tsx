@@ -62,7 +62,15 @@ export default function InvitePage() {
       if (res.status === 410) { setError('This invite has expired or has already been used.'); return; }
       if (!res.ok) { setError(data.detail || 'Failed to join workspace.'); return; }
       setJoined(true);
-      setTimeout(() => router.push('/pm'), 1500);
+      // Route to the correct workspace subdomain — not the platform host
+      const dest = data.redirect_url || '/pm';
+      setTimeout(() => {
+        if (dest.startsWith('http')) {
+          window.location.href = dest;
+        } else {
+          router.push(dest);
+        }
+      }, 1500);
     } catch {
       setError('Failed to connect to server.');
     } finally {
