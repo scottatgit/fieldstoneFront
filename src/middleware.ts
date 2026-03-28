@@ -21,6 +21,8 @@ const BYPASS_PATHS = [
   '/redirect', '/pm/redirect', '/pm/onboarding',
   '/invite', '/forgot-password',
   '/reset-password',    // token redemption link from email
+  '/verify-email',      // email verification link from email
+  '/verify-pending',    // post-signup waiting page
 ];
 
 // ─── Host Classification ──────────────────────────────────────────────────────
