@@ -1,0 +1,49 @@
+name: Middleware Regression Gate
+
+# PROTECTED — Guards BYPASS_PATHS in middleware.ts
+# Any path removed from BYPASS_PATHS breaks auth pages for unauthenticated users.
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'src/middleware.ts'
+      - 'src/app/**/page.tsx'
+
+jobs:
+  bypass-paths-check:
+    name: "BYPASS_PATHS Contract Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required BYPASS_PATHS are present
+        run: |
+          MIDDLEWARE="src/middleware.ts"
+          REQUIRED_PATHS=(
+            "/verify-email"
+            "/verify-pending"
+            "/signup"
+            "/login"
+            "/pm/onboarding"
+            "/forgot-password"
+            "/reset-password"
+            "/invite"
+          )
+          FAILED=0
+          for path in "${REQUIRED_PATHS[@]}"; do
+            if ! grep -q "'${path}'\|\"${path}\"" "$MIDDLEWARE"; then
+              echo "MISSING from BYPASS_PATHS: ${path}"
+              echo "  → Users will get 401 redirect instead of loading this page"
+              FAILED=1
+            else
+              echo "OK: ${path}"
+            fi
+          done
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "REGRESSION: Required paths missing from BYPASS_PATHS"
+            echo "See PROTECTION_MAP.md Section 3 for locked bypass path list"
+            exit 1
+          fi
+          echo "All required BYPASS_PATHS present."

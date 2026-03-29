@@ -1,30 +1,25 @@
 "use client";
 import { ChakraProvider } from "@chakra-ui/react";
-import { ReactNode, useEffect } from "react";
-import { Provider } from "react-redux";
-import { store } from "../redux/store";
+import { ReactNode } from "react";
 import theme from "../theme";
-import { setAuth } from "../redux/slices/authSlice";
-import { Box } from "@chakra-ui/react";
 
+/**
+ * Root app provider.
+ * Supplies ChakraProvider with the global theme to all routes.
+ *
+ * Note: pm/ and platform/ layouts supply their own ChakraProvider
+ * (via PMProviders and direct ChakraProvider respectively).
+ * This root wrapper is retained for routes outside those trees
+ * (login, signup, invite, auth/*, redirect).
+ *
+ * Redux was removed 2026-03-29 — all Redux consumers were legacy
+ * routes (pod, slider) which have been deleted. pm/ and platform/
+ * do not use Redux.
+ */
 export function Providers({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      const user = localStorage.getItem("user");
-      if (token && user) {
-        store.dispatch(setAuth({ user: JSON.parse(user), token }));
-      }
-    }
-  }, []);
-
   return (
     <ChakraProvider theme={theme}>
-      <Provider store={store}>
-        <Box as="main" className="max-w-7xl mx-auto py-6">
-          {children}
-        </Box>
-      </Provider>
+      {children}
     </ChakraProvider>
   );
 }
