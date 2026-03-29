@@ -633,7 +633,8 @@ I can see the context for this ticket.
   if (endpoint === '/api/tenant/users' && method === 'POST') {
     return { id: 'u-new', tenant_id: 'demo', name: 'New Member', role: 'technician', created_at: new Date().toISOString() };
   }
-if ((endpoint === '/api/ingest/run' || endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && method === 'POST') {
+// /api/ingest/run is retired (410 Gone) — only /api/ingest/email and /api/ingest-email are valid
+if ((endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && method === 'POST') {
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 

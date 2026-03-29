@@ -599,14 +599,17 @@ export function SetupPanel() {
   const handleRunScan = async () => {
     setIngest({ running: true });
     try {
-      const res = await fetch(`${PM_API}/api/ingest/run`, { method: 'POST' });
+      // NOTE: /api/ingest/run is retired (returns 410). Use /api/ingest/email — adapter-based, tenant-safe.
+      const res = await fetch(`${PM_API}/api/ingest/email`, { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
       const data = await res.json();
-      if (data.status === 'started') {
+      // /api/ingest/email processes in background — poll status after delay
+      if (res.ok || data.status === 'started') {
         setIngest({ running: true, emailsFound: 0, ticketsImported: 0 });
         // Poll for completion
         setTimeout(async () => {
           try {
-            const sr = await fetch(`${PM_API}/api/setup/status`);
+            const sr = await fetch(`${PM_API}/api/setup/status`, { credentials: 'include' });
             const sd = await sr.json();
             setSetupStatus(sd);
             setIngest({

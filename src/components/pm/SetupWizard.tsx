@@ -304,19 +304,43 @@ function StepEmail({ onNext }: { onNext: () => void }) {
             <Text fontSize="xs" color="gray.600" fontFamily="mono">Checking connection status...</Text>
           </HStack>
         </Box>
-      ) : authError && !msAlreadyConnected ? (
-        /* Auth error state */
+      ) : (connStatus === 'unsupported_provider') ? (
+        /* Unsupported provider state */
+        <Box p={3} bg="red.900" borderRadius="md" border="1px solid" borderColor="red.700">
+          <HStack justify="space-between">
+            <VStack align="start" spacing={0}>
+              <HStack>
+                <Badge colorScheme="red" fontSize="9px" fontFamily="mono">UNSUPPORTED PROVIDER</Badge>
+                <Text fontSize="xs" color="red.300" fontFamily="mono">
+                  This email provider is not yet supported
+                </Text>
+              </HStack>
+              <Text fontSize="10px" color="gray.500" fontFamily="mono">
+                Supported: Microsoft Graph (OAuth2) · Gmail (App Password)
+              </Text>
+            </VStack>
+            <Button size="xs" colorScheme="red" fontFamily="mono" onClick={() => window.location.reload()}>
+              RECONFIGURE →
+            </Button>
+          </HStack>
+        </Box>
+      ) : (authError || connStatus === 'needs_reconnect' || connStatus === 'auth_error') && !msAlreadyConnected ? (
+        /* Auth error / needs reconnect state */
         <Box p={3} bg="orange.900" borderRadius="md" border="1px solid" borderColor="orange.700">
           <HStack justify="space-between">
             <VStack align="start" spacing={0}>
               <HStack>
-                <Badge colorScheme="orange" fontSize="9px" fontFamily="mono">AUTH ERROR</Badge>
+                <Badge colorScheme="orange" fontSize="9px" fontFamily="mono">
+                  {connStatus === 'needs_reconnect' ? 'RECONNECT REQUIRED' : 'AUTH ERROR'}
+                </Badge>
                 <Text fontSize="xs" color="orange.300" fontFamily="mono">
-                  ⚠️ Microsoft connection needs reauthorization
+                  ⚠️ {connStatus === 'needs_reconnect'
+                    ? 'Token expired — reconnect your email account'
+                    : 'Microsoft connection needs reauthorization'}
                 </Text>
               </HStack>
               <Text fontSize="10px" color="gray.500" fontFamily="mono">
-                Provider: microsoft_graph | Status: auth_error
+                Provider: {cfg.provider || 'microsoft_graph'} | Status: {connStatus || 'auth_error'}
               </Text>
             </VStack>
             <Button size="xs" colorScheme="orange" fontFamily="mono"
