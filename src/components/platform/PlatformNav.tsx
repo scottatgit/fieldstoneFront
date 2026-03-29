@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: 'INTEGRATIONS', href: '/platform/integrations'   },
   { label: 'SECURITY',     href: '/platform/security'       },
   { label: 'OPS',          href: '/platform/ops'            },
+  { label: 'RUNTIME',      href: '/platform/ops/runtime'    },
 ];
 
 const COMING_SOON = [{ label: 'AI PROPOSALS', href: '/platform/proposals' }];
