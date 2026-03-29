@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'ADMIN',        href: '/platform/admin'          },
   { label: 'INTEGRATIONS', href: '/platform/integrations'   },
   { label: 'SECURITY',     href: '/platform/security'       },
+  { label: 'OPS',          href: '/platform/ops'            },
 ];
 
 const COMING_SOON = [{ label: 'AI PROPOSALS', href: '/platform/proposals' }];
