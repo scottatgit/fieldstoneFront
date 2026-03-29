@@ -79,7 +79,7 @@ function hasSignalToken(req: NextRequest): boolean {
 
 function applyPlatformRewrite(req: NextRequest, isAdmin = false): NextResponse {
   const { pathname } = req.nextUrl;
-  const newPath = pathname === '/' ? '/signal'
+  const newPath = pathname === '/' ? '/platform'
     : pathname.startsWith('/platform') ? pathname
     : `/platform${pathname}`;
   const url = req.nextUrl.clone();
