@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "version": "1.1",
+    "audited": "2026-03-29",
+    "auditedBy": "Phase 1 runtime audit — codebase + server inspection",
+    "fieldstoneFrontCommit": "4721f32",
+    "secondBrainCommit": "7aa615b",
+    "crontabStatus": "clean",
+    "note": "Update _meta.audited and commit SHAs when any section is manually re-verified. Script list and public routes are CI-checked on every push."
+  },
+  "sections": {
+    "activeServices": {
+      "title": "Active Runtime Services",
+      "provenance": ["audit-snapshot"],
+      "provenanceNote": "Verified via systemctl + crontab on 2026-03-29. Route count derivable from GET /api/openapi.json.",
+      "footerNote": "confirmed running on production server",
+      "items": [
+        { "name": "Signal API (FastAPI)", "path": "SecondBrain/api.py", "type": "api-service", "ownership": "production", "authGate": "jwt-required", "status": "active", "note": "117 routes · uvicorn :8100 · ~5,500 lines" },
+        { "name": "signal-api systemd service", "path": "/etc/systemd/system/signal-api.service", "type": "background-job", "ownership": "production", "authGate": "internal-only", "status": "active", "note": "Managed by systemctl on DigitalOcean droplet" },
+        { "name": "signal-db-backup", "path": "/etc/cron.daily/signal-db-backup", "type": "background-job", "ownership": "production", "authGate": "internal-only", "status": "scheduled", "note": "Daily · 14-day retention · deploy/backup_db.py" }
+      ]
+    },
+    "backgroundScripts": {
+      "title": "Background Scripts — Server-Deployed",
+      "provenance": ["code-derived", "curated-metadata"],
+      "provenanceNote": "File list is CI-checked against second_brain/*.py on every push to SecondBrain master. Cron status verified clean 2026-03-29. Ownership and risk labels are curated-metadata.",
+      "footerNote": "crontab verified clean — all passive unless invoked manually",
+      "items": [
+        { "name": "auto_reply_pending.py",    "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "Email auto-reply automation · pre-Signal era · no tenant isolation" },
+        { "name": "billing.py",               "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Stripe billing library · imported by api.py · do not run directly" },
+        { "name": "clients.py",               "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "ConnectWise client sync · Python 3.8 compatible · no tenant isolation" },
+        { "name": "closed_ticket_ingest.py",   "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Closed ticket ingestion utility · verify tenant scoping before use" },
+        { "name": "cross_client_intel.py",     "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "Cross-client intel aggregation · replaced by AI pipeline · no tenant isolation" },
+        { "name": "decision_signal.py",        "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Signal scoring library · called from api.py context · no direct tenant isolation" },
+        { "name": "detect_reply_needed.py",    "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "Email reply detection · pre-Signal era · no tenant isolation" },
+        { "name": "embeddings.py",             "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Phase 43 semantic retrieval layer · not yet wired to production ingestion path" },
+        { "name": "error_codes.py",            "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Canonical error string constants · imported by api.py · do not rename constants" },
+        { "name": "export_contacts_csv.py",    "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "CSV contact export · one-time utility · no tenant isolation" },
+        { "name": "global_intel.py",           "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Global intelligence layer · imported by api.py · Phase 21" },
+        { "name": "ingest_emails_imap.py",     "path": "second_brain/", "type": "script", "ownership": "deprecated",  "authGate": "internal-only", "status": "disabled", "note": "Deprecation header added · still imported by api.py for legacy compat · delete after /api/ingest/run 410-hit window clears", "risk": "Writes processed_messages with workspace_id=default if invoked directly. Import retained for backward compat only." },
+        { "name": "ingestion.py",              "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Core ingestion logic · imported by api.py · tenant-safe via API call path" },
+        { "name": "init_db.py",                "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Migration runner + seed utilities · invoke via scripts/ only · do not run ad-hoc" },
+        { "name": "kb_nodes.py",               "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Knowledge base node engine · not yet wired to primary API path" },
+        { "name": "list_pending_replies.py",   "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" },
+        { "name": "memory_bridge.py",          "path": "second_brain/", "type": "script", "ownership": "dev-only",    "authGate": "internal-only", "status": "passive", "note": "Hardcoded /a0/usr/workdir/memory — container-bound path · cannot run on server" },
+        { "name": "memory_daily_sync.py",      "path": "second_brain/", "type": "script", "ownership": "dev-only",    "authGate": "internal-only", "status": "passive", "note": "Hardcoded /a0/usr/workdir — container-bound path · cannot run on server" },
+        { "name": "metrics.py",                "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Observability event constants + emit() · imported by api.py · do not remove event constants" },
+        { "name": "migrate_tenants.py",        "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "One-time tenant ID normalisation (Phase 0019) · do not re-run · retained for reference" },
+        { "name": "outbreak_scanner.py",       "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Outbreak detection · imported by api.py · Phase 44" },
+        { "name": "populate_client_tools.py",  "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" },
+        { "name": "prep_brief.py",             "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" },
+        { "name": "sb_ai.py",                  "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "OpenRouter AI client · imported by api.py · ask() and ask_stream()" },
+        { "name": "send_digest.py",            "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "smtplib — DigitalOcean blocks 465/587 · hardcoded recipient scotteverett@ipquest.net · cannot deliver", "risk": "Hardcoded personal email recipient. Uses smtplib which is blocked by DigitalOcean firewall. Will fail silently if invoked." },
+        { "name": "signals.py",                "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "Signal model definitions · imported by api.py · compute_expectation()" },
+        { "name": "sync_internal_calendar.py", "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" },
+        { "name": "ticket_intel_extractor.py", "path": "second_brain/", "type": "script", "ownership": "production",  "authGate": "internal-only", "status": "passive", "note": "AI ticket extraction library · called from api.py subprocess context · no direct tenant isolation" },
+        { "name": "today_calendar.py",         "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" },
+        { "name": "weekly_summary.py",         "path": "second_brain/", "type": "script", "ownership": "legacy",      "authGate": "internal-only", "status": "passive", "note": "No cron entry · no tenant isolation" }
+      ]
+    },
+    "devTools": {
+      "title": "Dev-Only Tools",
+      "provenance": ["audit-snapshot", "curated-metadata"],
+      "provenanceNote": "PID file and gateway log inspected 2026-03-29. Risk label is curated. Re-verify if discord_bot.py is modified.",
+      "footerNote": "not for production server — containment documented in source",
+      "items": [
+        { "name": "discord_bot.py", "path": "SecondBrain/discord_bot.py", "type": "bot", "ownership": "dev-only", "authGate": "internal-only", "status": "active", "note": "Runs in dev container against local second_brain.db · last gateway: 2026-03-10", "risk": "NO tenant isolation — writes ticket_notes/tickets by ticket_key only. Must not be pointed at production DB." }
+      ]
+    },
+    "publicRoutes": {
+      "title": "Public Unauthenticated Routes",
+      "provenance": ["code-derived", "curated-metadata"],
+      "provenanceNote": "CI-checked against BYPASS_PATHS in src/middleware.ts on every push. Any route not in this list that appears in BYPASS_PATHS is flagged as an anomaly. Expected designation is curated-metadata.",
+      "footerNote": "expected surfaces — any BYPASS_PATHS divergence fails CI",
+      "items": [
+        { "name": "/login",           "path": "src/app/login/",                 "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Custom JWT login" },
+        { "name": "/signup",          "path": "src/app/signup/",                "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Turnstile protected · creates tenant_users row only" },
+        { "name": "/sso-callback",    "path": "src/app/sso-callback/",          "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "SSO callback handler" },
+        { "name": "/redirect",        "path": "src/app/redirect/",              "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Auth middleware redirect handler" },
+        { "name": "/pm/redirect",     "path": "src/app/pm/redirect/",           "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "PM-scoped redirect handler" },
+        { "name": "/pm/onboarding",   "path": "src/app/pm/onboarding/",         "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Post-signup workspace creation step · email_verified=1 required for workspace creation" },
+        { "name": "/invite",          "path": "src/app/invite/",                "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Invite token consumption · preserved through signup redirect" },
+        { "name": "/forgot-password", "path": "src/app/(auth)/forgot-password/","type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Turnstile protected" },
+        { "name": "/reset-password",  "path": "src/app/(auth)/reset-password/", "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Token in query param" },
+        { "name": "/verify-email",    "path": "src/app/(auth)/verify-email/",   "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Token in query param · expires 24h" },
+        { "name": "/verify-pending",  "path": "src/app/(auth)/verify-pending/", "type": "frontend-route", "ownership": "production", "authGate": "public", "status": "active", "note": "Polls /api/auth/me every 5s" }
+      ]
+    },
+    "deprecatedSurfaces": {
+      "title": "Deprecated Surfaces",
+      "provenance": ["code-derived", "curated-metadata"],
+      "provenanceNote": "410 handler presence in api.py is code-verifiable. Deletion gate condition is curated-metadata.",
+      "footerNote": "retained pending deletion gate — do not add new callers",
+      "items": [
+        { "name": "POST /api/ingest/run", "path": "api.py", "type": "deprecated-endpoint", "ownership": "deprecated", "authGate": "jwt-required", "status": "disabled", "note": "Returns 410 Gone · emits ingest.deprecated.410 metric · delete after 7-day zero-hit window", "risk": "Any caller still using this path will silently fail ingestion (410 returned)." },
+        { "name": "ingest_emails_imap.py (direct invocation)", "path": "second_brain/ingest_emails_imap.py", "type": "script", "ownership": "deprecated", "authGate": "internal-only", "status": "disabled", "note": "Deprecation header added · gated on /api/ingest/run zero-hit window · import retained in api.py for legacy compat" }
+      ]
+    }
+  }
+}

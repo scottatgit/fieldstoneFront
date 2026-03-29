@@ -29,3 +29,27 @@ jobs:
       - name: Run Tests
         run: npm run test
 
+  # ── Drift check: BYPASS_PATHS vs Runtime Ownership panel ─────────────────────
+  route-drift-check:
+    name: "Public Routes vs Runtime Ownership Panel"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check public routes drift
+        run: python3 scripts/check_route_drift.py
+        # Fails if BYPASS_PATHS in src/middleware.ts diverges from
+        # publicRoutes.items in src/app/platform/ops/runtime/surfaces.json
+        #
+        # WHEN THIS FAILS:
+        # 1. A path was added to BYPASS_PATHS → add it to surfaces.json publicRoutes
+        # 2. A path was removed from BYPASS_PATHS → remove from surfaces.json publicRoutes
+        # 3. Update surfaces.json _meta.audited date in both cases
+        #
+        # See /platform/ops/runtime for the Runtime Ownership panel.
