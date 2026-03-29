@@ -1,6 +1,7 @@
 import { ReactNode, Suspense } from 'react';
 import { PMProviders } from '../../components/pm/PMProviders';
 import BillingBanner from '../../components/pm/BillingBanner';
+import EmailHealthBanner from '../../components/pm/EmailHealthBanner';
 import { WorkspaceGuard } from '../../components/pm/WorkspaceGuard';
 
 export const metadata = {
@@ -13,6 +14,9 @@ export default function PMLayout({ children }: { children: ReactNode }) {
     <PMProviders>
       <Suspense fallback={null}>
         <BillingBanner />
+      </Suspense>
+      <Suspense fallback={null}>
+        <EmailHealthBanner />
       </Suspense>
       <WorkspaceGuard>
         {children}
