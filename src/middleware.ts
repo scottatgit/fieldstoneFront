@@ -136,12 +136,15 @@ export default function middleware(req: NextRequest): NextResponse {
 
   // ── Platform / Admin control plane (signal.fieldstone.pro)
   if (mode === 'platform' || mode === 'admin') {
-    // Root platform path: authenticated users go to /redirect, others to /login
+    // Root product landing: authenticated users go to /redirect
+    // Unauthenticated visitors at root see the public Signal product landing page (page.tsx)
+    // FST-025: signal.fieldstone.pro/ must serve landing page, not platform control plane
     if (pathname === '/' || pathname === '') {
       if (hasSignalToken(req)) {
         return NextResponse.redirect(new URL('/redirect', req.url));
       }
-      return applyPlatformRewrite(req, mode === 'admin');
+      // No token: serve root page.tsx as public product landing
+      return NextResponse.next();
     }
     // Protected platform routes require auth
     if (pathname.startsWith('/pm') || pathname.startsWith('/platform')) {
