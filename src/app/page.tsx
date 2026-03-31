@@ -50,7 +50,7 @@ export default function FieldstonePage() {
                 mb={4}
                 textTransform="uppercase"
               >
-                Work Intelligence
+                AI Infrastructure
               </Text>
               <Heading
                 fontSize={{ base: "3xl", md: "5xl" }}
@@ -66,8 +66,8 @@ export default function FieldstonePage() {
                 maxW="xl"
                 mx="auto"
               >
-                Work intelligence for ticket-driven and request-driven operations.
-                Capture, understand, advise, and learn — across any team that runs on work queues.
+                Operational intelligence infrastructure for field service teams.
+                Built for MSPs who need to move fast and resolve clean.
               </Text>
             </Box>
 
@@ -139,7 +139,7 @@ export default function FieldstonePage() {
             {[
               {
                 title: "Signal",
-                desc: "Operational intelligence for teams that run on tickets, requests, and service queues. Surface patterns, draft outcomes, and act with context.",
+                desc: "Pre-visit intelligence and ticket management for MSP technicians. Know the site before you walk in.",
                 href: "https://signal.fieldstone.pro",
                 label: "Open Signal",
               },
