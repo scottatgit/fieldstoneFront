@@ -21,7 +21,7 @@ export default function FieldstonePage() {
               <HStack spacing={2}>
                 <Box w={2} h={2} bg={BLUE} borderRadius="full" />
                 <Text fontWeight="700" fontSize="lg" letterSpacing="0.1em" color="white">
-                  SIGNAL
+                  FIELDSTONE
                 </Text>
               </HStack>
               <Button
@@ -58,7 +58,7 @@ export default function FieldstonePage() {
                 lineHeight="1.15"
                 mb={6}
               >
-                Signal
+                Fieldstone AI
               </Heading>
               <Text
                 fontSize={{ base: "md", md: "lg" }}
@@ -79,7 +79,7 @@ export default function FieldstonePage() {
             >
               <Button
                 as="a"
-                href="https://signal.fieldstone.pro/signup"
+                href="https://signal.fieldstone.pro"
                 size="lg"
                 bg={BLUE}
                 color="#0d1117"
@@ -87,7 +87,7 @@ export default function FieldstonePage() {
                 px={8}
                 _hover={{ opacity: 0.85 }}
               >
-                Get Started
+                Launch Signal
               </Button>
               <Button
                 as="a"
@@ -140,8 +140,8 @@ export default function FieldstonePage() {
               {
                 title: "Signal",
                 desc: "Operational intelligence for teams that run on tickets, requests, and service queues. Surface patterns, draft outcomes, and act with context.",
-                href: "https://signal.fieldstone.pro/login",
-                label: "Sign In →",
+                href: "https://signal.fieldstone.pro",
+                label: "Open Signal",
               },
               {
                 title: "Admin Console",
