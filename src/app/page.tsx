@@ -224,20 +224,6 @@ function SignalLanding() {
         </VStack>
       </Container>
 
-      {/* ── App screenshot ── */}
-      <Container maxW="6xl" pb={{ base: 12, md: 20 }}>
-        <Box
-          border="1px solid"
-          borderColor={BORDER}
-          borderRadius="xl"
-          overflow="hidden"
-          bg="#111827"
-          boxShadow="0 0 80px rgba(99,179,237,0.08)"
-        >
-          <Box as="img" src="/preview.png" alt="Signal dashboard" w="100%" display="block" />
-        </Box>
-      </Container>
-
       {/* ── Features ── */}
       <Container maxW="5xl" pb={{ base: 12, md: 20 }}>
         <VStack spacing={3} mb={12} textAlign="center">
