@@ -143,8 +143,8 @@ export default function middleware(req: NextRequest): NextResponse {
       if (hasSignalToken(req)) {
         return NextResponse.redirect(new URL('/redirect', req.url));
       }
-      // No token: serve root page.tsx as public product landing
-      return NextResponse.next();
+      // No token: SSR rewrite to /signal-landing for full SEO
+      return NextResponse.rewrite(new URL('/signal-landing', req.url));
     }
     // Protected platform routes require auth
     if (pathname.startsWith('/pm') || pathname.startsWith('/platform')) {
