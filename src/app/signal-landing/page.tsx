@@ -14,16 +14,21 @@ const DIM     = 'gray.500';
 const DIM2    = 'gray.600';
 
 export const metadata = {
-  title: 'Signal — Work Intelligence Platform',
+  title: 'Signal — Turn Tickets Into Operational Intelligence | Work Intelligence Platform',
   description:
-    'Signal turns plain tickets, emails, and requests into decision-ready operational briefs — and builds living company intelligence from every piece of work.',
+    'Signal turns every ticket, email, and request into a decision-ready operational brief — and builds living company intelligence that grows stronger with every piece of work. Built for service teams, MSPs, and any request-driven operation.',
   keywords: [
-    'work intelligence',
+    'work intelligence platform',
     'ticket intelligence',
+    'operational intelligence',
+    'service intelligence',
     'operational brief',
     'MSP software',
     'outbreak detection',
+    'request-driven teams',
+    'growing company intelligence',
     'service team software',
+    'field operations intelligence',
     'Signal',
     'Fieldstone',
   ],
@@ -33,15 +38,24 @@ export const metadata = {
     type: 'website',
     url: 'https://signal.fieldstone.pro',
     siteName: 'Signal',
-    title: 'Signal — Work Intelligence Platform',
+    title: 'Signal — Turn Tickets Into Operational Intelligence',
     description:
-      'Turn raw work into living intelligence. Signal converts everyday tickets into operational briefs and builds company intelligence that grows with every ticket.',
+      'Every ticket becomes intelligence. Signal reads your work, builds a decision-ready operational brief, and grows company intelligence that compounds over time. Built for teams that run on requests.',
+    images: [
+      {
+        url: 'https://signal.fieldstone.pro/og-signal.png',
+        width: 1200,
+        height: 630,
+        alt: 'Signal — Work Intelligence Platform',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Signal — Work Intelligence Platform',
+    title: 'Signal — Turn Tickets Into Operational Intelligence',
     description:
-      'Turn raw work into living intelligence. Signal converts everyday tickets into operational briefs and builds company intelligence that grows with every ticket.',
+      'Every ticket becomes intelligence. Signal builds decision-ready operational briefs and growing company intelligence from your daily work queue.',
+    images: ['https://signal.fieldstone.pro/og-signal.png'],
   },
 };
 
@@ -69,7 +83,18 @@ function Nav() {
               SIGNAL
             </Text>
           </HStack>
-          <HStack spacing={3}>
+          <HStack spacing={5}>
+            <Text
+              as="a"
+              href="https://www.fieldstone.pro"
+              fontSize="sm"
+              color={DIM2}
+              fontWeight="500"
+              _hover={{ color: BLUE }}
+              display={{ base: 'none', sm: 'block' }}
+            >
+              Fieldstone.pro
+            </Text>
             <Button
               as="a"
               href="/login"
@@ -118,6 +143,7 @@ function Hero() {
             Work Intelligence Platform
           </Text>
           <Heading
+            as="h1"
             fontSize={{ base: '4xl', md: '6xl' }}
             fontWeight="800"
             lineHeight="1.08"
@@ -180,11 +206,16 @@ function Transformation() {
       <Container maxW="5xl">
         <VStack spacing={3} mb={14} textAlign="center">
           <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
-            The transformation
+            Ticket &#8594; Signals &#8594; Living intelligence
           </Text>
-          <Heading fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
-            Signal turns this — into this — and builds this.
+          <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
+            Signal turns a ticket into signals and builds living intelligence.
           </Heading>
+          <Text fontSize="md" color={MUTED} maxW="xl" lineHeight="1.8" pt={1}>
+            Raw work comes in. Signal reads it, extracts what matters, and returns
+            a brief your team can act on — while every ticket adds to the intelligence
+            layer underneath.
+          </Text>
         </VStack>
 
         <Stack direction={{ base: 'column', md: 'row' }} spacing={0} align="stretch">
@@ -315,7 +346,7 @@ function TheBrief() {
             <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
               The brief
             </Text>
-            <Heading fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800" lineHeight="1.2">
+            <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800" lineHeight="1.2">
               Not a summary.
               <Box as="span" color={BLUE}> A read of the moment.</Box>
             </Heading>
@@ -429,7 +460,7 @@ function GrowingIntelligence() {
           <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
             How it compounds
           </Text>
-          <Heading fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
+          <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
             Intelligence that grows with every ticket.
           </Heading>
           <Text fontSize="md" color={MUTED} maxW="xl" lineHeight="1.8">
@@ -488,7 +519,7 @@ function NetworkIntelligence() {
             <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
               Network intelligence
             </Text>
-            <Heading fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800" lineHeight="1.2">
+            <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800" lineHeight="1.2">
               Your team is not the only one seeing this.
             </Heading>
             <Text fontSize="md" color={MUTED} lineHeight="1.85">
@@ -566,7 +597,7 @@ function WhoItsFor() {
           <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
             Built for
           </Text>
-          <Heading fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
+          <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800">
             Any team that runs on requests.
           </Heading>
           <Text fontSize="md" color={MUTED} maxW="xl" lineHeight="1.8">
@@ -608,7 +639,7 @@ function CloseCTA() {
           <Text fontSize="xs" fontWeight="700" letterSpacing="0.2em" color={BLUE} textTransform="uppercase">
             Get started
           </Text>
-          <Heading fontSize={{ base: '3xl', md: '4xl' }} fontWeight="800" lineHeight="1.15">
+          <Heading as="h2" fontSize={{ base: '3xl', md: '4xl' }} fontWeight="800" lineHeight="1.15">
             See what your work is trying to tell you.
           </Heading>
           <Text fontSize="lg" color={MUTED} maxW="lg" lineHeight="1.75">
@@ -680,6 +711,33 @@ function Footer() {
   );
 }
 
+
+// ─────────────────────────────────────────────
+// Structured Data (JSON-LD)
+// ─────────────────────────────────────────────
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Signal',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: 'https://signal.fieldstone.pro',
+  description:
+    'Signal turns every ticket, email, and request into a decision-ready operational brief and builds living company intelligence that compounds over time.',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    description: 'Free tier available',
+  },
+  creator: {
+    '@type': 'Organization',
+    name: 'Fieldstone AI',
+    url: 'https://www.fieldstone.pro',
+  },
+};
+
 // ─────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────
@@ -687,6 +745,10 @@ function Footer() {
 export default function SignalLandingPage() {
   return (
     <Box minH="100vh" bg={BG} color="white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Nav />
       <Hero />
       <Transformation />
