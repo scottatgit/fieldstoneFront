@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Box, Button, Container, Flex, Heading, Stack, Text, VStack, HStack, Divider,
 } from '@chakra-ui/react';
-import { ChakraProvider } from '@chakra-ui/react';
-import theme from '../theme';
 
 const BG     = '#0d1117';
 const BLUE   = '#63B3ED';
@@ -11,8 +9,7 @@ const BORDER = '#1f2937';
 
 export default function FieldstonePage() {
   return (
-    <ChakraProvider theme={theme}>
-      <Box minH="100vh" bg={BG} color="white">
+    <Box minH="100vh" bg={BG} color="white">
 
         {/* Nav */}
         <Box borderBottom="1px solid" borderColor={BORDER} py={4}>
@@ -174,7 +171,6 @@ export default function FieldstonePage() {
           </Container>
         </Box>
 
-      </Box>
-    </ChakraProvider>
+    </Box>
   );
 }

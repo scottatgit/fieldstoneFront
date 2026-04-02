@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Box, Button, Container, Flex, Heading, Stack, Text, VStack, HStack, SimpleGrid,
 } from '@chakra-ui/react';
-import { ChakraProvider } from '@chakra-ui/react';
-import theme from '../../theme';
 
 const BG      = '#0d1117';
 const SURFACE = '#111827';
@@ -580,8 +578,7 @@ function Footer() {
 
 export default function SignalLandingPage() {
   return (
-    <ChakraProvider theme={theme}>
-      <Box minH="100vh" bg={BG} color="white">
+    <Box minH="100vh" bg={BG} color="white">
         <Nav />
         <Hero />
         <WhyItMatters />
@@ -592,7 +589,6 @@ export default function SignalLandingPage() {
         <WhoItsFor />
         <CloseCTA />
         <Footer />
-      </Box>
-    </ChakraProvider>
+    </Box>
   );
 }
