@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { clearUserCache } from '@/lib/useUser';
+import { track } from '@/lib/analytics';
 
 const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || 'signal.fieldstone.pro';
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
@@ -14,6 +15,9 @@ export default function SignUpPage() {
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
   const [cfToken, setCfToken] = useState('');
+
+  // FST-AN-001D: track signup_started on mount
+  useEffect(() => { track('signup_started'); }, []);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -43,6 +47,7 @@ export default function SignUpPage() {
         return;
       }
       clearUserCache();
+      track('signup_completed'); // FST-AN-001D
       // Phase 9: Redirect to verify-pending with email param
       const email = encodeURIComponent(data.email || form.email);
       const _invite = new URLSearchParams(window.location.search).get('invite');

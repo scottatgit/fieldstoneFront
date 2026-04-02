@@ -1,4 +1,6 @@
 import React from 'react';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker';
+import { TrackedButton } from '@/components/TrackedButton';
 import {
   Box, Button, Container, Flex, Heading, Stack, Text, VStack, HStack, SimpleGrid,
 } from '@chakra-ui/react';
@@ -745,6 +747,9 @@ const jsonLd = {
 export default function SignalLandingPage() {
   return (
     <Box minH="100vh" bg={BG} color="white">
+      {/* FST-AN-001C: page_view tracking */}
+      <AnalyticsTracker />
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clearUserCache } from '@/lib/useUser';
+import { track } from '@/lib/analytics';
 
 const BASE_DOMAIN   = process.env.NEXT_PUBLIC_BASE_DOMAIN   || 'fieldstone.pro';
 const SIGNAL_DOMAIN = process.env.NEXT_PUBLIC_SIGNAL_DOMAIN || ('signal.' + BASE_DOMAIN);
@@ -36,7 +37,10 @@ export default function LoginPage() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
 
-  useEffect(() => { setHint(getTenantHint()); }, []);
+  useEffect(() => {
+    setHint(getTenantHint());
+    track('login_viewed'); // FST-AN-001D
+  }, []);
 
   // ── Step 1: email + password ──────────────────────────────────────────
   async function handleCredentials(e: FormEvent) {
@@ -109,6 +113,7 @@ export default function LoginPage() {
   }
 
   function finishLogin(data: { slug?: string }) {
+    track('login_completed'); // FST-AN-001D
     clearUserCache();
     if (data.slug) {
       const proto = window.location.protocol;

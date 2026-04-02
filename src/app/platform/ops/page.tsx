@@ -1,4 +1,5 @@
 'use client';
+import { AnalyticsPanel } from '@/components/platform/AnalyticsPanel';
 import { Box,Flex,Text,SimpleGrid,HStack,VStack,Badge,Spinner,Button,Divider,Tooltip,useInterval } from '@chakra-ui/react';
 import { useState,useCallback,useEffect } from 'react';
 
@@ -249,6 +250,8 @@ export default function OpsPage(){
         </VStack>
       </SimpleGrid>
       <SmokePanel/>
+      {/* FST-AN-001E: First-party analytics readout */}
+      <Box mt={4}><AnalyticsPanel /></Box>
     </Box>
   );
 }

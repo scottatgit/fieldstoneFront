@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import {
+import { track } from '@/lib/analytics'; // FST-AN-001D
   Box, VStack, HStack, Text, Badge, Button, Input, FormControl, FormLabel, Spinner,
 } from '@chakra-ui/react';
 
@@ -88,7 +89,8 @@ export function Step2CreateWorkspace({ onSuccess, onBack }: Props) {
         if (String(data.detail) === 'workspace_already_exists') {
           // User already has workspace — route them there
           const slug2 = (data as Record<string,string>).slug || slug;
-          window.location.href = `https://${slug2}.${SIGNAL_DOMAIN}/pm`;
+          track('workspace_created'); // FST-AN-001D
+      window.location.href = `https://${slug2}.${SIGNAL_DOMAIN}/pm`;
           return;
         }
         setError('That workspace name is already taken. Try another.');

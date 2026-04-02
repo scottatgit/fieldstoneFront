@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import {
   Box, Button, Container, Flex, Heading, Stack, Text, VStack, HStack, Divider,
 } from '@chakra-ui/react';
@@ -10,6 +11,9 @@ const BORDER = '#1f2937';
 export default function FieldstonePage() {
   return (
     <Box minH="100vh" bg={BG} color="white">
+        {/* FST-AN-001C: page_view tracking */}
+        <AnalyticsTracker />
+
 
         {/* Nav */}
         <Box borderBottom="1px solid" borderColor={BORDER} py={4}>
