@@ -44,6 +44,13 @@ interface AnalyticsSummary {
   funnel:  AnalyticsFunnel;
   rates:   AnalyticsRates;
   daily_events: Record<string, number>;
+  // FST-AN-002: product usage (authenticated workspace surfaces, aggregate only)
+  product_usage?: {
+    briefs_viewed: number;
+    intel_viewed: number;
+    tickets_closed_tracked: number;
+    active_workspaces_7d: number;
+  };
 }
 
 // Reuse Panel pattern from ops/page.tsx
@@ -200,6 +207,19 @@ export function AnalyticsPanel() {
             <ConvRate label="LOGIN VIEW → COMPLETED"       value={r.login_view_to_completed} />
             <ConvRate label="SIGNUP → WORKSPACE CREATED"  value={r.signup_to_workspace} />
           </SimpleGrid>
+          {/* ── Product Usage (FST-AN-002) ─────────────────── */}
+          {data.product_usage && (
+            <>
+              <Divider borderColor="gray.800" />
+              <Text fontSize="10px" fontFamily="mono" color="gray.600" textTransform="uppercase">Product Usage · 7d</Text>
+              <SimpleGrid columns={4} gap={2}>
+                <AStat label="Briefs Viewed"      value={data.product_usage.briefs_viewed}          color="blue.300" />
+                <AStat label="Intel Viewed"       value={data.product_usage.intel_viewed}           color="purple.300" />
+                <AStat label="Tickets Closed"     value={data.product_usage.tickets_closed_tracked} color="green.400" />
+                <AStat label="Active Workspaces"  value={data.product_usage.active_workspaces_7d}   color="orange.300" />
+              </SimpleGrid>
+            </>
+          )}
           <Text fontSize="9px" color="gray.700" fontFamily="mono">
             aggregate only · no raw events · updated {new Date(data.ts).toLocaleTimeString()}
           </Text>
