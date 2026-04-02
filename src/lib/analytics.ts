@@ -55,6 +55,8 @@ export interface AnalyticsProps {
   // FST-AN-002: workspace context for authenticated product events
   // Safe to store — internal FK, not PII. Never sent to external services.
   workspace_id?: string;
+  // FST-AN-003E: optional override for route_key — if omitted, derived from pathname
+  route_key?: string;
 }
 
 // FST-AN-003A: Events that must fire at most once per browser tab session
@@ -166,7 +168,7 @@ export function track(
     const payload = {
       event_name:   eventName,
       domain:       normaliseDomain(hostname),
-      route_key:    normaliseRouteKey(pathname),
+      route_key:    routeKeyOverride ?? normaliseRouteKey(pathname),
       anonymous_id: anonymousId,
       workspace_id: workspace_id || null,
       properties: {

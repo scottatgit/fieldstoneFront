@@ -89,8 +89,7 @@ export function Step2CreateWorkspace({ onSuccess, onBack }: Props) {
         if (String(data.detail) === 'workspace_already_exists') {
           // User already has workspace — route them there
           const slug2 = (data as Record<string,string>).slug || slug;
-          track('workspace_created'); // FST-AN-001D
-      window.location.href = `https://${slug2}.${SIGNAL_DOMAIN}/pm`;
+          window.location.href = `https://${slug2}.${SIGNAL_DOMAIN}/pm`;
           return;
         }
         setError('That workspace name is already taken. Try another.');
@@ -113,6 +112,7 @@ export function Step2CreateWorkspace({ onSuccess, onBack }: Props) {
       if (!res.ok) { setError(String(data.detail ?? `Server error ${res.status}`)); return; }
 
       // Success — redirect to the new workspace
+      track('workspace_created'); // FST-AN-003E: fires on actual creation, not 409
       window.location.href = `https://${slug}.${SIGNAL_DOMAIN}/pm`;
     } catch (e) {
       setError(`Network error: ${e instanceof Error ? e.message : 'Cannot reach server'}`);
