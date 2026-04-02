@@ -1,11 +1,19 @@
 // src/lib/analytics.ts
 // FST-AN-001: First-party analytics client.
+// FST-AN-003A: Session-level deduplication for noisy mount-fired product events.
 // Fire-and-forget. Never blocks user actions. Never stores PII.
 //
 // Anonymous ID:
 //   A random UUID stored in localStorage under key 'sig_anon'.
 //   Purely for funnel continuity. Not linked to email/identity.
 //   Users can clear it by clearing site data. Fully removable.
+//
+// Deduplication (FST-AN-003A):
+//   brief_viewed and intel_viewed fire on component mount and can overcount
+//   if the user navigates back to the same surface within a session.
+//   sessionStorage key ae_dedup_{event}_{workspaceId} prevents repeat fires
+//   within the same browser tab session. Cleared automatically on tab close.
+//   ticket_closed is action-gated — no dedup needed.
 //
 // Privacy guardrails (enforced here AND on the server):
 //   - No email addresses
@@ -49,8 +57,35 @@ export interface AnalyticsProps {
   workspace_id?: string;
 }
 
-// Route key normalisation
-// Maps raw pathnames to canonical route_key values.
+// FST-AN-003A: Events that must fire at most once per browser tab session
+// per (event_name, workspace_id). Prevents component-mount loops from
+// inflating activation counts. Uses sessionStorage — cleared on tab close.
+// Rollback: remove this set and the checkAndSetDedup call in track().
+const SESSION_DEDUP_EVENTS = new Set<AnalyticsEvent>(['brief_viewed', 'intel_viewed']);
+
+/**
+ * FST-AN-003A: Check sessionStorage dedup guard before firing.
+ * Returns true  → event should fire (not seen this session, guard now set).
+ * Returns false → event already fired this session, suppress.
+ * Never throws. Falls back to true (allow) on any sessionStorage error.
+ */
+function checkAndSetDedup(
+  eventName: AnalyticsEvent,
+  workspaceId: string | null | undefined,
+): boolean {
+  if (!SESSION_DEDUP_EVENTS.has(eventName)) return true;
+  if (typeof window === 'undefined') return true;
+  try {
+    const key = `ae_dedup_${eventName}_${workspaceId ?? 'anon'}`;
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, '1');
+    return true;
+  } catch {
+    return true; // sessionStorage unavailable — fire, never block
+  }
+}
+
+// Route key normalisation — maps raw pathnames to canonical route_key values.
 function normaliseRouteKey(pathname: string): string {
   if (!pathname) return 'other';
   const p = pathname.split('?')[0].toLowerCase();
@@ -58,9 +93,9 @@ function normaliseRouteKey(pathname: string): string {
   if (p.startsWith('/login'))       return 'login';
   if (p.startsWith('/signup'))      return 'signup';
   if (p.startsWith('/pm/onboard')) return 'onboarding';
-  if (p.startsWith('/pm/intel'))  return 'intel';
-  if (p.startsWith('/pm/setup'))  return 'setup';
-  if (p.startsWith('/pm'))        return 'dispatch';
+  if (p.startsWith('/pm/intel'))   return 'intel';
+  if (p.startsWith('/pm/setup'))   return 'setup';
+  if (p.startsWith('/pm'))         return 'dispatch';
   if (p.startsWith('/redirect'))   return 'redirect';
   if (p.startsWith('/verify'))     return 'verify';
   if (p.startsWith('/demo'))       return 'demo';
@@ -82,7 +117,6 @@ function getAnonymousId(): string | null {
   try {
     let id = localStorage.getItem('sig_anon');
     if (!id) {
-      // Generate a random UUID-like token
       id = crypto.randomUUID
         ? crypto.randomUUID()
         : Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -107,6 +141,9 @@ function getDeviceType(): string {
  *
  * Safe to call anywhere. Errors are silently swallowed.
  * Never awaited, never blocks user interaction.
+ *
+ * FST-AN-003A: brief_viewed and intel_viewed are deduplicated
+ * per browser session per workspace via sessionStorage guard.
  */
 export function track(
   eventName: AnalyticsEvent,
@@ -115,12 +152,15 @@ export function track(
   if (typeof window === 'undefined') return;
 
   try {
+    // FST-AN-003A: session dedup — suppress if already fired this tab session
+    if (!checkAndSetDedup(eventName, props.workspace_id)) return;
+
     const anonymousId = getAnonymousId();
     const hostname    = window.location.hostname;
     const pathname    = window.location.pathname;
 
     // Lift workspace_id out of properties into top-level field
-    // (stored as a dedicated column, not in the JSON blob)
+    // (stored as a dedicated DB column, not in the JSON blob)
     const { workspace_id, ...restProps } = props;
 
     const payload = {
@@ -136,7 +176,6 @@ export function track(
       },
     };
 
-    // fire-and-forget with keepalive so it survives page transitions
     fetch(ENDPOINT, {
       method:    'POST',
       headers:   { 'Content-Type': 'application/json' },
@@ -147,5 +186,21 @@ export function track(
     });
   } catch {
     // intentionally silent — analytics must never throw
+  }
+}
+
+/**
+ * clearDedupSession() — test/debug helper only.
+ * Clears all analytics dedup keys from sessionStorage.
+ * Not called in any production path.
+ */
+export function clearDedupSession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    Object.keys(sessionStorage)
+      .filter(k => k.startsWith('ae_dedup_'))
+      .forEach(k => sessionStorage.removeItem(k));
+  } catch {
+    // silent
   }
 }

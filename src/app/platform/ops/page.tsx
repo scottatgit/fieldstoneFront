@@ -252,6 +252,8 @@ export default function OpsPage(){
       <SmokePanel/>
       {/* FST-AN-001E: First-party analytics readout */}
       <Box mt={4}><AnalyticsPanel /></Box>
+      {/* FST-AN-003C: Activation funnel — workspace-level value loop depth */}
+      <Box mt={4}><ActivationFunnelPanel /></Box>
     </Box>
   );
 }

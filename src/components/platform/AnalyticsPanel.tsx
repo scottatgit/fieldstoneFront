@@ -51,6 +51,13 @@ interface AnalyticsSummary {
     tickets_closed_tracked: number;
     active_workspaces_7d: number;
   };
+  // FST-AN-003B: workspace-level activation funnel
+  activation_funnel?: {
+    workspaces_created: number;
+    reached_brief:      number;
+    reached_intel:      number;
+    reached_close:      number;
+  };
 }
 
 // Reuse Panel pattern from ops/page.tsx
