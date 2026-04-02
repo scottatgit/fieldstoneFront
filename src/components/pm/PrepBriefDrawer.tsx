@@ -7,6 +7,8 @@ import {
 import { useEffect, useState } from 'react';
 import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
+import { track } from '@/lib/analytics';
+import { useUser } from '@/lib/useUser';
 
 const PM_API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 import { isDemoMode, demoFetch } from '@/lib/demoApi';
@@ -65,6 +67,8 @@ interface PrepBriefDrawerProps {
 }
 
 export function PrepBriefDrawer({ ticket, isOpen, onClose }: PrepBriefDrawerProps) {
+  // FST-AN-002: workspace context for product analytics
+  const { user } = useUser();
   const [brief, setBrief]     = useState<string>('');
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -72,6 +76,8 @@ export function PrepBriefDrawer({ ticket, isOpen, onClose }: PrepBriefDrawerProp
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!ticket || !isOpen) return;
+    // FST-AN-002: track brief view — no ticket content, workspace_id only
+    track('brief_viewed', { workspace_id: user?.tenant_id ?? undefined });
     setLoading(true);
     setBrief('');
     const loadBrief = async () => {

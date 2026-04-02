@@ -10,6 +10,7 @@ import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import TicketSignalAI from './TicketSignalAI';
 import { isDemoMode, demoFetch, getActiveTenant } from '@/lib/demoApi';
+import { track } from '@/lib/analytics';
 
 // Demo-aware fetch wrapper for ExecutionView
 async function exFetch(url: string, options?: RequestInit): Promise<Response> {
@@ -548,7 +549,11 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outcome_type: outcomeType }),
       });
-      if (res.ok) setTicketClosed(true);
+      if (res.ok) {
+        setTicketClosed(true);
+        // FST-AN-002: track ticket closure — no ticket content, workspace_id only
+        track('ticket_closed', { workspace_id: getActiveTenant() ?? undefined });
+      }
       else console.error('[close] POST /close failed', res.status);
     } catch (e) {
       console.error('[close] POST /close error', e);

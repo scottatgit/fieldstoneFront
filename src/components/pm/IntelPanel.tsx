@@ -6,6 +6,8 @@ import {
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { pmFetch } from '@/lib/demoApi';
+import { track } from '@/lib/analytics';
+import { useUser } from '@/lib/useUser';
 
 const API = process.env.NEXT_PUBLIC_PM_API_URL || 'http://localhost:8100';
 
@@ -35,6 +37,15 @@ function cn(c: unknown): string {
 }
 
 export default function IntelPanel() {
+  // FST-AN-002: workspace context for product analytics
+  const { user } = useUser();
+
+  // FST-AN-002: fire intel_viewed once on mount
+  useEffect(() => {
+    track('intel_viewed', { workspace_id: user?.tenant_id ?? undefined });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — fire once on mount only
+
   const [events, setEvents]   = useState<OutbreakEvent[]>([]);
   const [tools, setTools]     = useState<ToolRow[]>([]);
   const [lastRun, setLastRun] = useState<string>('');

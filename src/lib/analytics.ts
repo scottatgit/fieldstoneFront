@@ -28,7 +28,11 @@ export type AnalyticsEvent =
   | 'signup_completed'
   | 'login_viewed'
   | 'login_completed'
-  | 'workspace_created';
+  | 'workspace_created'
+  // FST-AN-002: product usage events (authenticated workspace surfaces)
+  | 'brief_viewed'
+  | 'intel_viewed'
+  | 'ticket_closed';
 
 // Allowed property keys — server strips anything not in this set
 export interface AnalyticsProps {
@@ -40,6 +44,9 @@ export interface AnalyticsProps {
   utm_campaign?: string;
   device_type?:  string;
   path?:         string;
+  // FST-AN-002: workspace context for authenticated product events
+  // Safe to store — internal FK, not PII. Never sent to external services.
+  workspace_id?: string;
 }
 
 // Route key normalisation
@@ -51,7 +58,9 @@ function normaliseRouteKey(pathname: string): string {
   if (p.startsWith('/login'))       return 'login';
   if (p.startsWith('/signup'))      return 'signup';
   if (p.startsWith('/pm/onboard')) return 'onboarding';
-  if (p.startsWith('/pm'))         return 'workspace';
+  if (p.startsWith('/pm/intel'))  return 'intel';
+  if (p.startsWith('/pm/setup'))  return 'setup';
+  if (p.startsWith('/pm'))        return 'dispatch';
   if (p.startsWith('/redirect'))   return 'redirect';
   if (p.startsWith('/verify'))     return 'verify';
   if (p.startsWith('/demo'))       return 'demo';
@@ -110,15 +119,20 @@ export function track(
     const hostname    = window.location.hostname;
     const pathname    = window.location.pathname;
 
+    // Lift workspace_id out of properties into top-level field
+    // (stored as a dedicated column, not in the JSON blob)
+    const { workspace_id, ...restProps } = props;
+
     const payload = {
       event_name:   eventName,
       domain:       normaliseDomain(hostname),
       route_key:    normaliseRouteKey(pathname),
       anonymous_id: anonymousId,
+      workspace_id: workspace_id || null,
       properties: {
-        ...props,
-        device_type: props.device_type || getDeviceType(),
-        path:        props.path || pathname.split('?')[0].slice(0, 128),
+        ...restProps,
+        device_type: restProps.device_type || getDeviceType(),
+        path:        restProps.path || pathname.split('?')[0].slice(0, 128),
       },
     };
 
