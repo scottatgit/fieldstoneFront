@@ -11,6 +11,7 @@ import {
 import { useEffect, useState, useCallback } from 'react'
 import React from 'react';
 import { pmFetch } from '@/lib/demoApi';
+import { useUser } from '@/lib/useUser';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 
@@ -199,6 +200,7 @@ interface TrendItem {
   trend_status: 'normal' | 'emerging' | 'outbreak';
 }
 export default function IntelDashboard() {
+  const { user } = useUser();
   const [events, setEvents]         = useState<OutbreakEvent[]>([]);
   const [tools,  setTools]           = useState<ToolRow[]>([]);
   const [lastRun, setLastRun]        = useState<string>('');
@@ -231,10 +233,12 @@ export default function IntelDashboard() {
   const fetchTrends = useCallback(async () => {
     setTrendsLoading(true);
     try {
-      const res = await pmFetch('/api/intel/trends', API);
+      const tenantParam = user?.tenant_id ? `?tenant_id=${user.tenant_id}` : '';
+      const res = await pmFetch(`/api/intel/trends${tenantParam}`, API);
       setTrends((res as any)?.items ?? []);
     } catch { /* silent */ } finally { setTrendsLoading(false); }
-  }, []);
+  }, [user?.tenant_id]);
+
   const fetchAll = useCallback(async () => {
     try {
       const [evRes, trRes] = await Promise.allSettled([
