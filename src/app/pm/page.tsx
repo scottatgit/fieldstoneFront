@@ -1,7 +1,7 @@
 'use client';
 import {
   Box, Flex, Grid, GridItem, HStack, VStack, Text, Badge,
-  Input, Spinner,
+  Input, Spinner, Button, useDisclosure,
   Tabs, TabList, Tab, TabPanels, TabPanel,
 }  from '@chakra-ui/react';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -13,6 +13,7 @@ import IntelPanel from '@/components/pm/IntelPanel';
 import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
+import { NewTicketModal } from '@/components/pm/NewTicketModal';
 
 const PM_API      = '/pm-api'; // always use relative proxy path — NEXT_PUBLIC_PM_API_URL ignored (was set to demo domain on Vercel)
 const DEFAULT_TECH = process.env.NEXT_PUBLIC_DEFAULT_TECH || 'Scott Everett';
@@ -509,11 +510,18 @@ export default function PMPage() {
 
           {/* Desktop header */}
           <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
-            display={{ base: 'none', md: 'flex' }}>
-            <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
-              {filterLabel}
-            </Text>
-            <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
+            display={{ base: 'none', md: 'flex' }} justify="space-between">
+            <HStack spacing={2}>
+              <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
+                {filterLabel}
+              </Text>
+              <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
+            </HStack>
+            <Button
+              size="xs" onClick={openNewTicket}
+              bg="blue.800" color="blue.200" fontFamily="mono" fontSize="2xs"
+              _hover={{ bg: 'blue.700' }} letterSpacing="wider"
+            >+ NEW</Button>
           </HStack>
 
           {fetchError && (
@@ -578,6 +586,11 @@ export default function PMPage() {
           </Tabs>
         </GridItem>
       </Grid>
+      <NewTicketModal
+        isOpen={isNewTicketOpen}
+        onClose={closeNewTicket}
+        onCreated={() => { fetchTickets(); fetchSummary(); }}
+      />
     </Box>
   );
 }
