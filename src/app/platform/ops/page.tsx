@@ -1,5 +1,6 @@
 'use client';
 import { AnalyticsPanel } from '@/components/platform/AnalyticsPanel';
+import { ActivationFunnelPanel } from '@/components/platform/ActivationFunnelPanel';
 import { Box,Flex,Text,SimpleGrid,HStack,VStack,Badge,Spinner,Button,Divider,Tooltip,useInterval } from '@chakra-ui/react';
 import { useState,useCallback,useEffect } from 'react';
 
