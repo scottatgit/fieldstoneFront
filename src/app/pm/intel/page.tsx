@@ -317,7 +317,7 @@ export default function IntelDashboard() {
         {([
           { label: 'Active Outbreaks', value: active.length,    color: active.length    > 0 ? 'red.400'    : 'green.400' },
           { label: 'At-Risk Clients',  value: atRiskAll.length, color: atRiskAll.length > 0 ? 'orange.400' : 'green.400' },
-          { label: 'Tools Tracked',    value: tools.length,     color: 'blue.400' },
+          { label: 'Tools Tracked',    value: filterOptions.tool_ids.length,     color: 'blue.400' },
           { label: 'Resolved Events',  value: resolved.length,  color: 'gray.400' },
         ] as {label:string;value:number;color:string}[]).map(({ label, value, color }) => (
           <Box key={label} p={{ base: 2, md: 3 }} borderRadius="md" border="1px" borderColor="gray.700" bg="gray.800" minW={0} overflow="hidden">
@@ -415,7 +415,7 @@ export default function IntelDashboard() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {tools.map(t => {
+                  {tools.filter(t => filterOptions.tool_ids.includes(t.id)).map(t => {
                     const sc = t.risk_score ?? 0;
                     const scheme = riskScheme(sc);
                     return (
