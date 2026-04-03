@@ -388,6 +388,7 @@ export default function PMPage() {
   const [visitFilter, setVisitFilter]   = useState<VisitFilter>('all');
   const [myOnly, setMyOnly]             = useState(false);
   const [activeTab, setActiveTab]       = useState(0);
+  const { isOpen: isNewTicketOpen, onOpen: openNewTicket, onClose: closeNewTicket } = useDisclosure();
 
   const fetchTickets = useCallback(async () => {
     try {
