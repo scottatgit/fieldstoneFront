@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { track } from '@/lib/analytics'; // FST-AN-003E
 import {
-import { track } from '@/lib/analytics'; // FST-AN-001D
   Box, VStack, HStack, Text, Badge, Button, Input, FormControl, FormLabel, Spinner,
 } from '@chakra-ui/react';
 
