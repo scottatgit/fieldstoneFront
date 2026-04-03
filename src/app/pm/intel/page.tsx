@@ -329,6 +329,20 @@ export default function IntelDashboard() {
         ))}
       </SimpleGrid>
 
+      {/* FST-030E: Empty-state banner for zero-history workspaces */}
+      {filterOptions.tool_ids.length === 0 && (
+        <Box mb={4} p={3} borderRadius="md" border="1px" borderColor="gray.700" bg="gray.850">
+          <HStack spacing={3}>
+            <Text fontSize="lg">🔍</Text>
+            <Box>
+              <Text fontSize="xs" fontWeight="medium" color="gray.300">Intel is building</Text>
+              <Text fontSize="xs" color="gray.500">
+                Intel activates as tickets are processed. Connect your email inbox or create a ticket to start building workspace history.
+              </Text>
+            </Box>
+          </HStack>
+        </Box>
+      )}
       {/* Tabs */}
       <Tabs colorScheme="blue" variant="enclosed">
         <TabList borderColor="gray.700" overflowX="auto" flexWrap="nowrap" sx={{ '&::-webkit-scrollbar': { display: 'none' } }}>
@@ -403,6 +417,13 @@ export default function IntelDashboard() {
 
           {/* Tool Risk Scores */}
           <TabPanel px={0}>
+            {tools.filter(t => filterOptions.tool_ids.includes(t.id)).length === 0 ? (
+              <Flex py={12} align="center" justify="center" direction="column" gap={2}>
+                <Text fontSize="3xl">📈</Text>
+                <Text color="gray.400" fontWeight="medium">No tools observed yet</Text>
+                <Text fontSize="xs" color="gray.500">Tool risk scores appear once tickets reference specific tools</Text>
+              </Flex>
+            ) : (
             <TableContainer>
               <Table size="sm" variant="simple">
                 <Thead>
@@ -445,6 +466,7 @@ export default function IntelDashboard() {
                 </Tbody>
               </Table>
             </TableContainer>
+            )}
           </TabPanel>
 
           {/* History */}
