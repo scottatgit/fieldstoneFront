@@ -163,7 +163,7 @@ export function track(
 
     // Lift workspace_id out of properties into top-level field
     // (stored as a dedicated DB column, not in the JSON blob)
-    const { workspace_id, ...restProps } = props;
+    const { workspace_id, route_key: routeKeyOverride, ...restProps } = props;
 
     const payload = {
       event_name:   eventName,
