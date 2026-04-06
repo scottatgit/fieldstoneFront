@@ -17,6 +17,9 @@ interface Tenant {
   created_at: string;
   stripe_customer_id: string | null;
   current_seat_count: number;
+  // MODE-006: workspace mode fields from tenant_settings LEFT JOIN
+  workspace_mode?:    string;
+  ops_mode_eligible?: boolean;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -38,6 +41,44 @@ export default function TenantsPage() {
   const { isOpen, onOpen, onClose }     = useDisclosure();
   const toast                           = useToast();
   const confirmRef                      = useRef<HTMLInputElement>(null);
+  // MODE-006: eligibility toggle state
+  const [togglingId, setTogglingId]     = useState<string | null>(null);
+
+  const handleSetEligibility = async (tenantId: string, eligible: boolean) => {
+    setTogglingId(tenantId);
+    try {
+      const res = await fetch(`/pm-api/api/admin/workspace/${tenantId}/set-eligibility`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eligible }),
+      });
+      const data = await res.json().catch(() => ({})) as { detail?: string; ops_mode_eligible?: boolean };
+      if (!res.ok) {
+        toast({
+          title: 'Eligibility update failed',
+          description: (data as { detail?: string }).detail || `HTTP ${res.status}`,
+          status: 'error', duration: 5000, isClosable: true,
+        });
+        return;
+      }
+      // Optimistic update — reflect change without full reload
+      setTenants(prev => prev.map(t =>
+        t.id === tenantId ? { ...t, ops_mode_eligible: eligible } : t
+      ));
+      toast({
+        title: eligible ? 'Operations Mode eligibility granted' : 'Operations Mode eligibility revoked',
+        description: eligible
+          ? `${tenantId} can now enable Operations Mode via the upgrade path.`
+          : `${tenantId} will no longer see the upgrade CTA. Current mode is unchanged.`,
+        status: 'success', duration: 5000, isClosable: true,
+      });
+    } catch {
+      toast({ title: 'Network error', description: 'Check connection and try again.', status: 'error', duration: 5000, isClosable: true });
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +177,13 @@ export default function TenantsPage() {
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
             {filtered.map(tenant => {
-              const isProtected = PROTECTED.includes(tenant.subdomain);
+              const isProtected    = PROTECTED.includes(tenant.subdomain);
+              // MODE-006: precompute mode display values
+              const wsMode          = tenant.workspace_mode || 'operations';
+              const isEligible      = Boolean(tenant.ops_mode_eligible);
+              const isToggling      = togglingId === tenant.id;
+              const modeColorScheme = wsMode === 'intelligence' ? 'purple' : 'green';
+              const modeLabel       = wsMode === 'intelligence' ? 'INTEL' : 'OPS';
               return (
                 <Box key={tenant.id} p={4} bg="gray.900" borderRadius="md"
                   border="1px solid" borderColor="gray.800"
@@ -175,6 +222,20 @@ export default function TenantsPage() {
                       </VStack>
                     </SimpleGrid>
 
+                    {/* MODE-006: workspace mode + eligibility status row */}
+                    <HStack spacing={2} pt={1}>
+                      <Badge
+                        colorScheme={modeColorScheme}
+                        fontSize="9px" fontFamily="mono" letterSpacing="wider" variant="subtle"
+                      >{modeLabel}</Badge>
+                      {isEligible && (
+                        <Badge
+                          colorScheme="teal"
+                          fontSize="9px" fontFamily="mono" letterSpacing="wider" variant="subtle"
+                        >OPS ELIGIBLE</Badge>
+                      )}
+                    </HStack>
+
                     <HStack spacing={2}>
                       <Button size="xs" colorScheme="orange" variant="outline"
                         fontFamily="mono" fontSize="9px" letterSpacing="wider" flex={1}
@@ -182,6 +243,21 @@ export default function TenantsPage() {
                         href={`https://${tenant.subdomain}.signal.fieldstone.pro/pm`}
                         target="_blank">
                         OPEN
+                      </Button>
+                      {/* MODE-006: eligibility toggle — changes ops_mode_eligible only, NOT workspace_mode */}
+                      <Button
+                        size="xs"
+                        colorScheme={isEligible ? 'gray' : 'orange'}
+                        variant="outline"
+                        fontFamily="mono" fontSize="9px" letterSpacing="wider"
+                        isLoading={isToggling}
+                        loadingText="..."
+                        title={isEligible
+                          ? 'Revoke Operations Mode eligibility (does not change current mode)'
+                          : 'Grant Operations Mode eligibility'}
+                        onClick={() => handleSetEligibility(tenant.id, !isEligible)}
+                      >
+                        {isEligible ? 'REVOKE' : 'GRANT OPS'}
                       </Button>
                       <Button
                         size="xs" colorScheme="red" variant="outline"

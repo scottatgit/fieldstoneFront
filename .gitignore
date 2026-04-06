@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Tower working file backups
+**/*.bak_*
+**/*.mode004_*
+

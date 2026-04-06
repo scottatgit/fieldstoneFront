@@ -1,8 +1,9 @@
 'use client';
 import {
   Box, Flex, Grid, GridItem, HStack, VStack, Text, Badge,
-  Input, Spinner, Button, useDisclosure,
+  Input, Spinner, Button, useDisclosure, Tooltip,
   Tabs, TabList, Tab, TabPanels, TabPanel,
+  Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverArrow,
 }  from '@chakra-ui/react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 
@@ -14,6 +15,7 @@ import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
 import { NewTicketModal } from '@/components/pm/NewTicketModal';
+import { useWorkspaceMode } from '@/lib/useWorkspaceMode'; // MODE-004
 
 const PM_API      = '/pm-api'; // always use relative proxy path — NEXT_PUBLIC_PM_API_URL ignored (was set to demo domain on Vercel)
 const DEFAULT_TECH = process.env.NEXT_PUBLIC_DEFAULT_TECH || 'Scott Everett';
@@ -157,7 +159,7 @@ function VisitFilterSidebar({
 }
 
 // ─── Inline DateTime Picker ───────────────────────────────────────────────────
-function VisitDatePicker({ ticket, onSaved }: { ticket: Ticket; onSaved?: () => void }) {
+function VisitDatePicker({ ticket, onSaved, isOpsMode = true }: { ticket: Ticket; onSaved?: () => void; isOpsMode?: boolean }) {
   const [editing, setEditing]   = useState(false);
   const [value, setValue]       = useState(ticket.visit_datetime || '');
   const [saving, setSaving]     = useState(false);
@@ -204,6 +206,13 @@ function VisitDatePicker({ ticket, onSaved }: { ticket: Ticket; onSaved?: () => 
       />
       {saving && <Spinner size="xs" color="blue.400" />}
     </HStack>
+  );
+
+  // MODE-004: read-only in intelligence mode — no edit affordance
+  if (!isOpsMode) return (
+    <Box fontSize="2xs" fontFamily="mono" color={value ? 'blue.300' : 'gray.700'}>
+      {dtLocal}
+    </Box>
   );
 
   return (
@@ -276,13 +285,14 @@ function IngestionBanner() {
 
 // ─── Ticket Queue ─────────────────────────────────────────────────────────────
 function TicketQueue({
-  tickets, loading, selectedKey, onSelect, onDateSaved
+  tickets, loading, selectedKey, onSelect, onDateSaved, isOpsMode = true
 }: {
   tickets: Ticket[];
   loading: boolean;
   selectedKey: string | null;
   onSelect: (t: Ticket) => void;
   onDateSaved: () => void;
+  isOpsMode?: boolean; // MODE-004
 }) {
   if (loading) return (
     <Flex flex={1} align="center" justify="center" direction="column" gap={3}>
@@ -367,7 +377,7 @@ function TicketQueue({
             mb={1}
           >
             <Box px={2} pt={1.5} pb={0.5} onClick={e => e.stopPropagation()}>
-              <VisitDatePicker ticket={t} onSaved={onDateSaved} />
+              <VisitDatePicker ticket={t} onSaved={onDateSaved} isOpsMode={isOpsMode} /> {/* MODE-004 */}
             </Box>
             <TicketCard ticket={t} isSelected={selectedKey === t.ticket_key} onClick={onSelect} />
           </Box>
@@ -389,6 +399,35 @@ export default function PMPage() {
   const [myOnly, setMyOnly]             = useState(false);
   const [activeTab, setActiveTab]       = useState(0);
   const { isOpen: isNewTicketOpen, onOpen: openNewTicket, onClose: closeNewTicket } = useDisclosure();
+  const { mode: wsMode, opsEligible, loading: modeLoading } = useWorkspaceMode(); // MODE-004/005
+  const isOpsMode = wsMode === 'operations'; // true for ops/fallback, false for intelligence
+  // MODE-005: upgrade path state
+  const [upgrading, setUpgrading]       = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  // MODE-005: upgrade workspace from intelligence to operations mode
+  async function handleUpgradeToOps() {
+    setUpgrading(true);
+    setUpgradeError(null);
+    try {
+      const res = await fetch('/pm-api/api/workspace/upgrade-to-ops', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.detail?.message || body?.detail || 'Upgrade failed. Please try again.';
+        setUpgradeError(String(msg));
+        setUpgrading(false);
+        return;
+      }
+      // Success — reload to apply new mode across all surfaces
+      window.location.reload();
+    } catch {
+      setUpgradeError('Network error. Please check connection and try again.');
+      setUpgrading(false);
+    }
+  }
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -398,7 +437,8 @@ export default function PMPage() {
       setTickets(tData);
       if (tData.length === 0) {
         const slug = typeof window !== 'undefined' ? (window.location.hostname.split('.')[0]) : 'ssr';
-        setFetchError(`API OK but 0 tickets for workspace '${slug}' — check ingestion or email setup`);
+        console.log(`[Signal] 0 tickets for workspace '${slug}' — check ingestion or email setup`);
+        // MODE-007: Empty state handled by IntelModeEmptyState panel, not a red error banner
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -518,14 +558,126 @@ export default function PMPage() {
               </Text>
               <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
             </HStack>
-            <Button
-              size="xs" onClick={openNewTicket}
-              bg="blue.800" color="blue.200" fontFamily="mono" fontSize="2xs"
-              _hover={{ bg: 'blue.700' }} letterSpacing="wider"
-            >+ NEW</Button>
+            {/* MODE-004/005: ticket creation + upgrade CTA */}
+            {isOpsMode ? (
+              <Button
+                size="xs" onClick={openNewTicket}
+                bg="blue.800" color="blue.200" fontFamily="mono" fontSize="2xs"
+                _hover={{ bg: 'blue.700' }} letterSpacing="wider"
+              >+ NEW</Button>
+            ) : opsEligible ? (
+              <Popover placement="bottom-end" closeOnBlur>
+                <PopoverTrigger>
+                  <Badge
+                    colorScheme="purple" variant="subtle"
+                    fontSize="2xs" fontFamily="mono" letterSpacing="wider"
+                    cursor="pointer"
+                    _hover={{ opacity: 0.8, ring: 1, ringColor: 'purple.400' }}
+                    title="Operations Mode available — click to enable"
+                  >INTELLIGENCE ↑</Badge>
+                </PopoverTrigger>
+                <PopoverContent
+                  bg="gray.900" border="1px solid" borderColor="purple.700"
+                  boxShadow="lg" maxW="280px" _focus={{ outline: 'none' }}
+                >
+                  <PopoverArrow bg="gray.900" borderColor="purple.700" />
+                  <PopoverBody p={4}>
+                    <Text fontFamily="mono" fontSize="xs" fontWeight="bold" color="purple.300" mb={2}>
+                      Operations Mode available
+                    </Text>
+                    <Text fontSize="2xs" color="gray.300" mb={3} lineHeight="1.5">
+                      Enable ticket creation, note updates, scheduling, and close workflows for this workspace.
+                    </Text>
+                    <Text fontSize="2xs" color="gray.500" mb={3}>
+                      This switches the workspace into full Operations Mode.
+                    </Text>
+                    {upgradeError && (
+                      <Text fontSize="2xs" color="red.300" mb={2} fontFamily="mono">
+                        {upgradeError}
+                      </Text>
+                    )}
+                    <Button
+                      size="xs" width="full"
+                      bg="purple.700" color="white"
+                      fontFamily="mono" fontSize="2xs"
+                      _hover={{ bg: 'purple.600' }}
+                      isLoading={upgrading}
+                      loadingText="Enabling..."
+                      onClick={handleUpgradeToOps}
+                    >
+                      Enable Operations Mode
+                    </Button>
+                  </PopoverBody>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Tooltip
+                label="Intelligence Mode — signal-level visibility into your service queue. Briefs, risk flags, and trend detection without full dispatch ownership."
+                fontSize="2xs" fontFamily="mono" placement="bottom-end" hasArrow
+                bg="gray.800" color="gray.200" px={3} py={2} borderRadius="md"
+              >
+                <Badge
+                  colorScheme="purple" variant="subtle"
+                  fontSize="2xs" fontFamily="mono" letterSpacing="wider"
+                  cursor="default"
+                >INTELLIGENCE</Badge>
+              </Tooltip>
+            )}
           </HStack>
 
-          {fetchError && (
+          {/* MODE-007: Intelligence-mode empty state (replaces dev-facing error banner) */}
+          {!isOpsMode && !loading && tickets.length === 0 && (
+            <Box mx={3} my={3} p={4} borderRadius="md" border="1px solid" borderColor="purple.800" bg="gray.900">
+              <VStack align="stretch" spacing={3}>
+                <HStack spacing={2}>
+                  <Badge colorScheme="purple" fontSize="2xs" fontFamily="mono" variant="subtle">INTELLIGENCE MODE</Badge>
+                  <Text fontSize="2xs" fontFamily="mono" color="gray.500">GETTING STARTED</Text>
+                </HStack>
+                <Text fontSize="xs" color="gray.300" lineHeight="tall">
+                  Signal is monitoring your workspace in Intelligence Mode — briefs, risk signals, and trend detection
+                  without full dispatch ownership.
+                </Text>
+                <VStack align="stretch" spacing={2}>
+                  <HStack spacing={2} align="flex-start">
+                    <Box w={5} h={5} borderRadius="full" bg="blue.900" border="1px solid" borderColor="blue.600"
+                      display="flex" alignItems="center" justifyContent="center" flexShrink={0} mt={0.5}>
+                      <Text fontSize="2xs" fontWeight="black" fontFamily="mono" color="blue.300">1</Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="2xs" fontWeight="bold" color="gray.200">Connect your support inbox</Text>
+                      <Box as="a" href="/pm/setup" fontSize="2xs" fontFamily="mono" color="blue.400" _hover={{ color: 'blue.300' }}>
+                        Open Setup →
+                      </Box>
+                    </Box>
+                  </HStack>
+                  <HStack spacing={2} align="flex-start">
+                    <Box w={5} h={5} borderRadius="full" bg="blue.900" border="1px solid" borderColor="blue.600"
+                      display="flex" alignItems="center" justifyContent="center" flexShrink={0} mt={0.5}>
+                      <Text fontSize="2xs" fontWeight="black" fontFamily="mono" color="blue.300">2</Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="2xs" fontWeight="bold" color="gray.200">Run your first ingestion</Text>
+                      <Text fontSize="2xs" color="gray.500">Use the Ingest tab on the right panel to pull your tickets.</Text>
+                    </Box>
+                  </HStack>
+                  <HStack spacing={2} align="flex-start">
+                    <Box w={5} h={5} borderRadius="full" bg="purple.900" border="1px solid" borderColor="purple.600"
+                      display="flex" alignItems="center" justifyContent="center" flexShrink={0} mt={0.5}>
+                      <Text fontSize="2xs" fontWeight="black" fontFamily="mono" color="purple.300">3</Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="2xs" fontWeight="bold" color="gray.200">Open your first brief</Text>
+                      <Box as="a" href="/pm/brief" fontSize="2xs" fontFamily="mono" color="purple.400" _hover={{ color: 'purple.300' }}>
+                        Go to Brief →
+                      </Box>
+                    </Box>
+                  </HStack>
+                </VStack>
+              </VStack>
+            </Box>
+          )}
+          {/* Real fetch errors (network/API failures) shown to ops workspaces only */}
+          {fetchError && (isOpsMode || tickets.length > 0) && (
             <Box px={3} py={2} bg="red.900" border="1px solid" borderColor="red.600" mx={2} my={1} borderRadius="md">
               <Text fontSize="2xs" fontFamily="mono" color="red.200">⚠️ {fetchError}</Text>
             </Box>
@@ -536,6 +688,7 @@ export default function PMPage() {
             selectedKey={selectedTicket ? (selectedTicket as Ticket).ticket_key : null}
             onSelect={t => setSelected(t)}
             onDateSaved={() => { fetchTickets(); fetchSummary(); }}
+            isOpsMode={isOpsMode} /* MODE-004 */
           />
         </GridItem>
 

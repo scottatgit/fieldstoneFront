@@ -8,7 +8,7 @@ export function Step3NextSteps() {
   const steps = [
     { n: '1', label: 'Connect your support inbox', desc: 'Add IMAP credentials in Setup', href: '/pm/setup' },
     { n: '2', label: 'Run your first ingestion',   desc: 'Pull emails and build your ticket queue', href: null },
-    { n: '3', label: 'Invite your team',           desc: 'Add technicians from the Team page', href: '/pm/team' },
+    { n: '3', label: 'Open your first brief',      desc: 'Signal generates a prep brief for every ticket — risk flags, context, and next actions.', href: '/pm/brief' },
   ];
 
   return (
@@ -17,9 +17,13 @@ export function Step3NextSteps() {
         <HStack spacing={2}>
           <Text fontSize="lg" fontWeight="black" fontFamily="mono" color="blue.300" letterSpacing="widest">SIGNAL</Text>
           <Badge colorScheme="green" fontSize="2xs" fontFamily="mono">YOU'RE IN</Badge>
+          <Badge colorScheme="purple" variant="subtle" fontSize="2xs" fontFamily="mono">INTELLIGENCE MODE</Badge>
         </HStack>
         <Text fontSize="sm" fontWeight="bold" color="gray.100">Workspace ready</Text>
-        <Text fontSize="xs" color="gray.400">Here's how to get the most out of Signal.</Text>
+        <Text fontSize="xs" color="gray.400">
+          Your workspace is running in Intelligence Mode — briefs, risk signals, and trend detection.
+          Operations controls (ticket creation, dispatch, close workflows) unlock separately.
+        </Text>
       </VStack>
 
       <VStack align="stretch" spacing={3}>
@@ -44,6 +48,11 @@ export function Step3NextSteps() {
           </Flex>
         ))}
       </VStack>
+
+      <Text fontSize="2xs" color="gray.600" textAlign="center">
+        You can also invite your team from the{' '}
+        <Box as="a" href="/pm/team" color="gray.500" _hover={{ color: 'gray.400' }} display="inline">Team page</Box>.
+      </Text>
 
       <Button colorScheme="blue" w="full" fontFamily="mono" fontWeight="bold" onClick={() => router.push('/pm')}>
         Go to Dashboard

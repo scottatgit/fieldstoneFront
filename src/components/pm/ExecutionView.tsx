@@ -10,6 +10,7 @@ import { Ticket, TicketContext, TicketSignals } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
 import TicketSignalAI from './TicketSignalAI';
 import { isDemoMode, demoFetch, getActiveTenant } from '@/lib/demoApi';
+import { useWorkspaceMode } from '@/lib/useWorkspaceMode'; // MODE-004
 import { track } from '@/lib/analytics';
 
 // Demo-aware fetch wrapper for ExecutionView
@@ -511,6 +512,11 @@ function formatNoteTime(iso: string): string {
 
 // -- Main ExecutionView -------------------------------------------------------
 export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
+  // MODE-004: workspace mode gate — fail-open to 'operations' on error
+  const { mode: wsMode } = useWorkspaceMode();
+  const isOpsMode = wsMode === 'operations';
+  // Pre-compute display values to avoid inline ternaries in JSX (SWC compat)
+  const closeSectionDisplay = isOpsMode ? undefined : 'none';
   const [viewMode, setViewMode]     = useState<ViewMode>('door');
   const [saveState, _setSaveState]   = useState<SaveState>('idle');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -818,8 +824,14 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                   </HStack>
 
                   <Collapse in={isMobile ? notesExpanded : true} animateOpacity>
-                  {/* Input row */}
-                  <Flex gap={2} align='flex-start' mb={2}>
+                  {/* Input row — MODE-004: ops-only */}
+                  {!isOpsMode && (
+                    <Box py={2} mb={2}>
+                      <Text fontSize='2xs' fontFamily='mono' color='gray.600' letterSpacing='wider'>NOTES · OPERATIONS MODE ONLY</Text>
+                    </Box>
+                  )}
+                  {isOpsMode && (
+                    <Flex gap={2} align='flex-start' mb={2}>
                     <Textarea
                       value={noteText}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNoteText(e.target.value)}
@@ -867,6 +879,7 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
                       </Text>
                     </Flex>
                   </Flex>
+                  )}
 
                   {/* Saved notes list */}
                   {savedNotes.length > 0 ? (
@@ -1014,7 +1027,8 @@ export function ExecutionView({ ticket, onBack }: { ticket: Ticket; onBack: () =
 
                 {/* ── Slim OUTCOME bar ─────────────────────────────────── */}
                 <Box flexShrink={0} borderTop='1px solid' borderColor='gray.700'
-                  bg='gray.900' px={4} py={3}>
+                  bg='gray.900' px={4} py={3}
+                  display={closeSectionDisplay}> {/* MODE-004: ops-only */}
                   <Text fontSize='2xs' fontFamily='mono' color='gray.500'
                     letterSpacing='widest' textTransform='uppercase' mb={2}>Outcome</Text>
                   <HStack spacing={2} flexWrap='wrap'>

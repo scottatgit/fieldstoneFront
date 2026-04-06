@@ -37,12 +37,27 @@ export default function SignUpPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        // EXT-003A1: detail may be a string or structured object {error, message}
+        // Explicit if/else avoids TS inference issues with union index types
+        let errorCode = '';
+        let fallbackMsg = 'Signup failed. Please try again.';
+        if (typeof data.detail === 'object' && data.detail !== null) {
+          const d = data.detail as { error?: string; message?: string };
+          errorCode = d.error ?? '';
+          fallbackMsg = d.message ?? fallbackMsg;
+        } else if (typeof data.detail === 'string') {
+          errorCode = data.detail;
+          fallbackMsg = data.detail;
+        }
         const msgs: Record<string, string> = {
-          email_taken:    'An account with that email already exists.',
-          captcha_failed: 'Human verification failed. Please try again.',
-          email_failed:   'Could not send verification email. Please try again later.',
+          email_taken:      'An account with that email already exists.',
+          captcha_failed:   'Human verification failed. Please try again.',
+          email_failed:     'Could not send verification email. Please try again later.',
+          beta_closed:      'Beta access is not currently open. Contact the team to request access.',
+          beta_not_invited: 'Your email is not on the beta access list.',
+          beta_revoked:     'Your beta access has been revoked. Please contact the team.',
         };
-        setError(msgs[data.detail] || data.detail || 'Signup failed. Please try again.');
+        setError(msgs[errorCode] || fallbackMsg);
         setCfToken(''); // reset captcha on failure
         return;
       }
@@ -82,7 +97,7 @@ export default function SignUpPage() {
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: '13px', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '0.2em', color: '#63B3ED' }}>SIGNAL</span>
         </Link>
-        <p style={{ color: '#4a5568', fontSize: '12px', fontFamily: 'monospace', marginTop: '4px', letterSpacing: '0.1em' }}>by Fieldstone</p>
+        <p style={{ color: '#4a5568', fontSize: '12px', fontFamily: 'monospace', marginTop: '4px', letterSpacing: '0.1em' }}>workspace intelligence</p>
       </div>
 
       <form onSubmit={handleSubmit} style={{
