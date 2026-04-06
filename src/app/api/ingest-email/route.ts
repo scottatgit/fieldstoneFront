@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { extractTenantSlug } from '@/lib/tenantSlug';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.fieldstone.pro';
-const RESERVED = new Set(['www', 'api', 'admin', 'signal', 'static', 'demo']);
 
 export async function POST(req: NextRequest) {
   const host = req.headers.get('host') || '';
-  const match = host.match(/^([a-z0-9-]+)\.signal\.fieldstone\.pro/);
-  const slug = (match && !RESERVED.has(match[1])) ? match[1] : 'ipquest';
+  const result = extractTenantSlug(host);
 
+  // Fail safe: reject if the tenant slug cannot be cleanly resolved.
+  // Never silently route to a default tenant. Ref: TBI-002 / fst-tbi-002.
+  if ('error' in result) {
+    console.warn(
+      '[ingest-email] REJECTED host=%s error=%s ref=TBI-002',
+      host,
+      result.error
+    );
+    return NextResponse.json(
+      {
+        error: 'tenant_unresolvable',
+        message: 'Tenant slug could not be extracted from request host.',
+        host,
+        ref: 'TBI-002',
+      },
+      { status: 400 }
+    );
+  }
+
+  const { slug } = result;
   console.log('[ingest-email] host=%s slug=%s', host, slug);
 
   const headers = new Headers();

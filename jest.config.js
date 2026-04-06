@@ -1,7 +1,5 @@
 module.exports = {
-    testEnvironment: 'jsdom',
-    setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-    testPathIgnorePatterns: ['/node_modules/', '/.next/'],
-    moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  };
-  
+  testEnvironment: 'node',
+  testPathIgnorePatterns: ['/node_modules/', '/.next/'],
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+};
