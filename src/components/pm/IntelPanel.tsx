@@ -20,11 +20,26 @@ interface OutbreakEvent {
   first_seen?: string;
 }
 
+// S6: risk_score is now a rich object from the backend
+interface RiskScore {
+  tool_id: string;
+  score: number;
+  ticket_count: number;
+  client_count: number;
+  past_events: number;
+  breakdown: {
+    active_tickets_pts: number;
+    unique_clients_pts: number;
+    recurrence_pts: number;
+  };
+  window_hours: number;
+}
+
 interface ToolRow {
   id: string;
   name?: string;
   vendor?: string;
-  risk_score?: number;
+  risk_score?: RiskScore;   // S6: object, not number
 }
 
 function cn(c: unknown): string {
@@ -60,8 +75,10 @@ export default function IntelPanel() {
       ]);
       if (evRes.status === 'fulfilled') setEvents((evRes.value as any)?.events ?? []);
       if (trRes.status === 'fulfilled') {
+        // S6: risk_score is now a RiskScore object — sort by .score
         const sorted = [...((trRes.value as any)?.tools ?? [])].sort(
-          (a: ToolRow, b: ToolRow) => (b.risk_score ?? 0) - (a.risk_score ?? 0)
+          (a: ToolRow, b: ToolRow) =>
+            (b.risk_score?.score ?? 0) - (a.risk_score?.score ?? 0)
         );
         setTools(sorted);
       }
@@ -128,23 +145,23 @@ export default function IntelPanel() {
           )}
         </HStack>
 
-        {/* Center: top 5 tool risk mini-bars */}
+        {/* Center: top 5 tool risk mini-bars — S6: use .score from object */}
         <HStack spacing={4} display={{ base: 'none', lg: 'flex' }}>
-          {top5.map(t => (
-            <VStack key={t.id} spacing={0} align="center" minW="48px">
-              <Progress
-                value={t.risk_score ?? 0}
-                colorScheme={(
-                  (t.risk_score ?? 0) >= 70 ? 'red' :
-                  (t.risk_score ?? 0) >= 40 ? 'orange' : 'green'
-                )}
-                size="xs" w="48px" borderRadius="full"
-              />
-              <Text fontSize="0.6em" color="gray.500" mt={0.5}>
-                {(t.name ?? t.id).slice(0, 9)}
-              </Text>
-            </VStack>
-          ))}
+          {top5.map(t => {
+            const sc = t.risk_score?.score ?? 0;
+            return (
+              <VStack key={t.id} spacing={0} align="center" minW="48px">
+                <Progress
+                  value={sc}
+                  colorScheme={sc >= 70 ? 'red' : sc >= 40 ? 'orange' : 'green'}
+                  size="xs" w="48px" borderRadius="full"
+                />
+                <Text fontSize="0.6em" color="gray.500" mt={0.5}>
+                  {(t.name ?? t.id).slice(0, 9)}
+                </Text>
+              </VStack>
+            );
+          })}
         </HStack>
 
         {/* Right: last run + buttons */}

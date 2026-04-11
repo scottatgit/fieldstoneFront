@@ -1,7 +1,7 @@
 'use client';
 import {
   Box, Flex, Heading, Text, Badge, Button, Spinner, Select,
-  HStack, VStack, Divider, Progress,
+  HStack, VStack, Divider, Progress, Tooltip,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer,
   Tabs, TabList, Tab, TabPanels, TabPanel,
   Stat, StatLabel, StatNumber, Modal, ModalOverlay, ModalContent,
@@ -28,12 +28,27 @@ interface OutbreakEvent {
   ticket_count?: number;
 }
 
+// S6: risk_score is now a rich object from the backend
+interface RiskScore {
+  tool_id: string;
+  score: number;
+  ticket_count: number;
+  client_count: number;
+  past_events: number;
+  breakdown: {
+    active_tickets_pts: number;
+    unique_clients_pts: number;
+    recurrence_pts: number;
+  };
+  window_hours: number;
+}
+
 interface ToolRow {
   id: string;
   name?: string;
   vendor?: string;
   category?: string;
-  risk_score?: number;
+  risk_score?: RiskScore;   // S6: object, not number
 }
 
 interface IntelEntry {
@@ -77,6 +92,17 @@ function timeAgo(iso?: string): string {
 
 function riskScheme(s: number): string {
   return s >= 70 ? 'red' : s >= 40 ? 'orange' : 'green';
+}
+
+// Provenance badge: classifies intel entry source into human-readable label
+function sourceLabel(createdBy: string): { label: string; scheme: string } {
+  if (!createdBy) return { label: 'unknown', scheme: 'gray' };
+  const cb = createdBy.toLowerCase();
+  if (cb === 'pilot' || cb.startsWith('ai') || cb === 'intel_cycle' || cb === 'tower')
+    return { label: 'AI', scheme: 'purple' };
+  if (cb === 'pm' || cb === 'admin' || cb === 'platform')
+    return { label: 'platform', scheme: 'blue' };
+  return { label: 'manual', scheme: 'gray' };
 }
 
 function OutbreakCard({ evt }: { evt: OutbreakEvent }) {
@@ -247,8 +273,10 @@ export default function IntelDashboard() {
       ]);
       if (evRes.status === 'fulfilled') setEvents((evRes.value as any)?.events ?? []);
       if (trRes.status === 'fulfilled') {
+        // S6: risk_score is now a RiskScore object — sort by .score
         const sorted = [...((trRes.value as any)?.tools ?? [])].sort(
-          (a: ToolRow, b: ToolRow) => (b.risk_score ?? 0) - (a.risk_score ?? 0)
+          (a: ToolRow, b: ToolRow) =>
+            (b.risk_score?.score ?? 0) - (a.risk_score?.score ?? 0)
         );
         setTools(sorted);
       }
@@ -284,6 +312,9 @@ export default function IntelDashboard() {
     new Set(active.flatMap(e => (e.at_risk_clients ?? []).map(cn)))
   );
 
+  // S6: tools with a non-zero score (have seen real activity)
+  const toolsWithScore = tools.filter(t => (t.risk_score?.score ?? 0) > 0);
+
   if (loading) return (
     <Flex h="60vh" align="center" justify="center" bg="gray.900">
       <Spinner color="blue.400" />
@@ -315,10 +346,10 @@ export default function IntelDashboard() {
       {/* Stat strip */}
       <SimpleGrid columns={{ base: 2, md: 4 }} gap={{ base: 2, md: 4 }} mb={6}>
         {([
-          { label: 'Active Outbreaks', value: active.length,    color: active.length    > 0 ? 'red.400'    : 'green.400' },
-          { label: 'At-Risk Clients',  value: atRiskAll.length, color: atRiskAll.length > 0 ? 'orange.400' : 'green.400' },
-          { label: 'Tools Tracked',    value: filterOptions.tool_ids.length,     color: 'blue.400' },
-          { label: 'Resolved Events',  value: resolved.length,  color: 'gray.400' },
+          { label: 'Active Outbreaks', value: active.length,        color: active.length        > 0 ? 'red.400'    : 'green.400' },
+          { label: 'At-Risk Clients',  value: atRiskAll.length,     color: atRiskAll.length     > 0 ? 'orange.400' : 'green.400' },
+          { label: 'Tools w/ Score',   value: toolsWithScore.length, color: toolsWithScore.length > 0 ? 'orange.300' : 'blue.400' },
+          { label: 'Intel Entries',    value: intelEntries.length,  color: intelEntries.length  > 0 ? 'blue.400'   : 'gray.400' },
         ] as {label:string;value:number;color:string}[]).map(({ label, value, color }) => (
           <Box key={label} p={{ base: 2, md: 3 }} borderRadius="md" border="1px" borderColor="gray.700" bg="gray.800" minW={0} overflow="hidden">
             <Stat>
@@ -353,13 +384,13 @@ export default function IntelDashboard() {
             ⚠️ At-Risk ({atRiskAll.length})
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
-            📈 Tool Risk Scores
+            📈 Tool Risk ({toolsWithScore.length} active)
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             🕐 History ({resolved.length})
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
-            🧠 Intel Entries ({intelEntries.length})
+            🧠 Intel ({intelEntries.length})
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             📊 Trends {trends.filter(t => t.trend_status !== 'normal').length > 0 ? `(${trends.filter(t => t.trend_status !== 'normal').length})` : ''}
@@ -373,7 +404,10 @@ export default function IntelDashboard() {
               <Flex py={12} align="center" justify="center" direction="column" gap={2}>
                 <Text fontSize="3xl">✅</Text>
                 <Text color="green.400" fontWeight="medium">No active outbreaks</Text>
-                <Text fontSize="xs" color="gray.500">All clients operating normally</Text>
+                <Text fontSize="xs" color="gray.500">All monitored tools operating normally</Text>
+                {lastRun && (
+                  <Text fontSize="xs" color="gray.600">Last checked: {lastRun}</Text>
+                )}
               </Flex>
             ) : active.map((e, i) => <OutbreakCard key={i} evt={e} />)}
           </TabPanel>
@@ -384,6 +418,9 @@ export default function IntelDashboard() {
               <Flex py={12} align="center" justify="center" direction="column" gap={2}>
                 <Text fontSize="3xl">✅</Text>
                 <Text color="green.400">No at-risk clients</Text>
+                {lastRun && (
+                  <Text fontSize="xs" color="gray.600">Last checked: {lastRun}</Text>
+                )}
               </Flex>
             ) : (
               <TableContainer>
@@ -415,57 +452,113 @@ export default function IntelDashboard() {
             )}
           </TabPanel>
 
-          {/* Tool Risk Scores */}
+          {/* Tool Risk Scores — S6: show all 21 tools with rich breakdown */}
           <TabPanel px={0}>
-            {tools.filter(t => filterOptions.tool_ids.includes(t.id)).length === 0 ? (
+            {tools.length === 0 ? (
               <Flex py={12} align="center" justify="center" direction="column" gap={2}>
                 <Text fontSize="3xl">📈</Text>
-                <Text color="gray.400" fontWeight="medium">No tools observed yet</Text>
-                <Text fontSize="xs" color="gray.500">Tool risk scores appear once tickets reference specific tools</Text>
+                <Text color="gray.400" fontWeight="medium">No tools loaded</Text>
+                <Text fontSize="xs" color="gray.500">Tool risk scores appear once the tool registry loads</Text>
               </Flex>
             ) : (
-            <TableContainer>
-              <Table size="sm" variant="simple">
-                <Thead>
-                  <Tr borderColor="gray.700">
-                    <Th color="gray.400">Tool</Th>
-                    <Th color="gray.400">Vendor</Th>
-                    <Th color="gray.400">Category</Th>
-                    <Th color="gray.400">Risk Score</Th>
-                    <Th color="gray.400">Level</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {tools.filter(t => filterOptions.tool_ids.includes(t.id)).map(t => {
-                    const sc = t.risk_score ?? 0;
-                    const scheme = riskScheme(sc);
-                    return (
-                      <Tr key={t.id} borderColor="gray.700">
-                        <Td color="gray.100" fontWeight="medium">{t.name ?? t.id}</Td>
-                        <Td fontSize="xs" color="gray.500">{t.vendor ?? '—'}</Td>
-                        <Td>
-                          <Badge variant="outline" fontSize="0.7em" colorScheme="gray">
-                            {t.category ?? '—'}
-                          </Badge>
-                        </Td>
-                        <Td>
-                          <HStack spacing={2}>
-                            <Progress value={sc} colorScheme={scheme}
-                                      size="sm" w="80px" borderRadius="full" />
-                            <Text fontSize="xs" color="gray.300">{sc}</Text>
-                          </HStack>
-                        </Td>
-                        <Td>
-                          <Badge colorScheme={scheme} fontSize="0.7em">
-                            {sc >= 70 ? 'HIGH' : sc >= 40 ? 'MEDIUM' : 'LOW'}
-                          </Badge>
-                        </Td>
+              <Box>
+                {/* Section header: context + data freshness */}
+                <HStack mb={3} justify="space-between" flexWrap="wrap" gap={2}>
+                  <HStack spacing={2}>
+                    <Text fontSize="xs" color="gray.500">Scored over 168h lookback window ·</Text>
+                    <Text fontSize="xs" color="gray.500">{tools.length} tools registered</Text>
+                    {toolsWithScore.length > 0 && (
+                      <Badge colorScheme="orange" fontSize="2xs" ml={1}>
+                        {toolsWithScore.length} with activity
+                      </Badge>
+                    )}
+                  </HStack>
+                  <Badge colorScheme="gray" fontSize="2xs" variant="outline">live · auto-refreshes</Badge>
+                </HStack>
+                <TableContainer>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr borderColor="gray.700">
+                        <Th color="gray.400">Tool</Th>
+                        <Th color="gray.400">Category</Th>
+                        <Th color="gray.400">Risk Score</Th>
+                        <Th color="gray.400">Level</Th>
+                        <Th color="gray.400">Breakdown</Th>
                       </Tr>
-                    );
-                  })}
-                </Tbody>
-              </Table>
-            </TableContainer>
+                    </Thead>
+                    <Tbody>
+                      {tools.map(t => {
+                        const rs  = t.risk_score;
+                        const sc  = rs?.score ?? 0;
+                        const scheme = riskScheme(sc);
+                        const hasActivity = sc > 0;
+                        return (
+                          <Tr key={t.id} borderColor="gray.700"
+                            opacity={hasActivity ? 1 : 0.55}>
+                            <Td>
+                              <VStack align="flex-start" spacing={0}>
+                                <Text color={hasActivity ? 'gray.100' : 'gray.400'}
+                                  fontWeight={hasActivity ? 'semibold' : 'normal'}
+                                  fontSize="sm">
+                                  {t.name ?? t.id}
+                                </Text>
+                                {t.vendor && (
+                                  <Text fontSize="2xs" color="gray.600">{t.vendor}</Text>
+                                )}
+                              </VStack>
+                            </Td>
+                            <Td>
+                              <Badge variant="outline" fontSize="0.7em" colorScheme="gray">
+                                {t.category ?? '—'}
+                              </Badge>
+                            </Td>
+                            <Td>
+                              <HStack spacing={2}>
+                                <Progress value={sc} colorScheme={scheme}
+                                          size="sm" w="80px" borderRadius="full" />
+                                <Text fontSize="xs" color={hasActivity ? 'gray.300' : 'gray.600'}>{sc}</Text>
+                              </HStack>
+                            </Td>
+                            <Td>
+                              <Badge colorScheme={hasActivity ? scheme : 'gray'} fontSize="0.7em">
+                                {sc >= 70 ? 'HIGH' : sc >= 40 ? 'MEDIUM' : sc > 0 ? 'LOW' : '—'}
+                              </Badge>
+                            </Td>
+                            <Td>
+                              {rs && hasActivity ? (
+                                <Tooltip
+                                  label={`Tickets: ${rs.breakdown.active_tickets_pts}pts · Clients: ${rs.breakdown.unique_clients_pts}pts · Recurrence: ${rs.breakdown.recurrence_pts}pts`}
+                                  fontSize="xs" placement="left"
+                                >
+                                  <HStack spacing={2} cursor="default">
+                                    {rs.ticket_count > 0 && (
+                                      <Badge colorScheme="blue" fontSize="2xs" variant="subtle">
+                                        🎫 {rs.ticket_count}t
+                                      </Badge>
+                                    )}
+                                    {rs.client_count > 0 && (
+                                      <Badge colorScheme="orange" fontSize="2xs" variant="subtle">
+                                        👥 {rs.client_count}c
+                                      </Badge>
+                                    )}
+                                    {rs.past_events > 0 && (
+                                      <Badge colorScheme="red" fontSize="2xs" variant="subtle">
+                                        🔁 {rs.past_events}×
+                                      </Badge>
+                                    )}
+                                  </HStack>
+                                </Tooltip>
+                              ) : (
+                                <Text fontSize="xs" color="gray.700">no activity</Text>
+                              )}
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+              </Box>
             )}
           </TabPanel>
 
@@ -549,6 +642,15 @@ export default function IntelDashboard() {
                           {selectedIntel.confidence}
                         </Badge>
                       )}
+                      {selectedIntel && (() => {
+                        const src = sourceLabel(selectedIntel.created_by);
+                        return (
+                          <Badge ml={2} fontSize="0.6em" verticalAlign="middle"
+                            colorScheme={src.scheme} variant="outline">
+                            {src.label}
+                          </Badge>
+                        );
+                      })()}
                     </ModalHeader>
                     <ModalCloseButton color="gray.400" />
                     <ModalBody py={4}>
@@ -571,7 +673,7 @@ export default function IntelDashboard() {
                             {selectedIntel.client_key && <Text>Site: <Text as="span" color="gray.300">{selectedIntel.client_key}</Text></Text>}
                             {selectedIntel.tool_id    && <Text>Tool: <Text as="span" color="blue.300">{selectedIntel.tool_id}</Text></Text>}
                             {selectedIntel.source_ticket && <Text>Ticket: <Text as="span" color="gray.300">#{selectedIntel.source_ticket}</Text></Text>}
-                            <Text>Observed: <Text as="span" color="gray.300">{(selectedIntel.observed_at || '').slice(0,10)}</Text></Text>
+                            <Text>Observed: <Text as="span" color="gray.300">{timeAgo(selectedIntel.observed_at)}</Text></Text>
                             <Text>By: <Text as="span" color="gray.400">{selectedIntel.created_by}</Text></Text>
                           </HStack>
                           {selectedIntel.tags?.length > 0 && (
@@ -603,7 +705,9 @@ export default function IntelDashboard() {
                       }
                       return new Date(b.observed_at).getTime() - new Date(a.observed_at).getTime();
                     })
-                    .map((entry) => (
+                    .map((entry) => {
+                      const src = sourceLabel(entry.created_by);
+                      return (
                       <Box key={entry.id}
                         border="1px solid" borderColor="gray.700" borderRadius="md" p={3} bg="gray.800"
                         cursor="pointer" _hover={{ borderColor: 'blue.600', bg: 'gray.750' }}
@@ -634,6 +738,10 @@ export default function IntelDashboard() {
                               colorScheme={entry.confidence === 'high' ? 'green' : entry.confidence === 'medium' ? 'yellow' : 'gray'}>
                               {entry.confidence}
                             </Badge>
+                            {/* Provenance badge */}
+                            <Badge fontSize="2xs" colorScheme={src.scheme} variant="outline">
+                              {src.label}
+                            </Badge>
                             {/* 13C: KB Status badge */}
                             {entry.kb_status === 'approved' && (
                               <Badge fontSize="2xs" colorScheme="green" variant="subtle">🟢 KB</Badge>
@@ -642,19 +750,20 @@ export default function IntelDashboard() {
                               <Badge fontSize="2xs" colorScheme="blue" variant="subtle">🔵 Proposed</Badge>
                             )}
                             <Text fontSize="2xs" color="gray.600">
-                              {(entry.observed_at || '').slice(0,10)}
+                              {timeAgo(entry.observed_at)}
                             </Text>
                           </VStack>
                         </Flex>
                       </Box>
-                    ))
+                      );
+                    })
                   }
                 </VStack>
               </Box>
             )}
           </TabPanel>
 
-          {/* Phase 28: Trends */}
+          {/* Trends */}
           <TabPanel px={0}>
             {trendsLoading ? (
               <Flex justify="center" py={8}><Spinner color="blue.400" /></Flex>
