@@ -33,6 +33,9 @@ export default function LoginPage() {
   const [mfaToken, setMfaToken] = useState('');
   const [totpCode, setTotpCode] = useState('');
 
+  // FST-036: lost authenticator help panel
+  const [showLostHelp, setShowLostHelp] = useState(false);
+
   // Shared
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -68,6 +71,7 @@ export default function LoginPage() {
       if (data.mfa_required && data.mfa_token) {
         setMfaToken(data.mfa_token);
         setTotpCode('');
+        setShowLostHelp(false);
         setStep('totp');
         return;
       }
@@ -211,15 +215,62 @@ export default function LoginPage() {
               {loading ? 'VERIFYING...' : 'VERIFY'}
             </button>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <button
                 type="button"
-                onClick={() => { setStep('credentials'); setError(''); setTotpCode(''); }}
+                onClick={() => { setStep('credentials'); setError(''); setTotpCode(''); setShowLostHelp(false); }}
                 className="text-xs text-gray-600 hover:text-gray-400 font-mono transition-colors"
               >
                 ← Back to login
               </button>
+
+              {/* FST-036: Lost authenticator toggle */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowLostHelp(v => !v)}
+                  className="text-xs text-gray-600 hover:text-orange-400 font-mono transition-colors underline underline-offset-2"
+                >
+                  {showLostHelp ? 'Hide help ↑' : 'Lost authenticator?'}
+                </button>
+              </div>
             </div>
+
+            {/* FST-036: Recovery guidance panel */}
+            {showLostHelp && (
+              <div className="rounded-lg bg-gray-900 border border-gray-700 px-4 py-4 space-y-3">
+                <p className="text-xs text-gray-400 font-mono font-bold tracking-wider">RECOVERY OPTIONS</p>
+
+                {/* Option 1: recovery code */}
+                <div className="space-y-1">
+                  <p className="text-xs text-orange-400 font-mono font-semibold">① Use a recovery code</p>
+                  <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                    If you saved recovery codes when you set up MFA, enter one in the code field above.
+                    Recovery codes are longer than 6 digits — paste it in exactly as saved.
+                  </p>
+                </div>
+
+                <div className="border-t border-gray-800" />
+
+                {/* Option 2: admin-assisted reset */}
+                <div className="space-y-1">
+                  <p className="text-xs text-orange-400 font-mono font-semibold">② Contact your workspace admin</p>
+                  <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                    If you have no recovery codes, ask your workspace admin to reset your MFA.
+                    They can do this from the <span className="text-gray-400">Team → Reset MFA</span> action.
+                    After the reset you will be able to log in and re-enroll MFA.
+                  </p>
+                </div>
+
+                <div className="border-t border-gray-800" />
+
+                {/* Note: password reset does not bypass MFA */}
+                <p className="text-xs text-gray-600 font-mono leading-relaxed">
+                  Note: resetting your password does not disable two-factor authentication.
+                </p>
+              </div>
+            )}
+
           </form>
         )}
 
