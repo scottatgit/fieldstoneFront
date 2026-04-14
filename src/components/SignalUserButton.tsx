@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 'use client';
 import { useRouter } from 'next/navigation';
-import { Flex, Text, Box, Menu, MenuButton, MenuList, MenuItem, Avatar } from '@chakra-ui/react';
+import { Flex, Text, Box, Menu, MenuButton, MenuList, MenuItem, MenuDivider, Avatar } from '@chakra-ui/react';
 import { useUser, clearUserCache } from '@/lib/useUser';
 
 interface Props {
@@ -46,6 +46,14 @@ export function SignalUserButton({ afterSignOutUrl = '/login', size = 32 }: Prop
             <Text fontSize='2xs' color='gray.500' fontFamily='mono'>{user.email}</Text>
           </Box>
         )}
+        <MenuItem
+          bg='transparent' _hover={{ bg: 'gray.800' }}
+          fontSize='xs' fontFamily='mono' color='gray.300'
+          onClick={() => router.push('/pm/security')}
+        >
+          🔒 Security
+        </MenuItem>
+        <MenuDivider borderColor='gray.700' my={1} />
         <MenuItem
           bg='transparent' _hover={{ bg: 'gray.800' }}
           fontSize='xs' fontFamily='mono' color='red.400'

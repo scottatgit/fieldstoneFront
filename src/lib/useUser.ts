@@ -16,6 +16,7 @@ export interface SignalUser {
   slug: string | null;
   tenant_name: string | null;
   email_verified: boolean;
+  mfa_enrolled?: boolean;  // FST-034-MFA-ALL-USERS Phase A
 }
 
 interface UseUserResult {
