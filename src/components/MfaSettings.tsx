@@ -9,7 +9,7 @@ import * as QRCode from 'qrcode';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface MfaStatus { mfa_enabled: boolean; recovery_codes_remaining: number; }
-type Step = 'status' | 'setup' | 'recovery' | 'disable';
+type Step = 'status' | 'setup' | 'recovery' | 'disable' | 'regenerate';
 
 type FetchFn = (endpoint: string, options?: RequestInit) => Promise<unknown>;
 
@@ -49,6 +49,7 @@ export default function MfaSettings({
   const [copied, setCopied]             = useState(false);
   const [code, setCode]                 = useState('');
   const [disableCode, setDisableCode]   = useState('');
+  const [regenerateCode, setRegenerateCode] = useState('');
   const [recoveryCodes, setRecovery]    = useState<string[]>([]);
   const [error, setError]               = useState('');
   const [busy, setBusy]                 = useState(false);
@@ -118,7 +119,25 @@ export default function MfaSettings({
     } finally { setBusy(false); }
   }
 
+  async function regenerateMfa() {
+    if (!regenerateCode.trim()) { setError('Enter your current TOTP code to confirm.'); return; }
+    setBusy(true); setError('');
+    try {
+      const d = await fetchFn('/api/auth/mfa/regenerate-codes', {
+        method: 'POST',
+        body: JSON.stringify({ code: regenerateCode.trim() }),
+      }) as { ok: boolean; recovery_codes: string[] };
+      setRecovery(d.recovery_codes ?? []);
+      setStep('regenerate');
+      setRegenerateCode('');
+      void loadStatus();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Regeneration failed — check TOTP code');
+    } finally { setBusy(false); }
+  }
+
   function copySecret() {
+
     navigator.clipboard.writeText(manualSecret)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
       .catch(() => {});
@@ -184,11 +203,18 @@ export default function MfaSettings({
               <Divider borderColor="gray.800" />
 
               {status?.mfa_enabled ? (
-                <Button size="sm" colorScheme="red" variant="outline" fontFamily="mono"
-                  fontSize="xs" letterSpacing="wider" alignSelf="start"
-                  onClick={() => { setStep('disable'); setError(''); }}>
-                  DISABLE MFA
-                </Button>
+                <HStack spacing={3}>
+                  <Button size="sm" colorScheme="orange" variant="outline" fontFamily="mono"
+                    fontSize="xs" letterSpacing="wider"
+                    onClick={() => { setStep('regenerate'); setRegenerateCode(''); setError(''); }}>
+                    REGENERATE CODES
+                  </Button>
+                  <Button size="sm" colorScheme="red" variant="outline" fontFamily="mono"
+                    fontSize="xs" letterSpacing="wider"
+                    onClick={() => { setStep('disable'); setError(''); }}>
+                    DISABLE MFA
+                  </Button>
+                </HStack>
               ) : (
                 <VStack align="start" spacing={3}>
                   <Text fontSize="xs" color="gray.400">
@@ -387,6 +413,90 @@ export default function MfaSettings({
                   CANCEL
                 </Button>
               </HStack>
+            </VStack>
+          </Box>
+        )}
+
+        {/* Regenerate Recovery Codes */}
+        {step === 'regenerate' && (
+          <Box p={5} bg="gray.900" borderRadius="md" border="1px solid" borderColor="orange.800">
+            <VStack spacing={4} align="stretch">
+              {recoveryCodes.length === 0 ? (
+                // ── Confirmation step: enter TOTP to regenerate ──
+                <>
+                  <Text fontSize="sm" fontWeight="bold" color="orange.300" fontFamily="mono">
+                    REGENERATE RECOVERY CODES
+                  </Text>
+                  <Alert status="warning" bg="yellow.900" borderRadius="sm"
+                    border="1px solid" borderColor="yellow.700">
+                    <AlertIcon />
+                    <AlertDescription fontSize="xs" fontFamily="mono">
+                      All current recovery codes will be permanently invalidated.
+                      You will receive 8 new codes. Save them immediately.
+                    </AlertDescription>
+                  </Alert>
+                  <Text fontSize="xs" color="gray.400">
+                    Enter your current 6-digit TOTP code to confirm.
+                  </Text>
+                  <Input
+                    value={regenerateCode}
+                    onChange={e => setRegenerateCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000" maxLength={6} fontFamily="mono" fontSize="xl"
+                    textAlign="center" letterSpacing="widest" bg="gray.800"
+                    border="1px solid" borderColor="gray.600" color="white"
+                    _placeholder={{ color: 'gray.600' }}
+                    onKeyDown={e => e.key === 'Enter' && void regenerateMfa()}
+                  />
+                  {error && (
+                    <Alert status="error" bg="red.900" borderRadius="sm"
+                      border="1px solid" borderColor="red.700">
+                      <AlertIcon />
+                      <AlertDescription fontSize="xs" fontFamily="mono">{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  <HStack>
+                    <Button size="sm" colorScheme="orange" fontFamily="mono" fontSize="xs"
+                      letterSpacing="wider" onClick={regenerateMfa} isLoading={busy}
+                      isDisabled={regenerateCode.length !== 6}>
+                      CONFIRM REGENERATE
+                    </Button>
+                    <Button size="sm" variant="ghost" color="gray.500" fontFamily="mono"
+                      fontSize="xs" onClick={() => { setStep('status'); setError(''); setRegenerateCode(''); }}>
+                      CANCEL
+                    </Button>
+                  </HStack>
+                </>
+              ) : (
+                // ── Success step: show new codes ──
+                <>
+                  <Text fontSize="sm" fontWeight="bold" color="orange.300" fontFamily="mono">
+                    NEW RECOVERY CODES
+                  </Text>
+                  <Alert status="warning" bg="yellow.900" borderRadius="sm"
+                    border="1px solid" borderColor="yellow.700">
+                    <AlertIcon />
+                    <AlertDescription fontSize="xs" fontFamily="mono">
+                      Save these new codes now. Your previous codes are no longer valid.
+                      Each code can only be used once.
+                    </AlertDescription>
+                  </Alert>
+                  <SimpleGrid columns={2} spacing={2}>
+                    {recoveryCodes.map((rc, i) => (
+                      <Code key={i} fontFamily="mono" fontSize="sm" bg="gray.800"
+                        color="orange.200" p={2} borderRadius="sm"
+                        letterSpacing="widest" textAlign="center">{rc}</Code>
+                    ))}
+                  </SimpleGrid>
+                  <Text fontSize="xs" color="gray.500" fontFamily="mono">
+                    Store in a password manager. Old codes are permanently invalidated.
+                  </Text>
+                  <Button size="sm" colorScheme="orange" variant="outline" fontFamily="mono"
+                    fontSize="xs" letterSpacing="wider"
+                    onClick={() => { setStep('status'); setRecovery([]); }}>
+                    I HAVE SAVED MY NEW CODES
+                  </Button>
+                </>
+              )}
             </VStack>
           </Box>
         )}
