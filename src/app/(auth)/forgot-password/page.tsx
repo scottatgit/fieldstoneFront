@@ -61,6 +61,11 @@ export default function ForgotPasswordPage() {
           <p style={{ marginTop: 8, fontSize: 13, color: '#555' }}>
             The link expires in <strong style={{ color: '#888' }}>2 hours</strong>.
           </p>
+          {/* FST-038: static MFA informational note */}
+          <p style={{ marginTop: 12, fontSize: 12, color: '#555', textAlign: 'center', lineHeight: 1.5 }}>
+            Note: resetting your password does not disable two&#x2011;factor authentication.
+            If you have MFA enabled, you will still be prompted for your authenticator code after login.
+          </p>
           <div style={{ marginTop: 28 }}>
             <Link href='/login' style={linkStyle}>&larr; Back to login</Link>
           </div>

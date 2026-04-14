@@ -14,6 +14,8 @@ function ResetPasswordInner() {
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
   const [success, setSuccess]         = useState(false);
+  // FST-038: track whether MFA remains active after reset
+  const [mfaActive, setMfaActive]     = useState(false);
 
   if (!token) {
     return (
@@ -49,8 +51,15 @@ function ResetPasswordInner() {
         );
         return;
       }
+      // FST-038: capture mfa_active from response before showing success
+      const hasMfa = data.mfa_active === true;
+      setMfaActive(hasMfa);
       setSuccess(true);
-      setTimeout(() => router.push('/login'), 2500);
+      // Only auto-redirect when MFA is not active — if MFA is active the
+      // user needs to read the note before being sent to the TOTP prompt.
+      if (!hasMfa) {
+        setTimeout(() => router.push('/login'), 2500);
+      }
     } catch {
       setError('Network error. Please check your connection.');
     } finally {
@@ -65,7 +74,26 @@ function ResetPasswordInner() {
           <div style={logoStyle}>&#x26A1; SIGNAL AI</div>
           <div style={{ fontSize: 48, marginBottom: 16 }}>&#x2705;</div>
           <h1 style={titleStyle}>Password Updated</h1>
-          <p style={subtitleStyle}>Redirecting you to login...</p>
+
+          {/* FST-038: MFA-active notice */}
+          {mfaActive ? (
+            <>
+              <div style={mfaNoticeStyle}>
+                <p style={{ margin: 0, fontWeight: 700, marginBottom: 6, color: '#f6ad55' }}>
+                  &#x1F512; Two-factor authentication is still active
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>
+                  Your password has been updated, but your authenticator is still required.
+                  You will be prompted for your authenticator code when you log in.
+                </p>
+              </div>
+              <Link href="/login" style={{ ...buttonLinkStyle, marginTop: 20 }}>
+                Go to login &rarr;
+              </Link>
+            </>
+          ) : (
+            <p style={subtitleStyle}>Redirecting you to login...</p>
+          )}
         </div>
       </div>
     );
@@ -154,3 +182,13 @@ const errorStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
 };
 const linkStyle: React.CSSProperties = { color: '#00ff88', textDecoration: 'none', fontSize: 13 };
+// FST-038: MFA notice box and CTA button styles
+const mfaNoticeStyle: React.CSSProperties = {
+  width: '100%', backgroundColor: '#1a1500', border: '1px solid #7a5800',
+  borderRadius: 8, padding: '14px 16px', marginTop: 8, textAlign: 'left',
+  boxSizing: 'border-box',
+};
+const buttonLinkStyle: React.CSSProperties = {
+  display: 'inline-block', padding: '11px 28px', backgroundColor: '#00ff88',
+  color: '#000', borderRadius: 8, fontSize: 14, fontWeight: 700, textDecoration: 'none',
+};
