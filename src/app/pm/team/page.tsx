@@ -26,6 +26,7 @@ interface TenantUser {
   assigned_to_alias?: string;
   last_active_at?: string;
   created_at: string;
+  totp_enabled?: boolean;
 }
 
 function timeAgo(iso?: string): string {
@@ -78,6 +79,14 @@ export default function TeamPage() {
   const [delUser, setDelUser] = useState<TenantUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // FST-037: Tenant-admin MFA reset state
+  const { isOpen: mfaResetOpen, onOpen: openMfaReset, onClose: closeMfaReset } = useDisclosure();
+  const [mfaResetUser, setMfaResetUser] = useState<TenantUser | null>(null);
+  const [mfaResetting, setMfaResetting] = useState(false);
+  const [mfaResetDone, setMfaResetDone] = useState(false);
+  const [mfaResetError, setMfaResetError] = useState('');
+  const mfaCancelRef = useRef<HTMLButtonElement>(null);
 
   // Invite state
   const [inviteRole,   setInviteRole]   = useState('technician');
@@ -163,6 +172,23 @@ export default function TeamPage() {
     finally { setDeleting(false); }
   }
 
+  // FST-037: Tenant-admin MFA reset — same-tenant only, calls POST /api/tenant/users/{id}/mfa/reset
+  function startMfaReset(u: TenantUser) {
+    setMfaResetUser(u); setMfaResetDone(false); setMfaResetError('');
+    openMfaReset();
+  }
+
+  async function handleMfaReset() {
+    if (!mfaResetUser) return;
+    setMfaResetting(true); setMfaResetError('');
+    try {
+      await pmFetch(`/api/tenant/users/${mfaResetUser.id}/mfa/reset`, API, { method: 'POST' });
+      setMfaResetDone(true); fetchUsers();
+    } catch (e) {
+      setMfaResetError(e instanceof Error ? e.message : 'Reset failed');
+    } finally { setMfaResetting(false); }
+  }
+
   const isPilot = (u: TenantUser) => u.role === 'assistant';
 
   return (
@@ -200,7 +226,7 @@ export default function TeamPage() {
               <TableContainer>
                 <Table size="sm" variant="simple">
                   <Thead bg="gray.900">
-                    <Tr>{['NAME','ROLE','ALIAS','EMAIL','LAST ACTIVE','ACTIONS'].map(h => (
+                    <Tr>{['NAME','ROLE','ALIAS','EMAIL','LAST ACTIVE','MFA','ACTIONS'].map(h => (
                       <Th key={h} color="gray.400" fontFamily="mono" fontSize="2xs" borderColor="gray.700">{h}</Th>
                     ))}</Tr>
                   </Thead>
@@ -218,16 +244,24 @@ export default function TeamPage() {
                         <Td borderColor="gray.800"><Text fontSize="xs" color="gray.500">{u.email || '—'}</Text></Td>
                         <Td borderColor="gray.800"><Text fontSize="xs" color={u.last_active_at ? 'gray.300' : 'gray.600'}>{timeAgo(u.last_active_at)}</Text></Td>
                         <Td borderColor="gray.800">
+                          {u.totp_enabled
+                            ? <Badge colorScheme="purple" fontSize="2xs" fontFamily="mono">MFA ON</Badge>
+                            : <Text fontSize="2xs" color="gray.600" fontFamily="mono">—</Text>}
+                        </Td>
+                        <Td borderColor="gray.800">
                           {!isPilot(u) ? (
                             <HStack spacing={2}>
                               <Button size="xs" variant="ghost" colorScheme="blue" onClick={() => startEdit(u)}>Edit</Button>
                               <Button size="xs" variant="ghost" colorScheme="red" onClick={() => { setDelUser(u); openDel(); }}>Remove</Button>
+                              {u.totp_enabled && (
+                                <Button size="xs" variant="ghost" colorScheme="orange" onClick={() => startMfaReset(u)}>Reset MFA</Button>
+                              )}
                             </HStack>
                           ) : <Text fontSize="2xs" color="purple.500" fontFamily="mono">system</Text>}
                         </Td>
                       </Tr>
                     ))}
-                    {users.length === 0 && <Tr><Td colSpan={6} textAlign="center" py={8} color="gray.500" borderColor="gray.800">No team members yet.</Td></Tr>}
+                    {users.length === 0 && <Tr><Td colSpan={7} textAlign="center" py={8} color="gray.500" borderColor="gray.800">No team members yet.</Td></Tr>}
                   </Tbody>
                 </Table>
               </TableContainer>
@@ -374,6 +408,46 @@ export default function TeamPage() {
               <AlertDialogFooter gap={2}>
                 <Button ref={cancelRef} size="sm" variant="ghost" colorScheme="gray" onClick={closeDel}>Cancel</Button>
                 <Button size="sm" colorScheme="red" isLoading={deleting} onClick={handleDelete}>Remove</Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+
+        {/* FST-037: Tenant-admin MFA reset confirmation dialog.
+            Calls POST /api/tenant/users/{id}/mfa/reset (same-tenant only).
+            Backend enforces: tenant isolation + cannot reset platform_admin. */}
+        <AlertDialog isOpen={mfaResetOpen} leastDestructiveRef={mfaCancelRef} onClose={closeMfaReset} isCentered>
+          <AlertDialogOverlay bg="blackAlpha.800">
+            <AlertDialogContent bg="gray.900" border="1px solid" borderColor="orange.700" color="gray.100">
+              <AlertDialogHeader fontSize="sm" fontFamily="mono" color="orange.300" borderBottom="1px solid" borderColor="gray.700">RESET MFA</AlertDialogHeader>
+              <AlertDialogBody py={4} fontSize="sm">
+                {mfaResetDone ? (
+                  <Text color="green.300" fontFamily="mono" fontSize="xs">✓ MFA cleared for {mfaResetUser?.name}. They must re-enrol from security settings.</Text>
+                ) : (
+                  <VStack align="stretch" spacing={3}>
+                    <Text>Reset MFA for <Text as="span" fontWeight="bold" color="white">{mfaResetUser?.name}</Text>?</Text>
+                    <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="orange.800">
+                      <VStack align="stretch" spacing={1}>
+                        <Text fontSize="xs" color="orange.300" fontFamily="mono" fontWeight="bold">THIS WILL PERMANENTLY:</Text>
+                        <Text fontSize="xs" color="gray.300">• Disable TOTP for this account</Text>
+                        <Text fontSize="xs" color="gray.300">• Delete the authenticator secret</Text>
+                        <Text fontSize="xs" color="gray.300">• Delete all recovery codes</Text>
+                      </VStack>
+                    </Box>
+                    <Text fontSize="xs" color="gray.500">The user will need to re-enrol MFA from their security settings.</Text>
+                    {mfaResetError && <Text fontSize="xs" color="red.400" fontFamily="mono">{mfaResetError}</Text>}
+                  </VStack>
+                )}
+              </AlertDialogBody>
+              <AlertDialogFooter gap={2}>
+                <Button ref={mfaCancelRef} size="sm" variant="ghost" colorScheme="gray" onClick={closeMfaReset}>
+                  {mfaResetDone ? 'Close' : 'Cancel'}
+                </Button>
+                {!mfaResetDone && (
+                  <Button size="sm" colorScheme="orange" isLoading={mfaResetting} onClick={handleMfaReset}>
+                    Reset MFA
+                  </Button>
+                )}
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialogOverlay>

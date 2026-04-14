@@ -17,6 +17,7 @@ interface AdminUser {
   has_password: boolean;
   login_healthy: boolean;
   issues: string[];
+  totp_enabled: boolean;
 }
 interface Tenant { id: string; subdomain: string; }
 
@@ -24,6 +25,12 @@ function HealthBadge({ healthy }: { healthy: boolean }) {
   return healthy
     ? <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"><span className="h-1.5 w-1.5 rounded-full bg-green-500" />Healthy</span>
     : <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700"><span className="h-1.5 w-1.5 rounded-full bg-red-500" />Broken</span>;
+}
+
+function MfaBadge({ enabled }: { enabled: boolean }) {
+  return enabled
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />MFA On</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">No MFA</span>;
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -132,6 +139,60 @@ function ResetModal({ user, onClose, onReset }: { user: AdminUser; onClose: () =
   );
 }
 
+// FST-037: Platform-admin MFA reset modal.
+// Calls POST /api/admin/users/{id}/mfa/reset. Explains consequences before execution.
+function MfaResetModal({ user, onClose, onReset }: { user: AdminUser; onClose: () => void; onReset: () => void; }) {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  async function confirm() {
+    setError(""); setLoading(true);
+    try {
+      await adminFetchDirect(`/api/admin/users/${user.id}/mfa/reset`, { method: "POST" });
+      setDone(true); onReset();
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : "Reset failed"); }
+    finally { setLoading(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="font-semibold text-slate-900">Reset MFA</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-slate-500">For <span className="font-medium text-slate-700">{user.email}</span></p>
+          {done ? (
+            <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              MFA cleared. User must re-enrol from their security settings.
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 space-y-1">
+                <p className="font-medium">This will permanently:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+                  <li>Disable TOTP for this account</li>
+                  <li>Delete the authenticator secret</li>
+                  <li>Delete all recovery codes</li>
+                </ul>
+                <p className="pt-1">The user will need to re-enrol MFA from their security settings.</p>
+              </div>
+              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50">Cancel</button>
+                <button type="button" onClick={confirm} disabled={loading}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  {loading ? "Resetting..." : "Reset MFA"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -143,6 +204,7 @@ export default function UsersPage() {
   const [filter, setFilter] = useState<"all" | "broken" | "healthy">("all");
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null);
+  const [mfaResetTarget, setMfaResetTarget] = useState<AdminUser | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   useEffect(() => {
@@ -238,6 +300,7 @@ export default function UsersPage() {
                     <th className="px-4 py-3">Tenant</th>
                     <th className="px-4 py-3">Role</th>
                     <th className="px-4 py-3">Login Health</th>
+                    <th className="px-4 py-3">MFA</th>
                     <th className="px-4 py-3">Last Active</th>
                     <th className="px-4 py-3">Actions</th>
                   </tr>
@@ -261,14 +324,25 @@ export default function UsersPage() {
                           {u.issues.map((issue, i) => <span key={i} className="text-xs text-red-500">{issue}</span>)}
                         </div>
                       </td>
+                      <td className="px-4 py-3">
+                        <MfaBadge enabled={u.totp_enabled} />
+                      </td>
                       <td className="px-4 py-3 text-slate-500">
                         {u.last_active_at ? new Date(u.last_active_at).toLocaleDateString() : <span className="text-slate-300">Never</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setResetTarget(u)}
-                          className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                          Reset Password
-                        </button>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button onClick={() => setResetTarget(u)}
+                            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                            Reset Password
+                          </button>
+                          {u.totp_enabled && (
+                            <button onClick={() => setMfaResetTarget(u)}
+                              className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+                              Reset MFA
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -284,6 +358,7 @@ export default function UsersPage() {
 
       {showCreate && <CreateModal tenants={tenants} onClose={() => setShowCreate(false)} onCreated={load} />}
       {resetTarget && <ResetModal user={resetTarget} onClose={() => setResetTarget(null)} onReset={load} />}
+      {mfaResetTarget && <MfaResetModal user={mfaResetTarget} onClose={() => setMfaResetTarget(null)} onReset={load} />}
     </div>
   );
 }
