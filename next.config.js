@@ -16,6 +16,15 @@ module.exports = {
     return config;
   },
   ...(isStaticExport ? {} : {
+    async redirects() {
+      return [
+        {
+          source: '/privacy-policy',
+          destination: '/privacy',
+          permanent: true,
+        },
+      ];
+    },
     async rewrites() {
       const rules = [];
 

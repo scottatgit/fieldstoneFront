@@ -170,6 +170,7 @@ export default function FieldstonePage() {
                 <Text as="a" href="https://signal.fieldstone.pro" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">Signal</Text>
                 <Text as="a" href="https://signal.fieldstone.pro/login" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">Sign In</Text>
                 <Text as="a" href="https://signal.fieldstone.pro/signup" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">Sign Up</Text>
+                <Text as="a" href="/privacy" fontSize="sm" color="gray.500" _hover={{ color: BLUE }} cursor="pointer">Privacy Policy</Text>
               </HStack>
             </Flex>
           </Container>
