@@ -102,7 +102,21 @@ export function SummaryBar({ summary, loading }: { summary: Summary | null; load
               <Flex align="center" px={2} flexShrink={0}>
                 <Box w="1px" h="20px" bg="gray.700" />
               </Flex>
-              <Tooltip label="Open Signal Control Plane" placement="bottom" fontSize="xs">
+              <Link href="/pm/admin/signal-status" style={{ textDecoration: 'none' }}>
+                <Flex align="center" justify="center"
+                  px={4} minH="44px" minW="60px"
+                  borderBottom="2px solid"
+                  borderColor={pathname.startsWith('/pm/admin/signal-status') ? 'blue.400' : 'transparent'}
+                  color={pathname.startsWith('/pm/admin/signal-status') ? 'white' : 'gray.500'}
+                  _hover={{ color: 'gray.200', borderColor: 'gray.600' }}
+                  transition="all 0.15s" cursor="pointer">
+                  <Text fontSize="xs" fontWeight={pathname.startsWith('/pm/admin/signal-status') ? 'black' : 'medium'}
+                    fontFamily="mono" letterSpacing="wider">
+                    STATUS
+                  </Text>
+                </Flex>
+              </Link>
+                            <Tooltip label="Open Signal Control Plane" placement="bottom" fontSize="xs">
                 <Flex as="a" href="https://signal.fieldstone.pro"
                   align="center" justify="center"
                   px={4} minH="44px" minW="60px"
