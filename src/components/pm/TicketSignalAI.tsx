@@ -238,7 +238,7 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
                 fontSize="8px"
                 fontFamily="mono"
               >
-                {output.mode === 'assist' ? 'ASSIST OUTPUT' : 'CLOSE NOTE'}
+                {output.mode === 'assist' ? 'ASSIST PROMPT' : 'CLOSE NOTE'}
               </Badge>
               {output.state === 'error' && (
                 <Badge colorScheme="red" fontSize="8px" fontFamily="mono">ERROR</Badge>
@@ -272,41 +272,63 @@ export default function TicketSignalAI({ ticket }: { ticket: Ticket }) {
               </Text>
             </Box>
 
-            {/* Action row */}
+            {/* Action row — FST-058: Assist shows COPY PROMPT only; Close retains ADD AS NOTE */}
             {output.state === 'ready' && (
-              <HStack spacing={3} flexShrink={0}>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  borderColor="gray.700"
-                  color="gray.400"
-                  fontFamily="mono"
-                  fontSize="2xs"
-                  onClick={copyOutput}
-                  _hover={{ borderColor: 'gray.500', color: 'white' }}
-                >
-                  📋 COPY
-                </Button>
-                <Button
-                  size="xs"
-                  variant={noteAdded ? 'solid' : 'outline'}
-                  colorScheme={noteAdded ? 'green' : 'gray'}
-                  borderColor={noteAdded ? undefined : 'gray.700'}
-                  color={noteAdded ? undefined : 'gray.400'}
-                  fontFamily="mono"
-                  fontSize="2xs"
-                  onClick={addAsNote}
-                  isDisabled={noteAdded}
-                  _hover={noteAdded ? {} : { borderColor: 'green.600', color: 'green.300' }}
-                >
-                  {noteAdded ? '✓ ADDED AS NOTE' : `+ ADD AS ${NOTE_META[output.mode!].label.toUpperCase()}`}
-                </Button>
-                <Text fontSize="9px" color="gray.700" fontFamily="mono" ml="auto">
-                  {output.mode === 'assist'
-                    ? 'Saves as visit_note / ai_assist'
-                    : 'Saves as visit_note / ai_close'}
-                </Text>
-              </HStack>
+              <>
+                {output.mode === 'assist' ? (
+                  /* Assist: prompt output — copy only, no note save */
+                  <VStack spacing={1} alignItems="flex-start" flexShrink={0}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderColor="blue.700"
+                      color="blue.300"
+                      fontFamily="mono"
+                      fontSize="2xs"
+                      onClick={copyOutput}
+                      _hover={{ borderColor: 'blue.400', color: 'white' }}
+                    >
+                      📋 COPY PROMPT
+                    </Button>
+                    <Text fontSize="9px" color="gray.600" fontFamily="mono">
+                      Paste into ChatGPT, Claude, or any AI tool
+                    </Text>
+                  </VStack>
+                ) : (
+                  /* Close: note output — copy + add as note */
+                  <HStack spacing={3} flexShrink={0}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderColor="gray.700"
+                      color="gray.400"
+                      fontFamily="mono"
+                      fontSize="2xs"
+                      onClick={copyOutput}
+                      _hover={{ borderColor: 'gray.500', color: 'white' }}
+                    >
+                      📋 COPY
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant={noteAdded ? 'solid' : 'outline'}
+                      colorScheme={noteAdded ? 'green' : 'gray'}
+                      borderColor={noteAdded ? undefined : 'gray.700'}
+                      color={noteAdded ? undefined : 'gray.400'}
+                      fontFamily="mono"
+                      fontSize="2xs"
+                      onClick={addAsNote}
+                      isDisabled={noteAdded}
+                      _hover={noteAdded ? {} : { borderColor: 'green.600', color: 'green.300' }}
+                    >
+                      {noteAdded ? '✓ ADDED AS NOTE' : '+ ADD AS CLOSE NOTE'}
+                    </Button>
+                    <Text fontSize="9px" color="gray.700" fontFamily="mono" ml="auto">
+                      Saves as visit_note / ai_close
+                    </Text>
+                  </HStack>
+                )}
+              </>
             )}
           </Box>
         )}
