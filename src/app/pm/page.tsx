@@ -350,6 +350,7 @@ export default function PMPage() {
   const [upgrading, setUpgrading]       = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [refreshing, setRefreshing]         = useState(false);
+  const [dispatchOpen, setDispatchOpen]     = useState(false); // collapsed by default
   // Ingest trigger guards — prevent concurrent or too-frequent IMAP scans
   const ingestRunningRef  = useRef(false);
   const lastIngestRef     = useRef(0); // epoch ms of last ingest trigger
@@ -483,11 +484,11 @@ export default function PMPage() {
       <Grid
         flex={1}
         minH={0}
-        templateColumns={{ base: '1fr', md: '160px 1fr' }}
+        templateColumns={{ base: '1fr', md: dispatchOpen ? '160px 1fr' : '28px 1fr' }}
         templateRows="1fr"
         gap={0}
       >
-        {/* ── Left: Dispatch Filter ── */}
+        {/* ── Left: Dispatch Filter (collapsible) ── */}
         <GridItem
           borderRight="1px solid"
           borderColor="gray.700"
@@ -495,15 +496,61 @@ export default function PMPage() {
           display={{ base: 'none', md: 'flex' }}
           flexDirection="column"
           bg="gray.950"
+          position="relative"
         >
-          <VisitFilterSidebar
-            tickets={tickets}
-            activeFilter={visitFilter}
-            onFilter={f => { setVisitFilter(f); setSelected(null); }}
-            myOnly={myOnly}
-            onToggleMy={() => setMyOnly(v => !v)}
-            tech={DEFAULT_TECH}
-          />
+          {dispatchOpen ? (
+            <>
+              <VisitFilterSidebar
+                tickets={tickets}
+                activeFilter={visitFilter}
+                onFilter={f => { setVisitFilter(f); setSelected(null); }}
+                myOnly={myOnly}
+                onToggleMy={() => setMyOnly(v => !v)}
+                tech={DEFAULT_TECH}
+              />
+              {/* Collapse button at bottom of open sidebar */}
+              <Box
+                as="button"
+                onClick={() => setDispatchOpen(false)}
+                w="full"
+                py={2}
+                borderTop="1px solid"
+                borderColor="gray.800"
+                color="gray.600"
+                fontSize="2xs"
+                fontFamily="mono"
+                textAlign="center"
+                _hover={{ color: 'gray.300', bg: 'gray.900' }}
+                flexShrink={0}
+              >
+                ‹ hide
+              </Box>
+            </>
+          ) : (
+            /* Collapsed: thin rail with expand toggle */
+            <Flex
+              direction="column"
+              align="center"
+              justify="flex-start"
+              h="full"
+              pt={3}
+              gap={2}
+            >
+              <Box
+                as="button"
+                onClick={() => setDispatchOpen(true)}
+                p={1}
+                borderRadius="sm"
+                color="gray.600"
+                fontSize="xs"
+                fontFamily="mono"
+                _hover={{ color: 'blue.300', bg: 'gray.800' }}
+                title="Expand dispatch filter"
+              >
+                ›
+              </Box>
+            </Flex>
+          )}
         </GridItem>
 
         {/* ── Center: Ticket Queue ── */}
