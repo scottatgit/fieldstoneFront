@@ -2,7 +2,6 @@
 import {
   Box, Flex, Grid, GridItem, HStack, VStack, Text, Badge,
   Input, Spinner, Button, useDisclosure, Tooltip,
-  Tabs, TabList, Tab, TabPanels, TabPanel,
   Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverArrow,
 }  from '@chakra-ui/react';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -10,7 +9,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Ticket, Summary } from '../../components/pm/types';
 import { TicketCard } from '../../components/pm/TicketCard';
 import { ExecutionView } from '../../components/pm/ExecutionView';
-import IntelPanel from '@/components/pm/IntelPanel';
 import { isDemoMode, pmFetch } from '@/lib/demoApi';
 import { DemoBanner } from '@/components/pm/DemoBanner';
 import { SummaryBar } from '@/components/pm/SummaryBar';
@@ -231,58 +229,6 @@ function VisitDatePicker({ ticket, onSaved, isOpsMode = true }: { ticket: Ticket
   );
 }
 
-// ─── Ingestion Banner (replaces Pilot in list view) ──────────────────────────
-function IngestionBanner() {
-  const [status, setStatus] = useState<'idle'|'running'|'done'|'error'>('idle');
-  const [msg, setMsg]       = useState('');
-
-  async function runIngest() {
-    setStatus('running'); setMsg('');
-    try {
-      const r = await fetch('/api/ingest-email', { method: 'POST', credentials: 'include' });
-      const d = await r.json();
-      setMsg(d.message || JSON.stringify(d));
-      setStatus('done');
-    } catch (e: any) {
-      setMsg(e.message || 'Error');
-      setStatus('error');
-    }
-  }
-
-  return (
-    <VStack align="stretch" spacing={3} p={4} flex={1}>
-      <HStack>
-        <Text fontSize="2xs" fontFamily="mono" fontWeight="bold" color="gray.500" letterSpacing="wider">INGESTION</Text>
-      </HStack>
-      <Box
-        p={3} borderRadius="md" border="1px solid"
-        borderColor={status === 'done' ? 'green.700' : status === 'error' ? 'red.700' : 'gray.700'}
-        bg={status === 'done' ? 'green.950' : status === 'error' ? 'red.950' : 'gray.900'}
-      >
-        <VStack align="stretch" spacing={2}>
-          <Text fontSize="xs" color="gray.300">
-            {status === 'idle' && 'Pull latest emails and update ticket data.'}
-            {status === 'running' && '⏳ Scanning inbox...'}
-            {status === 'done' && `✅ ${msg}`}
-            {status === 'error' && `❌ ${msg}`}
-          </Text>
-          <Box
-            as="button" onClick={status !== 'running' ? runIngest : undefined}
-            px={3} py={1.5} borderRadius="sm"
-            bg={status === 'running' ? 'gray.700' : 'blue.700'}
-            color="white" fontSize="2xs" fontFamily="mono" fontWeight="bold"
-            _hover={{ bg: status === 'running' ? 'gray.700' : 'blue.600' }}
-            transition="all 0.1s" cursor={status === 'running' ? 'not-allowed' : 'pointer'}
-          >
-            {status === 'running' ? <Spinner size="xs" /> : 'Run Ingestion'}
-          </Box>
-        </VStack>
-      </Box>
-
-    </VStack>
-  );
-}
-
 // ─── Ticket Queue ─────────────────────────────────────────────────────────────
 function TicketQueue({
   tickets, loading, selectedKey, onSelect, onDateSaved, isOpsMode = true
@@ -397,13 +343,13 @@ export default function PMPage() {
   const [selectedTicket, setSelected]   = useState<Ticket | null>(null);
   const [visitFilter, setVisitFilter]   = useState<VisitFilter>('all');
   const [myOnly, setMyOnly]             = useState(false);
-  const [activeTab, setActiveTab]       = useState(0);
   const { isOpen: isNewTicketOpen, onOpen: openNewTicket, onClose: closeNewTicket } = useDisclosure();
   const { mode: wsMode, opsEligible, loading: modeLoading } = useWorkspaceMode(); // MODE-004/005
   const isOpsMode = wsMode === 'operations'; // true for ops/fallback, false for intelligence
   // MODE-005: upgrade path state
   const [upgrading, setUpgrading]       = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [refreshing, setRefreshing]         = useState(false);
 
   // MODE-005: upgrade workspace from intelligence to operations mode
   async function handleUpgradeToOps() {
@@ -456,6 +402,19 @@ export default function PMPage() {
     finally { setSummaryL(false); }
   }, []);
 
+  // ── Check Tickets: safe DB refresh — NOT IMAP ingest ────────────────────────
+  // Calls GET /api/tickets + GET /api/summary — reads from DB only, no email scan.
+  // Auto-fetch already runs on mount + every 60s via useEffect interval below.
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchTickets(), fetchSummary()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing, fetchTickets, fetchSummary]);
+
   useEffect(() => {
     fetchTickets();
     fetchSummary();
@@ -492,7 +451,7 @@ export default function PMPage() {
       <Grid
         flex={1}
         minH={0}
-        templateColumns={{ base: '1fr', md: '160px 1fr', lg: '180px 1fr 300px' }}
+        templateColumns={{ base: '1fr', md: '160px 1fr' }}
         templateRows="1fr"
         gap={0}
       >
@@ -557,6 +516,23 @@ export default function PMPage() {
                 {filterLabel}
               </Text>
               <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
+              {/* CHECK TICKETS: safe DB refresh — calls GET /api/tickets only, not IMAP ingest */}
+              <Button
+                size="xs"
+                variant="ghost"
+                fontFamily="mono"
+                fontSize="2xs"
+                color="gray.500"
+                _hover={{ color: 'blue.300', bg: 'gray.800' }}
+                isLoading={refreshing}
+                loadingText=""
+                spinner={<Spinner size="xs" color="blue.400" />}
+                onClick={handleRefresh}
+                px={2}
+                title="Refresh ticket list from database"
+              >
+                ↺ CHECK
+              </Button>
             </HStack>
             {/* MODE-004/005: ticket creation + upgrade CTA */}
             {isOpsMode ? (
@@ -691,55 +667,8 @@ export default function PMPage() {
             isOpsMode={isOpsMode} /* MODE-004 */
           />
         </GridItem>
-
-        {/* ── Right: Ingestion + Intel ── */}
-        <GridItem
-          borderLeft="1px solid"
-          borderColor="gray.700"
-          overflow="hidden"
-          display={{ base: 'none', lg: 'flex' }}
-          flexDirection="column"
-          bg="gray.950"
-        >
-          <Tabs
-            variant="unstyled"
-            index={activeTab}
-            onChange={setActiveTab}
-            display="flex"
-            flexDirection="column"
-            h="full"
-          >
-            <TabList px={2} pt={2} flexShrink={0} borderBottom="1px solid" borderColor="gray.700">
-              <Tab
-                fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}
-                color={activeTab === 0 ? 'green.300' : 'gray.500'}
-                borderBottom={activeTab === 0 ? '2px solid' : 'none'}
-                borderColor="green.400"
-                _selected={{}} _focus={{ boxShadow: 'none' }}
-              >
-                Ingest
-              </Tab>
-              <Tab
-                fontSize="2xs" fontFamily="mono" fontWeight="bold" px={3} py={1.5}
-                color={activeTab === 1 ? 'purple.300' : 'gray.500'}
-                borderBottom={activeTab === 1 ? '2px solid' : 'none'}
-                borderColor="purple.400"
-                _selected={{}} _focus={{ boxShadow: 'none' }}
-              >
-                Intel
-              </Tab>
-            </TabList>
-            <TabPanels flex={1} overflow="hidden" display="flex" flexDirection="column">
-              <TabPanel p={0} flex={1} overflow="hidden" display={activeTab === 0 ? 'flex' : 'none'} flexDirection="column">
-                <IngestionBanner />
-              </TabPanel>
-              <TabPanel p={0} flex={1} overflow={activeTab === 1 ? 'auto' : 'hidden'} display={activeTab === 1 ? 'block' : 'none'}>
-                <IntelPanel />
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </GridItem>
       </Grid>
+
       <NewTicketModal
         isOpen={isNewTicketOpen}
         onClose={closeNewTicket}
