@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Box, Badge, Flex, HStack, VStack, Text } from '@chakra-ui/react';
+import { Box, Badge, Flex, HStack, VStack, Text, Checkbox } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Ticket } from './types';
 import { ReadinessBadge, TrustDot, DecisionBadge } from './SignalBadge';
@@ -95,10 +95,16 @@ interface TicketCardProps {
   ticket: Ticket;
   onClick: (ticket: Ticket) => void;
   isSelected?: boolean;
+  // close001: select mode + individual close
+  isSelectMode?: boolean;
+  isChecked?: boolean;
+  onCheck?: (key: string, checked: boolean) => void;
+  onClose?: (key: string) => void;
 }
 
-export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
+export function TicketCard({ ticket, onClick, isSelected, isSelectMode, isChecked, onCheck, onClose }: TicketCardProps) {
   const [risk, setRisk] = useState<TicketRisk | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   // Lazy-load risk data on mount
   useEffect(() => {
@@ -145,9 +151,19 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
     : isLowReady    ? 'yellow.900'
     : 'gray.700';
 
+  function handleCardClick() {
+    if (isSelectMode && onCheck) {
+      onCheck(ticket.ticket_key, !isChecked);
+    } else {
+      onClick(ticket);
+    }
+  }
+
   return (
     <MotionBox
-      onClick={() => onClick(ticket)}
+      onClick={handleCardClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       whileHover={{ scale: 1.01, y: -1 }}
       whileTap={{ scale: 0.99 }}
       initial={{ opacity: 0, y: 6 }}
@@ -169,9 +185,40 @@ export function TicketCard({ ticket, onClick, isSelected }: TicketCardProps) {
         />
       )}
 
+      {/* close001: hover close button — only when not in select mode */}
+      {onClose && !isSelectMode && hovered && (
+        <Box
+          position="absolute" top={1} right={1}
+          onClick={e => { e.stopPropagation(); onClose(ticket.ticket_key); }}
+          w={5} h={5}
+          display="flex" alignItems="center" justifyContent="center"
+          borderRadius="sm"
+          bg="gray.700"
+          _hover={{ bg: 'red.800' }}
+          color="gray.400"
+          fontSize="2xs"
+          fontFamily="mono"
+          cursor="pointer"
+          title="Close ticket"
+          zIndex={2}
+        >
+          ✕
+        </Box>
+      )}
+
       <VStack align="stretch" spacing={1.5}>
-        {/* Row 1: Client name + trust dot */}
-        <Flex justify="space-between" align="center">
+        {/* Row 1: Checkbox (select mode) + client name + trust dot */}
+        <Flex justify="space-between" align="center" gap={1}>
+          {isSelectMode && onCheck && (
+            <Checkbox
+              isChecked={isChecked}
+              onChange={e => { e.stopPropagation(); onCheck(ticket.ticket_key, e.target.checked); }}
+              colorScheme="blue"
+              size="sm"
+              flexShrink={0}
+              onClick={e => e.stopPropagation()}
+            />
+          )}
           <Text fontSize="xs" fontWeight="bold" color="gray.100" noOfLines={1} flex={1}>
             {clientName}
           </Text>

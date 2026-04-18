@@ -1,7 +1,7 @@
 'use client';
 import {
   Box, Flex, Grid, GridItem, HStack, VStack, Text, Badge,
-  Input, Spinner, Button, useDisclosure, Tooltip,
+  Input, Spinner, Button, useDisclosure, Tooltip, useToast,
   Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverArrow,
 }  from '@chakra-ui/react';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -231,14 +231,20 @@ function VisitDatePicker({ ticket, onSaved, isOpsMode = true }: { ticket: Ticket
 
 // ─── Ticket Queue ─────────────────────────────────────────────────────────────
 function TicketQueue({
-  tickets, loading, selectedKey, onSelect, onDateSaved, isOpsMode = true
+  tickets, loading, selectedKey, onSelect, onDateSaved, isOpsMode = true,
+  selectMode, selectedKeys, onCheck, onTicketClose,
 }: {
   tickets: Ticket[];
   loading: boolean;
   selectedKey: string | null;
   onSelect: (t: Ticket) => void;
   onDateSaved: () => void;
-  isOpsMode?: boolean; // MODE-004
+  isOpsMode?: boolean;
+  // close001: select mode props
+  selectMode?: boolean;
+  selectedKeys?: Set<string>;
+  onCheck?: (key: string, checked: boolean) => void;
+  onTicketClose?: (key: string) => void;
 }) {
   if (loading) return (
     <Flex flex={1} align="center" justify="center" direction="column" gap={3}>
@@ -325,7 +331,15 @@ function TicketQueue({
             <Box px={2} pt={1.5} pb={0.5} onClick={e => e.stopPropagation()}>
               <VisitDatePicker ticket={t} onSaved={onDateSaved} isOpsMode={isOpsMode} /> {/* MODE-004 */}
             </Box>
-            <TicketCard ticket={t} isSelected={selectedKey === t.ticket_key} onClick={onSelect} />
+            <TicketCard
+              ticket={t}
+              isSelected={selectedKey === t.ticket_key}
+              onClick={onSelect}
+              isSelectMode={selectMode}
+              isChecked={selectedKeys?.has(t.ticket_key)}
+              onCheck={onCheck}
+              onClose={isOpsMode ? onTicketClose : undefined}
+            />
           </Box>
         ))}
       </VStack>
@@ -354,6 +368,89 @@ export default function PMPage() {
   // Ingest trigger guards — prevent concurrent or too-frequent IMAP scans
   const ingestRunningRef  = useRef(false);
   const lastIngestRef     = useRef(0); // epoch ms of last ingest trigger
+  const toast             = useToast();
+  // close001: select mode
+  const [selectMode, setSelectMode]     = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
+  // close001: select mode handlers
+  function handleSelectToggle(key: string, checked: boolean) {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(key); else next.delete(key);
+      return next;
+    });
+  }
+  function handleSelectAll() {
+    // Compute inline to avoid temporal dead zone — filteredTickets is declared later
+    const ft = filterTickets(tickets, visitFilter, myOnly, DEFAULT_TECH);
+    setSelectedKeys(new Set(ft.map(t => t.ticket_key)));
+  }
+  function handleCancelSelect() {
+    setSelectMode(false);
+    setSelectedKeys(new Set());
+  }
+  // close001: individual close — POST /api/tickets/{key}/close, then refetch
+  // outcome_type defaults to 'resolved' server-side (no user input)
+  async function handleTicketClose(key: string) {
+    try {
+      await fetch(`${PM_API}/api/tickets/${key}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome_type: 'resolved', close_mode: 'individual' }),
+      });
+      // Optimistic: remove from local state immediately
+      setTickets(prev => prev.filter(t => t.ticket_key !== key));
+      // Undo toast — 8 second window
+      toast({
+        title: 'Ticket closed',
+        description: `#${key}`,
+        status: 'success',
+        duration: 8000,
+        isClosable: true,
+        position: 'bottom-right',
+        render: () => (
+          <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.600">
+            <Flex justify="space-between" align="center" gap={3}>
+              <Text fontSize="xs" color="gray.200" fontFamily="mono">Closed #{key}</Text>
+              <Button size="xs" variant="ghost" color="blue.300" fontFamily="mono"
+                onClick={async () => {
+                  await fetch(`${PM_API}/api/tickets/${key}/reopen`, { method: 'POST' });
+                  await fetchTickets();
+                  toast.closeAll();
+                }}
+              >UNDO</Button>
+            </Flex>
+          </Box>
+        ),
+      });
+    } catch (err) {
+      console.error('[close001] individual close failed:', err);
+    }
+  }
+  // close001: bulk close — POST /api/tickets/bulk-close
+  async function handleBulkClose() {
+    const keys = Array.from(selectedKeys);
+    if (keys.length === 0) return;
+    try {
+      await fetch(`${PM_API}/api/tickets/bulk-close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_keys: keys }),
+      });
+      setTickets(prev => prev.filter(t => !selectedKeys.has(t.ticket_key)));
+      handleCancelSelect();
+      toast({
+        title: `${keys.length} ticket${keys.length > 1 ? 's' : ''} closed`,
+        status: 'success',
+        duration: 4000,
+        isClosable: true,
+        position: 'bottom-right',
+      });
+    } catch (err) {
+      console.error('[close001] bulk close failed:', err);
+    }
+  }
 
   // MODE-005: upgrade workspace from intelligence to operations mode
   async function handleUpgradeToOps() {
@@ -590,31 +687,61 @@ export default function PMPage() {
           {/* Desktop header */}
           <HStack px={3} py={2} borderBottom="1px solid" borderColor="gray.700" flexShrink={0}
             display={{ base: 'none', md: 'flex' }} justify="space-between">
-            <HStack spacing={2}>
-              <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
-                {filterLabel}
-              </Text>
-              <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
-              {/* CHECK TICKETS: safe DB refresh — calls GET /api/tickets only, not IMAP ingest */}
-              <Button
-                size="xs"
-                variant="ghost"
-                fontFamily="mono"
-                fontSize="2xs"
-                color="gray.500"
-                _hover={{ color: 'blue.300', bg: 'gray.800' }}
-                isLoading={refreshing}
-                loadingText=""
-                spinner={<Spinner size="xs" color="blue.400" />}
-                onClick={handleRefresh}
-                px={2}
-                title="Refresh ticket list from database"
-              >
-                ↺ CHECK
-              </Button>
-            </HStack>
+            {/* close001: select mode header vs normal header */}
+            {selectMode ? (
+              <HStack spacing={2} flex={1}>
+                <Text fontSize="xs" fontFamily="mono" color="blue.300" fontWeight="bold">
+                  {selectedKeys.size} selected
+                </Text>
+                <Button size="xs" fontFamily="mono" fontSize="2xs"
+                  bg="blue.800" color="blue.200" _hover={{ bg: 'blue.700' }}
+                  onClick={handleBulkClose}
+                  isDisabled={selectedKeys.size === 0}
+                >CLOSE {selectedKeys.size > 0 ? selectedKeys.size : ''}</Button>
+                <Button size="xs" variant="ghost" fontFamily="mono" fontSize="2xs"
+                  color="gray.400" _hover={{ color: 'gray.200', bg: 'gray.800' }}
+                  onClick={handleSelectAll}
+                >ALL</Button>
+                <Button size="xs" variant="ghost" fontFamily="mono" fontSize="2xs"
+                  color="gray.500" _hover={{ color: 'red.300', bg: 'gray.800' }}
+                  onClick={handleCancelSelect}
+                >CANCEL</Button>
+              </HStack>
+            ) : (
+              <HStack spacing={2}>
+                <Text fontSize="xs" fontWeight="bold" color="gray.400" fontFamily="mono" letterSpacing="wider">
+                  {filterLabel}
+                </Text>
+                <Badge colorScheme="gray" fontSize="2xs" fontFamily="mono">{filteredTickets.length}</Badge>
+                {/* CHECK TICKETS: triggers IMAP ingest + DB refetch (today002) */}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  fontFamily="mono"
+                  fontSize="2xs"
+                  color="gray.500"
+                  _hover={{ color: 'blue.300', bg: 'gray.800' }}
+                  isLoading={refreshing}
+                  loadingText=""
+                  spinner={<Spinner size="xs" color="blue.400" />}
+                  onClick={handleRefresh}
+                  px={2}
+                  title="Refresh ticket list from database"
+                >
+                  ↺ CHECK
+                </Button>
+                {isOpsMode && (
+                  <Button size="xs" variant="ghost" fontFamily="mono" fontSize="2xs"
+                    color="gray.600" _hover={{ color: 'blue.300', bg: 'gray.800' }}
+                    onClick={() => setSelectMode(true)}
+                    px={2}
+                    title="Select tickets to close"
+                  >SELECT</Button>
+                )}
+              </HStack>
+            )}
             {/* MODE-004/005: ticket creation + upgrade CTA */}
-            {isOpsMode ? (
+            {!selectMode && isOpsMode ? (
               <Button
                 size="xs" onClick={openNewTicket}
                 bg="blue.800" color="blue.200" fontFamily="mono" fontSize="2xs"
@@ -743,7 +870,11 @@ export default function PMPage() {
             selectedKey={selectedTicket ? (selectedTicket as Ticket).ticket_key : null}
             onSelect={t => setSelected(t)}
             onDateSaved={() => { fetchTickets(); fetchSummary(); }}
-            isOpsMode={isOpsMode} /* MODE-004 */
+            isOpsMode={isOpsMode}
+            selectMode={selectMode}
+            selectedKeys={selectedKeys}
+            onCheck={handleSelectToggle}
+            onTicketClose={handleTicketClose}
           />
         </GridItem>
       </Grid>
