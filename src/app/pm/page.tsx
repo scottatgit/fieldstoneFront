@@ -350,6 +350,9 @@ export default function PMPage() {
   const [upgrading, setUpgrading]       = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [refreshing, setRefreshing]         = useState(false);
+  // Ingest trigger guards — prevent concurrent or too-frequent IMAP scans
+  const ingestRunningRef  = useRef(false);
+  const lastIngestRef     = useRef(0); // epoch ms of last ingest trigger
 
   // MODE-005: upgrade workspace from intelligence to operations mode
   async function handleUpgradeToOps() {
@@ -402,25 +405,54 @@ export default function PMPage() {
     finally { setSummaryL(false); }
   }, []);
 
-  // ── Check Tickets: safe DB refresh — NOT IMAP ingest ────────────────────────
+  // ── Trigger IMAP ingest — calls POST /api/ingest/email (background task) ──────
+  // Guards: 30s cooldown + single-flight lock. Fails silently if no IMAP config.
+  const triggerIngest = useCallback(async () => {
+    if (ingestRunningRef.current) return;
+    const now = Date.now();
+    if (now - lastIngestRef.current < 30000) return; // 30s min between scans
+    ingestRunningRef.current = true;
+    lastIngestRef.current = now;
+    try {
+      await fetch(`${PM_API}/api/ingest/email`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.warn('[Signal] ingest trigger failed:', e);
+    } finally {
+      ingestRunningRef.current = false;
+    }
+  }, []);
+
+  // ── Check Tickets: triggers ingest then refetches DB ────────────────────────
   // Calls GET /api/tickets + GET /api/summary — reads from DB only, no email scan.
   // Auto-fetch already runs on mount + every 60s via useEffect interval below.
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await Promise.all([fetchTickets(), fetchSummary()]);
+      await triggerIngest();                                      // POST /api/ingest/email — real IMAP scan
+      await new Promise(r => setTimeout(r, 3000));               // wait for background task to write to DB
+      await Promise.all([fetchTickets(), fetchSummary()]);       // GET /api/tickets + GET /api/summary
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing, fetchTickets, fetchSummary]);
+  }, [refreshing, fetchTickets, fetchSummary, triggerIngest]);
 
   useEffect(() => {
-    fetchTickets();
-    fetchSummary();
-    const iv = setInterval(() => { fetchTickets(); fetchSummary(); }, 60000);
+    // On mount: fire ingest once (if cooldown allows), brief wait, then read DB.
+    // The 60s interval is DB-read only — no IMAP on every tick.
+    const run = async () => {
+      await triggerIngest();                              // POST /api/ingest/email once on page visit
+      await new Promise(r => setTimeout(r, 2000));       // let background task start writing
+      fetchTickets();
+      fetchSummary();
+    };
+    run();
+    const iv = setInterval(() => { fetchTickets(); fetchSummary(); }, 60000); // DB refresh only
     return () => clearInterval(iv);
-  }, [fetchTickets, fetchSummary]);
+  }, [fetchTickets, fetchSummary, triggerIngest]);
 
   const filteredTickets = filterTickets(tickets, visitFilter, myOnly, DEFAULT_TECH);
   const filterLabel     = myOnly
