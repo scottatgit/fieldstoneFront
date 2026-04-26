@@ -225,6 +225,613 @@ interface TrendItem {
   last_seen: string;
   trend_status: 'normal' | 'emerging' | 'outbreak';
 }
+// ─── FST-083: Intel Manage Tab interfaces ────────────────────────────────────
+interface IntelManageEntry {
+  id: string;
+  pattern: string;
+  observation: string;
+  resolution: string;
+  confidence: 'low' | 'medium' | 'high';
+  tags: string[];
+  source_ticket?: string | null;
+  tool_id?: string | null;
+  client_key?: string | null;
+  observed_at: string;
+  created_by: string;
+  // manage fields
+  state?: string;               // observed|useful|promoted|suppressed
+  integration?: string;         // msp|programming|general
+  scope?: string;               // raw
+  scope_normalized?: string;    // company_private|tool_shared
+  used_count?: number;
+  last_used_at?: string | null;
+  last_used_in_ticket?: string | null;
+  last_used_by_flow?: string | null;
+  days_since_last_used?: number | null;
+  never_used?: boolean;
+  archived_at?: string | null;
+}
+
+interface ManageStateCounts {
+  observed: number;
+  useful: number;
+  promoted: number;
+  suppressed: number;
+}
+
+// ─── FST-083: ManageTab component ────────────────────────────────────────────
+function ManageTab() {
+  const API_BASE = '/pm-api';
+
+  // ── filter state ──
+  const [scopeFilter, setScopeFilter]           = React.useState('');
+  const [integFilter, setIntegFilter]           = React.useState('');
+  const [stateFilter, setStateFilter]           = React.useState('');
+  const [neverUsed, setNeverUsed]               = React.useState(false);
+  const [sortBy, setSortBy]                     = React.useState('days_since_last_used');
+  const [includeArchived, setIncludeArchived]   = React.useState(false);
+
+  // ── data state ──
+  const [entries, setEntries]       = React.useState<IntelManageEntry[]>([]);
+  const [stateCounts, setStateCounts] = React.useState<ManageStateCounts>({ observed: 0, useful: 0, promoted: 0, suppressed: 0 });
+  const [loading, setLoading]       = React.useState(false);
+  const [total, setTotal]           = React.useState(0);
+
+  // ── selection state ──
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = React.useState(false);
+
+  // ── detail drawer ──
+  const [drawer, setDrawer] = React.useState<IntelManageEntry | null>(null);
+
+  // ── action loading per row ──
+  const [rowLoading, setRowLoading] = React.useState<Record<string, boolean>>({});
+
+  // ── fetch ──
+  const fetchManage = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = new URLSearchParams();
+      if (scopeFilter)    p.set('scope', scopeFilter);
+      if (integFilter)    p.set('integration', integFilter);
+      if (stateFilter)    p.set('state', stateFilter);
+      if (neverUsed)      p.set('never_used', 'true');
+      if (includeArchived) p.set('include_archived', 'true');
+      p.set('sort_by', sortBy);
+      p.set('limit', '200');
+      const res = await pmFetch(`/api/intel/manage?${p}`, API_BASE);
+      const data = res as any;
+      setEntries(data?.items ?? []);
+      setTotal(data?.total ?? 0);
+      setStateCounts(data?.state_counts ?? { observed: 0, useful: 0, promoted: 0, suppressed: 0 });
+    } catch (e) { console.error('[Manage] fetch error', e); }
+    finally { setLoading(false); }
+  }, [scopeFilter, integFilter, stateFilter, neverUsed, sortBy, includeArchived]);
+
+  React.useEffect(() => { fetchManage(); }, [fetchManage]);
+
+  // ── row action ──
+  const rowAction = async (id: string, state: string, integration?: string) => {
+    setRowLoading(r => ({ ...r, [id]: true }));
+    try {
+      await pmFetch(`/api/intel/${id}/manage`, API_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state, ...(integration ? { integration } : {}) }),
+      });
+      await fetchManage();
+      if (drawer?.id === id) setDrawer(null);
+    } catch (e) { console.error('[Manage] row action error', e); }
+    finally { setRowLoading(r => ({ ...r, [id]: false })); }
+  };
+
+  // ── bulk action ──
+  const bulkAction = async (action: string) => {
+    if (selected.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await pmFetch('/api/intel/bulk-action', API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selected), action }),
+      });
+      setSelected(new Set());
+      await fetchManage();
+    } catch (e) { console.error('[Manage] bulk action error', e); }
+    finally { setBulkLoading(false); }
+  };
+
+  // ── selection helpers ──
+  const toggleSelect = (id: string) => {
+    setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const selectAll = () => setSelected(new Set(entries.map(e => e.id)));
+  const clearAll  = () => setSelected(new Set());
+
+  // ── helpers ──
+  const stateScheme: Record<string, string> = {
+    observed: 'gray', useful: 'blue', promoted: 'green', suppressed: 'red',
+  };
+  const integScheme: Record<string, string> = {
+    msp: 'orange', programming: 'purple', general: 'gray',
+  };
+  const scopeScheme: Record<string, string> = {
+    company_private: 'teal', tool_shared: 'cyan',
+  };
+  const confScheme: Record<string, string> = {
+    high: 'green', medium: 'yellow', low: 'gray',
+  };
+  const daysLabel = (e: IntelManageEntry): string => {
+    if (e.never_used || e.used_count === 0) return 'never';
+    if (e.days_since_last_used == null) return '—';
+    return `${e.days_since_last_used}d`;
+  };
+  const daysColor = (e: IntelManageEntry): string => {
+    if (e.never_used || e.used_count === 0) return 'orange.400';
+    const d = e.days_since_last_used ?? 0;
+    if (d > 90) return 'red.400';
+    if (d > 30) return 'orange.300';
+    return 'gray.400';
+  };
+
+  return (
+    <Box>
+      {/* ── Stats Strip ─────────────────────────────────────────────────────── */}
+      <HStack spacing={2} mb={4} flexWrap="wrap">
+        {(['observed','useful','promoted','suppressed'] as const).map(s => (
+          <Button
+            key={s}
+            size="xs"
+            variant={stateFilter === s ? 'solid' : 'outline'}
+            colorScheme={stateScheme[s]}
+            onClick={() => setStateFilter(f => f === s ? '' : s)}
+          >
+            {s}: {stateCounts[s]}
+          </Button>
+        ))}
+        <Text fontSize="2xs" color="gray.600" ml={1}>click to filter</Text>
+      </HStack>
+
+      {/* ── Filter Bar ──────────────────────────────────────────────────────── */}
+      <HStack mb={4} spacing={2} flexWrap="wrap" align="flex-start">
+        {/* Scope */}
+        <Select
+          size="sm" w="160px" bg="gray.800" border="1px solid" borderColor="gray.600"
+          color="gray.200" fontSize="xs" placeholder="All scopes"
+          value={scopeFilter} onChange={e => setScopeFilter(e.target.value)}
+        >
+          <option value="company_private" style={{background:'#1a202c'}}>🏢 company private</option>
+          <option value="tool_shared"     style={{background:'#1a202c'}}>🔧 tool shared</option>
+        </Select>
+
+        {/* Integration */}
+        <Select
+          size="sm" w="150px" bg="gray.800" border="1px solid" borderColor="gray.600"
+          color="gray.200" fontSize="xs" placeholder="All integrations"
+          value={integFilter} onChange={e => setIntegFilter(e.target.value)}
+        >
+          <option value="msp"         style={{background:'#1a202c'}}>🛠 MSP</option>
+          <option value="programming" style={{background:'#1a202c'}}>💻 Programming</option>
+          <option value="general"     style={{background:'#1a202c'}}>⚙️ General</option>
+        </Select>
+
+        {/* Sort */}
+        <Select
+          size="sm" w="190px" bg="gray.800" border="1px solid" borderColor="gray.600"
+          color="gray.200" fontSize="xs"
+          value={sortBy} onChange={e => setSortBy(e.target.value)}
+        >
+          <option value="days_since_last_used" style={{background:'#1a202c'}}>⏱ Most stale first</option>
+          <option value="used_count"           style={{background:'#1a202c'}}>📊 Most used first</option>
+          <option value="confidence"           style={{background:'#1a202c'}}>⭐ Confidence</option>
+          <option value="observed_at"          style={{background:'#1a202c'}}>🕐 Newest first</option>
+        </Select>
+
+        {/* Never Used — first-class filter */}
+        <Button
+          size="sm"
+          variant={neverUsed ? 'solid' : 'outline'}
+          colorScheme="orange"
+          onClick={() => setNeverUsed(v => !v)}
+          leftIcon={<Text fontSize="xs">👁</Text>}
+        >
+          Never Used
+        </Button>
+
+        {/* Include Archived */}
+        <Button
+          size="sm"
+          variant={includeArchived ? 'solid' : 'outline'}
+          colorScheme="gray"
+          onClick={() => setIncludeArchived(v => !v)}
+        >
+          {includeArchived ? '🗄 +Archived' : '🗄 Archived'}
+        </Button>
+
+        {/* Clear */}
+        {(scopeFilter || integFilter || stateFilter || neverUsed) && (
+          <Button size="sm" variant="ghost" colorScheme="gray"
+            onClick={() => { setScopeFilter(''); setIntegFilter(''); setStateFilter(''); setNeverUsed(false); }}
+          >
+            Clear
+          </Button>
+        )}
+
+        <Text fontSize="xs" color="gray.500" ml="auto" alignSelf="center">
+          {total} entries
+        </Text>
+      </HStack>
+
+      {/* ── Bulk Action Bar ──────────────────────────────────────────────────── */}
+      {selected.size > 0 && (
+        <Box mb={3} p={2} bg="blue.900" borderRadius="md" border="1px solid" borderColor="blue.600">
+          <HStack spacing={2} flexWrap="wrap">
+            <Text fontSize="xs" color="blue.200" fontWeight="semibold">{selected.size} selected</Text>
+            <Button size="xs" colorScheme="red"    variant="outline" isLoading={bulkLoading} onClick={() => bulkAction('suppress')}>Suppress all</Button>
+            <Button size="xs" colorScheme="gray"   variant="outline" isLoading={bulkLoading} onClick={() => bulkAction('archive')}>Archive all</Button>
+            <Button size="xs" colorScheme="yellow" variant="outline" isLoading={bulkLoading} onClick={() => bulkAction('mark_merge_candidate')}>⇌ Mark merge</Button>
+            <Button size="xs" colorScheme="green"  variant="outline" isLoading={bulkLoading} onClick={() => bulkAction('restore')}>↩ Restore</Button>
+            <Button size="xs" variant="ghost" colorScheme="gray" onClick={clearAll}>Clear</Button>
+            <Button size="xs" variant="ghost" colorScheme="gray" onClick={selectAll} ml="auto">Select all ({entries.length})</Button>
+          </HStack>
+        </Box>
+      )}
+
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      {loading ? (
+        <Flex py={8} align="center" justify="center"><Spinner color="blue.400" size="sm" /></Flex>
+      ) : entries.length === 0 ? (
+        <Flex py={12} align="center" justify="center" direction="column" gap={2}>
+          <Text fontSize="3xl">🗂️</Text>
+          <Text color="gray.400">No intel entries match the current filters</Text>
+          <Text fontSize="xs" color="gray.600">Try clearing filters or adjusting the state filter</Text>
+        </Flex>
+      ) : (
+        <TableContainer overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr borderColor="gray.700">
+                <Th w="32px" px={2}>
+                  <input
+                    type="checkbox"
+                    checked={selected.size === entries.length && entries.length > 0}
+                    onChange={e => e.target.checked ? selectAll() : clearAll()}
+                    style={{cursor:'pointer'}}
+                  />
+                </Th>
+                <Th color="gray.400" fontSize="2xs">PATTERN</Th>
+                <Th color="gray.400" fontSize="2xs" w="90px">INTEG</Th>
+                <Th color="gray.400" fontSize="2xs" w="100px">SCOPE</Th>
+                <Th color="gray.400" fontSize="2xs" w="90px">STATE</Th>
+                <Th color="gray.400" fontSize="2xs" w="80px">CONF</Th>
+                <Th color="gray.400" fontSize="2xs" w="55px">USED</Th>
+                <Th color="gray.400" fontSize="2xs" w="80px">LAST USED</Th>
+                <Th color="gray.400" fontSize="2xs" w="80px">TICKET</Th>
+                <Th color="gray.400" fontSize="2xs">ACTIONS</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {entries.map(entry => (
+                <Tr
+                  key={entry.id}
+                  borderColor="gray.700"
+                  bg={selected.has(entry.id) ? 'blue.900' : 'transparent'}
+                  opacity={entry.archived_at ? 0.5 : 1}
+                  _hover={{ bg: selected.has(entry.id) ? 'blue.800' : 'gray.800' }}
+                >
+                  {/* Checkbox */}
+                  <Td px={2}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(entry.id)}
+                      onChange={() => toggleSelect(entry.id)}
+                      style={{cursor:'pointer'}}
+                    />
+                  </Td>
+
+                  {/* Pattern */}
+                  <Td maxW="240px" isTruncated>
+                    <Text
+                      fontSize="xs" color="gray.100" noOfLines={1}
+                      cursor="pointer" _hover={{ color: 'blue.300' }}
+                      onClick={() => setDrawer(entry)}
+                      title={entry.pattern}
+                    >
+                      {entry.pattern}
+                    </Text>
+                  </Td>
+
+                  {/* Integration */}
+                  <Td>
+                    <Badge
+                      fontSize="2xs"
+                      colorScheme={integScheme[entry.integration ?? 'general'] ?? 'gray'}
+                      variant="subtle"
+                    >
+                      {entry.integration ?? 'general'}
+                    </Badge>
+                  </Td>
+
+                  {/* Scope */}
+                  <Td>
+                    <Badge
+                      fontSize="2xs"
+                      colorScheme={scopeScheme[entry.scope_normalized ?? 'company_private'] ?? 'gray'}
+                      variant="outline"
+                    >
+                      {entry.scope_normalized === 'tool_shared' ? 'tool' : 'company'}
+                    </Badge>
+                  </Td>
+
+                  {/* State */}
+                  <Td>
+                    <Badge
+                      fontSize="2xs"
+                      colorScheme={stateScheme[entry.state ?? 'observed'] ?? 'gray'}
+                    >
+                      {entry.state ?? 'observed'}
+                    </Badge>
+                    {entry.archived_at && (
+                      <Badge fontSize="2xs" colorScheme="gray" ml={1} variant="outline">archived</Badge>
+                    )}
+                  </Td>
+
+                  {/* Confidence */}
+                  <Td>
+                    <Badge fontSize="2xs" colorScheme={confScheme[entry.confidence] ?? 'gray'}>
+                      {entry.confidence}
+                    </Badge>
+                  </Td>
+
+                  {/* Used count */}
+                  <Td>
+                    <Text fontSize="xs" color={(entry.used_count ?? 0) === 0 ? 'orange.400' : 'gray.300'}>
+                      {entry.used_count ?? 0}
+                    </Text>
+                  </Td>
+
+                  {/* Last used / days */}
+                  <Td>
+                    <Text fontSize="xs" color={daysColor(entry)} fontWeight={(entry.never_used) ? 'semibold' : 'normal'}>
+                      {daysLabel(entry)}
+                    </Text>
+                  </Td>
+
+                  {/* Source ticket */}
+                  <Td>
+                    {entry.last_used_in_ticket || entry.source_ticket ? (
+                      <Text fontSize="2xs" color="blue.400" fontFamily="mono">
+                        #{entry.last_used_in_ticket || entry.source_ticket}
+                      </Text>
+                    ) : (
+                      <Text fontSize="2xs" color="gray.700">—</Text>
+                    )}
+                  </Td>
+
+                  {/* Actions */}
+                  <Td>
+                    <HStack spacing={1} flexWrap="nowrap">
+                      {/* Keep — no API call, just visual */}
+                      <Tooltip label="Leave as-is (no change)" fontSize="2xs">
+                        <Button size="2xs" variant="ghost" colorScheme="gray"
+                          fontSize="2xs" px={1}
+                          isDisabled={rowLoading[entry.id]}
+                        >
+                          ✓
+                        </Button>
+                      </Tooltip>
+                      {/* Mark Useful */}
+                      {(entry.state ?? 'observed') !== 'useful' && (entry.state ?? 'observed') !== 'promoted' && (
+                        <Tooltip label="Mark useful" fontSize="2xs">
+                          <Button size="2xs" variant="outline" colorScheme="blue"
+                            fontSize="2xs" px={1}
+                            isLoading={rowLoading[entry.id]}
+                            onClick={() => rowAction(entry.id, 'useful')}
+                          >
+                            U
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {/* Promote */}
+                      {(entry.state ?? 'observed') !== 'promoted' && (
+                        <Tooltip label="Promote" fontSize="2xs">
+                          <Button size="2xs" variant="outline" colorScheme="green"
+                            fontSize="2xs" px={1}
+                            isLoading={rowLoading[entry.id]}
+                            onClick={() => rowAction(entry.id, 'promoted')}
+                          >
+                            ↑
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {/* Suppress */}
+                      {(entry.state ?? 'observed') !== 'suppressed' && (
+                        <Tooltip label="Suppress" fontSize="2xs">
+                          <Button size="2xs" variant="outline" colorScheme="red"
+                            fontSize="2xs" px={1}
+                            isLoading={rowLoading[entry.id]}
+                            onClick={() => rowAction(entry.id, 'suppressed')}
+                          >
+                            ✕
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {/* Restore (if suppressed) */}
+                      {(entry.state === 'suppressed' || entry.archived_at) && (
+                        <Tooltip label="Restore to observed" fontSize="2xs">
+                          <Button size="2xs" variant="outline" colorScheme="yellow"
+                            fontSize="2xs" px={1}
+                            isLoading={rowLoading[entry.id]}
+                            onClick={() => rowAction(entry.id, 'observed')}
+                          >
+                            ↩
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </HStack>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* ── Detail Drawer ─────────────────────────────────────────────────── */}
+      {drawer && (
+        <Box
+          position="fixed" top={0} right={0} h="100vh" w={{ base: '100vw', md: '420px' }}
+          bg="gray.900" border="1px solid" borderColor="blue.700" zIndex={1000}
+          overflowY="auto" p={5} shadow="2xl"
+        >
+          <Flex justify="space-between" align="center" mb={4}>
+            <Text fontSize="sm" fontWeight="bold" color="blue.300">🧠 Intel Detail</Text>
+            <Button size="xs" variant="ghost" colorScheme="gray" onClick={() => setDrawer(null)}>✕ Close</Button>
+          </Flex>
+
+          <VStack align="stretch" spacing={4} fontSize="sm">
+            <Box>
+              <Text fontSize="2xs" color="blue.400" fontFamily="mono" mb={1}>PATTERN</Text>
+              <Text fontWeight="bold" color="white">{drawer.pattern}</Text>
+            </Box>
+            <Box>
+              <Text fontSize="2xs" color="gray.400" fontFamily="mono" mb={1}>OBSERVATION</Text>
+              <Text color="gray.300" lineHeight="tall" fontSize="xs">{drawer.observation}</Text>
+            </Box>
+            <Box>
+              <Text fontSize="2xs" color="green.400" fontFamily="mono" mb={1}>RESOLUTION</Text>
+              <Text color="gray.200" lineHeight="tall" fontSize="xs">{drawer.resolution}</Text>
+            </Box>
+
+            <Divider borderColor="gray.700" />
+
+            {/* Lifecycle fields */}
+            <SimpleGrid columns={2} gap={3} fontSize="xs">
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">STATE</Text>
+                <Badge colorScheme={stateScheme[drawer.state ?? 'observed']}>{drawer.state ?? 'observed'}</Badge>
+              </Box>
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">INTEGRATION</Text>
+                <Badge colorScheme={integScheme[drawer.integration ?? 'general']} variant="subtle">{drawer.integration ?? 'general'}</Badge>
+              </Box>
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">SCOPE</Text>
+                <Badge colorScheme={scopeScheme[drawer.scope_normalized ?? 'company_private']} variant="outline">
+                  {drawer.scope_normalized === 'tool_shared' ? 'tool shared' : 'company private'}
+                </Badge>
+              </Box>
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">CONFIDENCE</Text>
+                <Badge colorScheme={confScheme[drawer.confidence]}>{drawer.confidence}</Badge>
+              </Box>
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">USED COUNT</Text>
+                <Text color={(drawer.used_count ?? 0) === 0 ? 'orange.400' : 'gray.200'}>{drawer.used_count ?? 0}</Text>
+              </Box>
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">LAST USED</Text>
+                <Text color={daysColor(drawer)}>{daysLabel(drawer)}</Text>
+              </Box>
+              {drawer.last_used_in_ticket && (
+                <Box>
+                  <Text color="gray.500" mb={1} fontSize="2xs">LAST TICKET</Text>
+                  <Text color="blue.400" fontFamily="mono">#{drawer.last_used_in_ticket}</Text>
+                </Box>
+              )}
+              {drawer.last_used_by_flow && (
+                <Box>
+                  <Text color="gray.500" mb={1} fontSize="2xs">LAST FLOW</Text>
+                  <Text color="gray.300">{drawer.last_used_by_flow}</Text>
+                </Box>
+              )}
+              {drawer.source_ticket && (
+                <Box>
+                  <Text color="gray.500" mb={1} fontSize="2xs">SOURCE TICKET</Text>
+                  <Text color="blue.400" fontFamily="mono">#{drawer.source_ticket}</Text>
+                </Box>
+              )}
+              <Box>
+                <Text color="gray.500" mb={1} fontSize="2xs">OBSERVED</Text>
+                <Text color="gray.400">{timeAgo(drawer.observed_at)}</Text>
+              </Box>
+            </SimpleGrid>
+
+            {drawer.tags?.length > 0 && (
+              <HStack flexWrap="wrap" spacing={1}>
+                {drawer.tags.map((t: string, i: number) => (
+                  <Badge key={i} variant="outline" colorScheme="gray" fontSize="2xs">{t}</Badge>
+                ))}
+              </HStack>
+            )}
+
+            <Divider borderColor="gray.700" />
+
+            {/* Drawer actions */}
+            <Text fontSize="2xs" color="gray.500" fontFamily="mono">LIFECYCLE ACTIONS</Text>
+            <HStack flexWrap="wrap" spacing={2}>
+              <Button size="xs" colorScheme="blue" variant="outline"
+                isLoading={rowLoading[drawer.id]}
+                onClick={() => rowAction(drawer.id, 'useful')}
+                isDisabled={(drawer.state === 'useful' || drawer.state === 'promoted')}
+              >
+                Mark Useful
+              </Button>
+              <Button size="xs" colorScheme="green" variant="outline"
+                isLoading={rowLoading[drawer.id]}
+                onClick={() => rowAction(drawer.id, 'promoted')}
+                isDisabled={drawer.state === 'promoted'}
+              >
+                ↑ Promote
+              </Button>
+              <Button size="xs" colorScheme="red" variant="outline"
+                isLoading={rowLoading[drawer.id]}
+                onClick={() => rowAction(drawer.id, 'suppressed')}
+                isDisabled={drawer.state === 'suppressed'}
+              >
+                ✕ Suppress
+              </Button>
+              <Button size="xs" colorScheme="gray" variant="outline"
+                isLoading={bulkLoading}
+                onClick={async () => { await bulkAction('archive'); setDrawer(null); }}
+                isDisabled={!!drawer.archived_at}
+              >
+                🗄 Archive
+              </Button>
+              {(drawer.state === 'suppressed' || drawer.archived_at) && (
+                <Button size="xs" colorScheme="yellow" variant="outline"
+                  isLoading={rowLoading[drawer.id]}
+                  onClick={() => rowAction(drawer.id, 'observed')}
+                >
+                  ↩ Restore
+                </Button>
+              )}
+            </HStack>
+
+            {/* Integration setter */}
+            <Box>
+              <Text fontSize="2xs" color="gray.500" fontFamily="mono" mb={2}>SET INTEGRATION</Text>
+              <HStack spacing={2}>
+                {['msp','programming','general'].map(integ => (
+                  <Button key={integ} size="xs"
+                    variant={drawer.integration === integ ? 'solid' : 'outline'}
+                    colorScheme={integScheme[integ]}
+                    isLoading={rowLoading[drawer.id]}
+                    onClick={() => rowAction(drawer.id, drawer.state ?? 'observed', integ)}
+                  >
+                    {integ}
+                  </Button>
+                ))}
+              </HStack>
+            </Box>
+          </VStack>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+
 export default function IntelDashboard() {
   const { user } = useUser();
   const [events, setEvents]         = useState<OutbreakEvent[]>([]);
@@ -394,6 +1001,9 @@ export default function IntelDashboard() {
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             📊 Trends {trends.filter(t => t.trend_status !== 'normal').length > 0 ? `(${trends.filter(t => t.trend_status !== 'normal').length})` : ''}
+          </Tab>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
+            🗂️ Manage
           </Tab>
         </TabList>
 
@@ -820,6 +1430,10 @@ export default function IntelDashboard() {
                 ))}
               </VStack>
             )}
+          </TabPanel>
+          {/* Manage Tab — FST-083 */}
+          <TabPanel px={0}>
+            <ManageTab />
           </TabPanel>
         </TabPanels>
       </Tabs>
