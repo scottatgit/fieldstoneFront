@@ -935,7 +935,8 @@ function ResearchTab() {
     <Box pt={4}>
       {/* Research Form */}
       <Box bg="gray.800" p={5} borderRadius="md" mb={5} border="1px solid" borderColor="gray.700">
-        <Text fontSize="md" fontWeight="bold" color="white" mb={4}>🔬 Intel Research</Text>
+        <Text fontSize="md" fontWeight="bold" color="white" mb={1}>🔬 Intel Research</Text>
+        <Text fontSize="xs" color="gray.500" mb={4}>Candidates are AI-synthesised from existing intel and general knowledge. Unverified until saved and reviewed. MSP shared candidates are submitted as <strong>observed</strong> only.</Text>
         <VStack spacing={4} align="stretch">
           <FormControl isRequired>
             <FormLabel color="gray.300" fontSize="sm">Tool / Product</FormLabel>
@@ -996,7 +997,7 @@ function ResearchTab() {
                 onChange={e => setScopeTarget(e.target.value)}
               >
                 <option value="tenant_private">Tenant-Private</option>
-                <option value="msp_shared_candidate">MSP Shared Candidate</option>
+                <option value="msp_shared_candidate">MSP Shared Candidate (observed — pending review)</option>
               </Select>
             </FormControl>
           </Flex>
@@ -1094,9 +1095,9 @@ function ResearchTab() {
               )}
 
               {/* Risk note */}
-              {isUnverified && card.risk_note && (
+              {isUnverified && (
                 <Box bg="orange.900" border="1px solid" borderColor="orange.600" borderRadius="sm" px={2} py={1} mb={3}>
-                  <Text fontSize="xs" color="orange.200">⚠️ {card.risk_note}</Text>
+                  <Text fontSize="xs" color="orange.200">⚠️ {card.risk_note || 'Unverified — AI-synthesised from general knowledge. Review before saving or sharing.'}</Text>
                 </Box>
               )}
 
