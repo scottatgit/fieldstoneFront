@@ -1,6 +1,7 @@
 'use client';
 import {
   Box, Flex, Heading, Text, Badge, Button, Spinner, Select,
+  Input, Textarea, FormControl, FormLabel,
   HStack, VStack, Divider, Progress, Tooltip,
   Table, Thead, Tbody, Tr, Th, Td, TableContainer,
   Tabs, TabList, Tab, TabPanels, TabPanel,
@@ -278,7 +279,7 @@ function ManageTab() {
   const [total, setTotal]           = React.useState(0);
 
   // ── selection state ──
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [selected, setSelected] = React.useState<Set<string>>(new Set<string>());
   const [bulkLoading, setBulkLoading] = React.useState(false);
 
   // ── detail drawer ──
@@ -832,6 +833,331 @@ function ManageTab() {
 }
 
 
+
+// FST-085: Research candidate card type
+interface ResearchCandidate {
+  id: string;
+  title: string;
+  pattern: string;
+  observation: string;
+  resolution: string;
+  tool_id: string;
+  confidence: string;
+  proposed_tags: string[];
+  source_label: string;
+  risk_note: string;
+}
+
+// ── FST-085: ResearchTab Component ───────────────────────────────────────────
+function ResearchTab() {
+  const { user } = useUser();
+
+  // Form state
+  const [tool, setTool] = React.useState('');
+  const [problem, setProblem] = React.useState('');
+  const [sourcePreference, setSourcePreference] = React.useState('existing_intel');
+  const [outputType, setOutputType] = React.useState('troubleshooting_pattern');
+  const [scopeTarget, setScopeTarget] = React.useState('tenant_private');
+
+  // Results state
+  const [candidates, setCandidates] = React.useState<ResearchCandidate[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [dismissed, setDismissed] = React.useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = React.useState<Record<string, string>>({});
+
+  const handleResearch = async () => {
+    if (!tool.trim() || !problem.trim()) {
+      setError('Tool/Product and Problem focus are required.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    setCandidates([]);
+    setSaveStatus({});
+    setDismissed([]);
+    try {
+      const res = await pmFetch('/api/intel/research', API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool: tool.trim(),
+          problem: problem.trim(),
+          source_preference: sourcePreference,
+          output_type: outputType,
+          scope_target: scopeTarget,
+        }),
+      }) as ResearchCandidate[];
+      setCandidates(Array.isArray(res) ? res : []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Research failed: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async (candidate: ResearchCandidate, saveAs: string) => {
+    setSaveStatus(prev => ({ ...prev, [candidate.id]: 'saving' }));
+    try {
+      await pmFetch('/api/intel/research/save', API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate, save_as: saveAs }),
+      });
+      setSaveStatus(prev => ({
+        ...prev,
+        [candidate.id]: saveAs === 'msp_shared_candidate'
+          ? 'msp_saved'
+          : 'private_saved',
+      }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSaveStatus(prev => ({ ...prev, [candidate.id]: `error:${msg}` }));
+    }
+  };
+
+  const handleDismiss = (id: string) => {
+    setDismissed(prev => [...prev, id]);
+  };
+
+  const visibleCandidates = candidates.filter(c => !dismissed.includes(c.id));
+
+  const inputStyle = {
+    bg: 'gray.800',
+    borderColor: 'gray.600',
+    color: 'white',
+    _placeholder: { color: 'gray.500' },
+    _focus: { borderColor: 'blue.400' },
+  };
+
+  return (
+    <Box pt={4}>
+      {/* Research Form */}
+      <Box bg="gray.800" p={5} borderRadius="md" mb={5} border="1px solid" borderColor="gray.700">
+        <Text fontSize="md" fontWeight="bold" color="white" mb={4}>🔬 Intel Research</Text>
+        <VStack spacing={4} align="stretch">
+          <FormControl isRequired>
+            <FormLabel color="gray.300" fontSize="sm">Tool / Product</FormLabel>
+            <Input
+              {...inputStyle}
+              placeholder="e.g. dentrix, quickbooks, office365"
+              value={tool}
+              onChange={e => setTool(e.target.value)}
+            />
+          </FormControl>
+
+          <FormControl isRequired>
+            <FormLabel color="gray.300" fontSize="sm">Problem Focus</FormLabel>
+            <Textarea
+              {...inputStyle}
+              placeholder="Describe the issue or topic to research…"
+              value={problem}
+              onChange={e => setProblem(e.target.value)}
+              rows={3}
+            />
+          </FormControl>
+
+          <Flex gap={4} direction={{ base: 'column', md: 'row' }}>
+            <FormControl>
+              <FormLabel color="gray.300" fontSize="sm">Source Preference</FormLabel>
+              <Select
+                {...inputStyle}
+                value={sourcePreference}
+                onChange={e => setSourcePreference(e.target.value)}
+              >
+                <option value="existing_intel">Existing Signal Intel</option>
+                <option value="msp_field">MSP Field Knowledge</option>
+                <option value="vendor_doc_placeholder" disabled>Vendor Docs (coming soon)</option>
+                <option value="community_placeholder" disabled>Community Hints (coming soon)</option>
+              </Select>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel color="gray.300" fontSize="sm">Output Type</FormLabel>
+              <Select
+                {...inputStyle}
+                value={outputType}
+                onChange={e => setOutputType(e.target.value)}
+              >
+                <option value="troubleshooting_pattern">Troubleshooting Pattern</option>
+                <option value="install_requirement">Install Requirement</option>
+                <option value="known_issue">Known Issue</option>
+                <option value="compatibility_note">Compatibility Note</option>
+                <option value="common_fix">Common Fix</option>
+              </Select>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel color="gray.300" fontSize="sm">Scope</FormLabel>
+              <Select
+                {...inputStyle}
+                value={scopeTarget}
+                onChange={e => setScopeTarget(e.target.value)}
+              >
+                <option value="tenant_private">Tenant-Private</option>
+                <option value="msp_shared_candidate">MSP Shared Candidate</option>
+              </Select>
+            </FormControl>
+          </Flex>
+
+          <Button
+            colorScheme="blue"
+            onClick={handleResearch}
+            isLoading={loading}
+            loadingText="Researching…"
+            alignSelf="flex-start"
+          >
+            🔬 Research
+          </Button>
+        </VStack>
+      </Box>
+
+      {/* Error */}
+      {error && (
+        <Box bg="red.900" border="1px solid" borderColor="red.600" borderRadius="md" p={3} mb={4}>
+          <Text color="red.200" fontSize="sm">⛔ {error}</Text>
+        </Box>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <Flex justify="center" py={8}>
+          <Spinner size="xl" color="blue.400" />
+          <Text ml={4} color="gray.400" alignSelf="center">Synthesizing intel candidates…</Text>
+        </Flex>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && candidates.length > 0 && visibleCandidates.length === 0 && (
+        <Text color="gray.500" textAlign="center" py={6}>All candidates dismissed.</Text>
+      )}
+      {!loading && !error && candidates.length === 0 && tool && (
+        <Text color="gray.500" textAlign="center" py={6}>No candidates found. Try adjusting your search.</Text>
+      )}
+
+      {/* Candidate Cards */}
+      <VStack spacing={4} align="stretch">
+        {visibleCandidates.map(card => {
+          const status = saveStatus[card.id];
+          const isUnverified = card.proposed_tags?.some((t: string) => t === 'src:tower' || t === 'src:unverified');
+
+          return (
+            <Box
+              key={card.id}
+              bg="gray.800"
+              border="1px solid"
+              borderColor="gray.700"
+              borderRadius="md"
+              p={4}
+            >
+              {/* Title + confidence */}
+              <Flex justify="space-between" align="flex-start" mb={2}>
+                <Text fontWeight="bold" color="white" fontSize="sm" flex={1} mr={2}>{card.title}</Text>
+                <Badge
+                  colorScheme={card.confidence === 'high' ? 'green' : card.confidence === 'medium' ? 'yellow' : 'red'}
+                  fontSize="xs"
+                  flexShrink={0}
+                >
+                  {card.confidence}
+                </Badge>
+              </Flex>
+
+              {/* Observation */}
+              {card.observation && (
+                <Box mb={2}>
+                  <Text fontSize="xs" color="gray.400" fontWeight="semibold" mb={1}>OBSERVATION</Text>
+                  <Text fontSize="sm" color="gray.200">{card.observation}</Text>
+                </Box>
+              )}
+
+              {/* Resolution */}
+              {card.resolution && (
+                <Box mb={2}>
+                  <Text fontSize="xs" color="gray.400" fontWeight="semibold" mb={1}>RESOLUTION</Text>
+                  <Text fontSize="sm" color="gray.200">{card.resolution}</Text>
+                </Box>
+              )}
+
+              {/* Tags */}
+              {card.proposed_tags?.length > 0 && (
+                <Flex wrap="wrap" gap={1} mb={2}>
+                  {card.proposed_tags.map((tag: string) => (
+                    <Badge key={tag} colorScheme="gray" fontSize="xs" variant="outline">{tag}</Badge>
+                  ))}
+                </Flex>
+              )}
+
+              {/* Source label */}
+              {card.source_label && (
+                <Text fontSize="xs" color="gray.500" fontStyle="italic" mb={2}>{card.source_label}</Text>
+              )}
+
+              {/* Risk note */}
+              {isUnverified && card.risk_note && (
+                <Box bg="orange.900" border="1px solid" borderColor="orange.600" borderRadius="sm" px={2} py={1} mb={3}>
+                  <Text fontSize="xs" color="orange.200">⚠️ {card.risk_note}</Text>
+                </Box>
+              )}
+
+              {/* Status messages */}
+              {status === 'private_saved' && (
+                <Box bg="green.900" border="1px solid" borderColor="green.600" borderRadius="sm" px={2} py={1} mb={3}>
+                  <Text fontSize="xs" color="green.200">✅ Saved to your private intel</Text>
+                </Box>
+              )}
+              {status === 'msp_saved' && (
+                <Box bg="green.900" border="1px solid" borderColor="green.600" borderRadius="sm" px={2} py={1} mb={3}>
+                  <Text fontSize="xs" color="green.200">✅ Submitted as MSP shared candidate (pending review)</Text>
+                </Box>
+              )}
+              {status && status.startsWith('error:') && (
+                <Box bg="red.900" border="1px solid" borderColor="red.600" borderRadius="sm" px={2} py={1} mb={3}>
+                  <Text fontSize="xs" color="red.200">⛔ {status.replace('error:', 'Submission blocked: ')}</Text>
+                </Box>
+              )}
+
+              {/* Action buttons */}
+              {!status || status === 'saving' ? (
+                <Flex gap={2} wrap="wrap">
+                  <Button
+                    size="xs"
+                    colorScheme="blue"
+                    variant="outline"
+                    isLoading={status === 'saving'}
+                    onClick={() => handleSave(card, 'tenant_private')}
+                  >
+                    💾 Save as Private Intel
+                  </Button>
+                  <Button
+                    size="xs"
+                    colorScheme="purple"
+                    variant="outline"
+                    isLoading={status === 'saving'}
+                    onClick={() => handleSave(card, 'msp_shared_candidate')}
+                  >
+                    📤 Submit as MSP Candidate
+                  </Button>
+                  <Button
+                    size="xs"
+                    colorScheme="gray"
+                    variant="ghost"
+                    onClick={() => handleDismiss(card.id)}
+                  >
+                    ✕ Dismiss
+                  </Button>
+                </Flex>
+              ) : null}
+            </Box>
+          );
+        })}
+      </VStack>
+    </Box>
+  );
+}
+// ── End FST-085 ResearchTab ───────────────────────────────────────────────────
+
+
 export default function IntelDashboard() {
   const { user } = useUser();
   const [events, setEvents]         = useState<OutbreakEvent[]>([]);
@@ -1004,6 +1330,9 @@ export default function IntelDashboard() {
           </Tab>
           <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
             🗂️ Manage
+          </Tab>
+          <Tab color="gray.400" _selected={{ color: 'white', bg: 'gray.800' }} whiteSpace="nowrap" fontSize={{ base: 'xs', md: 'sm' }}>
+            🔬 Research
           </Tab>
         </TabList>
 
@@ -1434,6 +1763,10 @@ export default function IntelDashboard() {
           {/* Manage Tab — FST-083 */}
           <TabPanel px={0}>
             <ManageTab />
+          </TabPanel>
+          {/* Research Tab — FST-085 */}
+          <TabPanel px={0}>
+            <ResearchTab />
           </TabPanel>
         </TabPanels>
       </Tabs>
