@@ -533,10 +533,10 @@ export function SetupPanel() {
   const loadSetupStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      const res = await fetch(`${PM_API}/api/setup/status`);
+      const res = await fetch(`${PM_API}/api/setup/status`, { credentials: 'include' });
       const data = await res.json();
       setSetupStatus(data);
-    } catch { /* ignore */ }
+    } catch (err) { console.warn('[SetupPanel] Failed to load setup status:', err); }
     finally { setStatusLoading(false); }
   }, []);
 

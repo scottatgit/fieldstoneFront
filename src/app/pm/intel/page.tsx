@@ -1159,6 +1159,445 @@ function ResearchTab() {
 // ── End FST-085 ResearchTab ───────────────────────────────────────────────────
 
 
+
+// ─── CLIENT-STORY-003: BriefClient interface ──────────────────────────────
+interface BriefClient {
+  client_key:          string;
+  client_display_name: string;
+  brief_count:         number;
+  last_closed_at:      string | null;
+  data_quality:        'empty' | 'thin' | 'usable';
+}
+
+// ─── CLIENT-STORY-002: ClientStoryPanel ──────────────────────────────────────
+interface FcbTrustSummary {
+  avg_at_open: number | null;
+  avg_at_close: number | null;
+  delta: number | null;
+  trend: 'improving' | 'declining' | 'stable' | 'unknown';
+  latest: number | null;
+  min_in_window: number | null;
+}
+
+interface ClientStoryData {
+  client_key: string;
+  client_display_name: string | null;
+  generated_at: string;
+  window_days: number;
+  window_from: string;
+  window_to: string;
+  data_quality: 'empty' | 'thin' | 'usable';
+  has_pre_fcb_history?: boolean;
+  summary: {
+    total_briefs: number;
+    outcome_distribution: Record<string, number>;
+    open_risk_count: number;
+    trust: FcbTrustSummary;
+    expectation_drift: Record<string, number>;
+    confidence_distribution: Record<string, number>;
+    low_confidence_count: number;
+  };
+  issue_patterns: {
+    category_counts: { category: string; count: number }[];
+    recurring_categories: string[];
+    impact_distribution: Record<string, number>;
+    emotion_distribution: Record<string, number>;
+    asset_type_counts: { type: string; count: number }[];
+    asset_hostname_counts: { hostname: string; count: number }[];
+  };
+  risk_indicators: {
+    unresolved_briefs: {
+      brief_id: string;
+      ticket_key: string;
+      outcome_type: string;
+      issue_category: string | null;
+      impact_level: string | null;
+      closed_at: string;
+    }[];
+    missing_context_pattern_counts: Record<string, number>;
+    high_emotion_count: number;
+    risk_flag_summary: string[];
+  };
+  timeline: {
+    brief_id: string;
+    ticket_key: string;
+    outcome_type: string | null;
+    issue_category: string | null;
+    impact_level: string | null;
+    trust_at_close: number | null;
+    confidence: string | null;
+    missing_context_flags: string[];
+    ai_generated: boolean;
+    closed_at: string;
+  }[];
+}
+
+function trustTrendColor(trend: string): string {
+  if (trend === 'improving') return 'green.400';
+  if (trend === 'declining') return 'red.400';
+  return 'gray.400';
+}
+
+function trustTrendIcon(trend: string): string {
+  if (trend === 'improving') return '↑';
+  if (trend === 'declining') return '↓';
+  if (trend === 'stable')    return '→';
+  return '?';
+}
+
+function dataQualityScheme(q: string): string {
+  if (q === 'usable') return 'green';
+  if (q === 'thin')   return 'orange';
+  return 'gray';
+}
+
+function outcomeScheme(outcome: string): string {
+  if (outcome === 'resolved')  return 'green';
+  if (outcome === 'mitigated') return 'blue';
+  if (outcome === 'at_risk')   return 'orange';
+  if (outcome === 'escalated') return 'red';
+  return 'gray';
+}
+
+function impactScheme(level: string): string {
+  if (level === 'high')   return 'red';
+  if (level === 'medium') return 'orange';
+  if (level === 'low')    return 'green';
+  return 'gray';
+}
+
+function confSchemeStory(c: string): string {
+  if (c === 'high')       return 'green';
+  if (c === 'standard')   return 'blue';
+  if (c === 'low')        return 'orange';
+  if (c === 'incomplete') return 'red';
+  return 'gray';
+}
+
+function fmtTrust(v: number | null): string {
+  if (v == null) return '—';
+  return (v * 100).toFixed(0) + '%';
+}
+
+function ClientStoryPanel({ clientKey }: { clientKey: string }) {
+  const [story, setStory]     = React.useState<ClientStoryData | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]     = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!clientKey) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setStory(null);
+    pmFetch(`/api/clients/${encodeURIComponent(clientKey)}/story`, '/pm-api')
+      .then((d) => { if (!cancelled) setStory(d as ClientStoryData); })
+      .catch((e) => { if (!cancelled) setError(String(e?.message ?? 'Failed to load story')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [clientKey]);
+
+  if (loading) return (
+    <Flex py={8} align="center" justify="center" gap={3}>
+      <Spinner size="sm" color="blue.400" />
+      <Text fontSize="sm" color="gray.400">Loading client story…</Text>
+    </Flex>
+  );
+
+  if (error) return (
+    <Box p={3} bg="red.900" border="1px solid" borderColor="red.600" borderRadius="md">
+      <Text fontSize="sm" color="red.200">⛔ {error}</Text>
+    </Box>
+  );
+
+  if (!story) return null;
+
+  const { summary, issue_patterns: ip, risk_indicators: ri, timeline, data_quality, has_pre_fcb_history } = story;
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+  if (data_quality === 'empty') return (
+    <Box py={6} px={4} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+      <VStack spacing={2} align="center">
+        <Text fontSize="2xl">📋</Text>
+        <Text color="gray.300" fontWeight="medium">No closed brief history yet</Text>
+        <Text fontSize="xs" color="gray.500" textAlign="center">
+          Final Closed Briefs are generated when tickets are closed. History will appear here as tickets complete.
+        </Text>
+        {has_pre_fcb_history && (
+          <Box mt={2} p={2} bg="blue.900" borderRadius="sm" border="1px solid" borderColor="blue.700">
+            <Text fontSize="xs" color="blue.300">ℹ️ This client has older closed tickets from before the Brief system was activated. History shown from activation onward.</Text>
+          </Box>
+        )}
+      </VStack>
+    </Box>
+  );
+
+  return (
+    <VStack align="stretch" spacing={4}>
+      {/* ── Header strip ────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" flexWrap="wrap" gap={2}>
+        <HStack spacing={2}>
+          <Text fontSize="sm" fontWeight="bold" color="gray.100">
+            {story.client_display_name ?? story.client_key}
+          </Text>
+          <Badge colorScheme={dataQualityScheme(data_quality)} fontSize="2xs">
+            {data_quality === 'thin' ? '⚠️ thin data' : '✅ usable'}
+          </Badge>
+          {has_pre_fcb_history && (
+            <Badge colorScheme="gray" fontSize="2xs" variant="outline">pre-brief history exists</Badge>
+          )}
+        </HStack>
+        <Text fontSize="2xs" color="gray.600">
+          {story.window_days}d window · {summary.total_briefs} brief{summary.total_briefs !== 1 ? 's' : ''} · generated {timeAgo(story.generated_at)}
+        </Text>
+      </Flex>
+
+      {/* ── Thin data warning ────────────────────────────────────────────── */}
+      {data_quality === 'thin' && (
+        <Box p={2} bg="orange.900" border="1px solid" borderColor="orange.700" borderRadius="md">
+          <Text fontSize="xs" color="orange.200">
+            ⚠️ Only {summary.total_briefs} brief{summary.total_briefs !== 1 ? 's' : ''} in this window — patterns may not be representative.
+          </Text>
+        </Box>
+      )}
+
+      {/* ── Summary row ─────────────────────────────────────────────────── */}
+      <SimpleGrid columns={{ base: 2, md: 4 }} gap={3}>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={1}>TOTAL BRIEFS</Text>
+          <Text fontSize="xl" fontWeight="bold" color="white">{summary.total_briefs}</Text>
+        </Box>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={1}>OPEN RISK</Text>
+          <Text fontSize="xl" fontWeight="bold" color={summary.open_risk_count > 0 ? 'orange.400' : 'green.400'}>
+            {summary.open_risk_count}
+          </Text>
+        </Box>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={1}>TRUST TREND</Text>
+          <HStack spacing={1} align="baseline">
+            <Text fontSize="xl" fontWeight="bold" color={trustTrendColor(summary.trust.trend)}>
+              {trustTrendIcon(summary.trust.trend)}
+            </Text>
+            <Text fontSize="sm" color={trustTrendColor(summary.trust.trend)}>{summary.trust.trend}</Text>
+          </HStack>
+          <Text fontSize="2xs" color="gray.500">
+            {fmtTrust(summary.trust.avg_at_open)} → {fmtTrust(summary.trust.avg_at_close)}
+          </Text>
+        </Box>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={1}>LOW CONFIDENCE</Text>
+          <Text fontSize="xl" fontWeight="bold" color={summary.low_confidence_count > 0 ? 'orange.400' : 'green.400'}>
+            {summary.low_confidence_count}
+          </Text>
+        </Box>
+      </SimpleGrid>
+
+      {/* ── Outcome + Expectation Drift ─────────────────────────────────── */}
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={2} fontFamily="mono">OUTCOME DISTRIBUTION</Text>
+          <HStack spacing={2} flexWrap="wrap">
+            {Object.entries(summary.outcome_distribution).map(([k, v]) => (
+              <Badge key={k} colorScheme={outcomeScheme(k)} fontSize="xs">
+                {k}: {v}
+              </Badge>
+            ))}
+          </HStack>
+        </Box>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={2} fontFamily="mono">EXPECTATION DRIFT</Text>
+          <HStack spacing={2} flexWrap="wrap">
+            {Object.entries(summary.expectation_drift).map(([k, v]) => (
+              <Badge key={k} colorScheme={k === 'met' ? 'green' : k === 'unmet' ? 'red' : 'gray'} fontSize="xs">
+                {k}: {v}
+              </Badge>
+            ))}
+          </HStack>
+        </Box>
+      </SimpleGrid>
+
+      {/* ── Trust detail + Confidence ────────────────────────────────────── */}
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={2} fontFamily="mono">TRUST DETAIL</Text>
+          <SimpleGrid columns={3} gap={2}>
+            <Box>
+              <Text fontSize="2xs" color="gray.600">latest</Text>
+              <Text fontSize="sm" color="white" fontWeight="semibold">{fmtTrust(summary.trust.latest)}</Text>
+            </Box>
+            <Box>
+              <Text fontSize="2xs" color="gray.600">avg close</Text>
+              <Text fontSize="sm" color="white" fontWeight="semibold">{fmtTrust(summary.trust.avg_at_close)}</Text>
+            </Box>
+            <Box>
+              <Text fontSize="2xs" color="gray.600">min</Text>
+              <Text fontSize="sm" color={summary.trust.min_in_window != null && summary.trust.min_in_window < 0.4 ? 'red.400' : 'white'} fontWeight="semibold">
+                {fmtTrust(summary.trust.min_in_window)}
+              </Text>
+            </Box>
+          </SimpleGrid>
+        </Box>
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={2} fontFamily="mono">CONFIDENCE</Text>
+          <HStack spacing={2} flexWrap="wrap">
+            {Object.entries(summary.confidence_distribution).map(([k, v]) => (
+              <Badge key={k} colorScheme={confSchemeStory(k)} fontSize="xs">
+                {k}: {v}
+              </Badge>
+            ))}
+          </HStack>
+        </Box>
+      </SimpleGrid>
+
+      {/* ── Issue Patterns ───────────────────────────────────────────────── */}
+      <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+        <Text fontSize="2xs" color="gray.500" mb={3} fontFamily="mono">ISSUE PATTERNS</Text>
+        <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+          <Box>
+            <Text fontSize="2xs" color="gray.600" mb={1}>Categories</Text>
+            <VStack align="stretch" spacing={1}>
+              {ip.category_counts.slice(0, 6).map(({ category, count }) => (
+                <Flex key={category} justify="space-between" align="center">
+                  <HStack spacing={1}>
+                    <Text fontSize="xs" color="gray.200">{category || '—'}</Text>
+                    {ip.recurring_categories.includes(category) && (
+                      <Badge colorScheme="orange" fontSize="2xs" variant="subtle">recurring</Badge>
+                    )}
+                  </HStack>
+                  <Text fontSize="xs" color="gray.400">{count}</Text>
+                </Flex>
+              ))}
+              {ip.category_counts.length === 0 && <Text fontSize="xs" color="gray.600">None recorded</Text>}
+            </VStack>
+          </Box>
+          <Box>
+            <Text fontSize="2xs" color="gray.600" mb={1}>Impact</Text>
+            <HStack spacing={2} flexWrap="wrap">
+              {Object.entries(ip.impact_distribution).map(([k, v]) => (
+                <Badge key={k} colorScheme={impactScheme(k)} fontSize="xs">{k}: {v}</Badge>
+              ))}
+            </HStack>
+            <Text fontSize="2xs" color="gray.600" mt={3} mb={1}>Emotion</Text>
+            <HStack spacing={2} flexWrap="wrap">
+              {Object.entries(ip.emotion_distribution).map(([k, v]) => (
+                <Badge key={k} colorScheme={k === 'frustrated' || k === 'urgent' ? 'orange' : 'gray'} fontSize="xs" variant="subtle">
+                  {k}: {v}
+                </Badge>
+              ))}
+            </HStack>
+          </Box>
+          <Box>
+            <Text fontSize="2xs" color="gray.600" mb={1}>Asset Types</Text>
+            <VStack align="stretch" spacing={1}>
+              {ip.asset_type_counts.slice(0, 4).map(({ type, count }) => (
+                <Flex key={type} justify="space-between">
+                  <Text fontSize="xs" color="gray.200">{type || '—'}</Text>
+                  <Text fontSize="xs" color="gray.400">{count}</Text>
+                </Flex>
+              ))}
+              {ip.asset_type_counts.length === 0 && <Text fontSize="xs" color="gray.600">None recorded</Text>}
+            </VStack>
+          </Box>
+        </SimpleGrid>
+      </Box>
+
+      {/* ── Risk Indicators ──────────────────────────────────────────────── */}
+      {(ri.unresolved_briefs.length > 0 || ri.high_emotion_count > 0 || ri.risk_flag_summary.length > 0) && (
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="red.800">
+          <Text fontSize="2xs" color="red.400" mb={3} fontFamily="mono">RISK INDICATORS</Text>
+          <VStack align="stretch" spacing={2}>
+            {ri.unresolved_briefs.length > 0 && (
+              <Box>
+                <Text fontSize="2xs" color="gray.500" mb={1}>Unresolved / At-Risk</Text>
+                <VStack align="stretch" spacing={1}>
+                  {ri.unresolved_briefs.map((b) => (
+                    <Flex key={b.brief_id} justify="space-between" align="center"
+                      p={1} bg="gray.750" borderRadius="sm" flexWrap="wrap" gap={1}>
+                      <HStack spacing={2}>
+                        <Text fontSize="xs" color="blue.400" fontFamily="mono">#{b.ticket_key}</Text>
+                        <Badge colorScheme={outcomeScheme(b.outcome_type)} fontSize="2xs">{b.outcome_type}</Badge>
+                        {b.issue_category && (
+                          <Text fontSize="2xs" color="gray.400">{b.issue_category}</Text>
+                        )}
+                      </HStack>
+                      <Text fontSize="2xs" color="gray.600">{b.closed_at ? timeAgo(b.closed_at) : '—'}</Text>
+                    </Flex>
+                  ))}
+                </VStack>
+              </Box>
+            )}
+            <HStack spacing={4} flexWrap="wrap">
+              {ri.high_emotion_count > 0 && (
+                <HStack spacing={1}>
+                  <Badge colorScheme="orange" fontSize="xs">😤 high emotion: {ri.high_emotion_count}</Badge>
+                </HStack>
+              )}
+              {ri.risk_flag_summary.length > 0 && (
+                <HStack spacing={1} flexWrap="wrap">
+                  {ri.risk_flag_summary.map((f) => (
+                    <Badge key={f} colorScheme="red" fontSize="xs" variant="outline">{f}</Badge>
+                  ))}
+                </HStack>
+              )}
+            </HStack>
+            {Object.keys(ri.missing_context_pattern_counts).length > 0 && (
+              <Box>
+                <Text fontSize="2xs" color="gray.500" mb={1}>Missing Context</Text>
+                <HStack spacing={2} flexWrap="wrap">
+                  {Object.entries(ri.missing_context_pattern_counts).map(([k, v]) => (
+                    <Badge key={k} colorScheme="gray" fontSize="2xs" variant="outline">{k}: {v}</Badge>
+                  ))}
+                </HStack>
+              </Box>
+            )}
+          </VStack>
+        </Box>
+      )}
+
+      {/* ── Timeline ─────────────────────────────────────────────────────── */}
+      {timeline.length > 0 && (
+        <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
+          <Text fontSize="2xs" color="gray.500" mb={3} fontFamily="mono">RECENT TIMELINE (structured · no prose)</Text>
+          <VStack align="stretch" spacing={2}>
+            {timeline.map((t) => (
+              <Flex key={t.brief_id} justify="space-between" align="center"
+                p={2} bg="gray.850" borderRadius="sm" flexWrap="wrap" gap={2}
+                border="1px solid" borderColor="gray.700">
+                <HStack spacing={2} flexWrap="wrap">
+                  <Text fontSize="xs" color="blue.400" fontFamily="mono">#{t.ticket_key}</Text>
+                  {t.outcome_type && (
+                    <Badge colorScheme={outcomeScheme(t.outcome_type)} fontSize="2xs">{t.outcome_type}</Badge>
+                  )}
+                  {t.issue_category && (
+                    <Text fontSize="2xs" color="gray.400">{t.issue_category}</Text>
+                  )}
+                  {t.impact_level && (
+                    <Badge colorScheme={impactScheme(t.impact_level)} fontSize="2xs" variant="subtle">{t.impact_level}</Badge>
+                  )}
+                  {t.ai_generated && (
+                    <Badge colorScheme="purple" fontSize="2xs" variant="outline">AI</Badge>
+                  )}
+                </HStack>
+                <HStack spacing={3}>
+                  {t.trust_at_close != null && (
+                    <Text fontSize="2xs" color="gray.400">trust {fmtTrust(t.trust_at_close)}</Text>
+                  )}
+                  {t.confidence && (
+                    <Badge colorScheme={confSchemeStory(t.confidence)} fontSize="2xs" variant="subtle">{t.confidence}</Badge>
+                  )}
+                  <Text fontSize="2xs" color="gray.600">{timeAgo(t.closed_at)}</Text>
+                </HStack>
+              </Flex>
+            ))}
+          </VStack>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+// ─── End ClientStoryPanel ─────────────────────────────────────────────────────
+
 export default function IntelDashboard() {
   const { user } = useUser();
   const [events, setEvents]         = useState<OutbreakEvent[]>([]);
@@ -1175,6 +1614,10 @@ export default function IntelDashboard() {
   const [trends, setTrends]               = useState<TrendItem[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const { isOpen: detailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
+  const [storyClient, setStoryClient] = React.useState<string>(''); // CLIENT-STORY-002
+  const [briefClients, setBriefClients]               = React.useState<BriefClient[]>([]);  // CLIENT-STORY-003
+  const [briefClientsLoading, setBriefClientsLoading] = React.useState<boolean>(false);      // CLIENT-STORY-003
+  const [briefClientsError, setBriefClientsError]     = React.useState<boolean>(false);      // CLIENT-STORY-003
 
   const fetchIntel = useCallback(async () => {
     setIntelLoading(true);
@@ -1233,6 +1676,21 @@ export default function IntelDashboard() {
       .then((d) => setFilterOptions(d as any))
       .catch(() => {});
   }, []);
+
+  // CLIENT-STORY-003: fetch FCB-sourced client list for story selector
+  useEffect(() => {
+    setBriefClientsLoading(true);
+    setBriefClientsError(false);
+    pmFetch('/api/briefs/clients', API)
+      .then((d: any) => {
+        setBriefClients(d?.clients ?? []);
+      })
+      .catch((e: unknown) => {
+        console.warn('[ClientStory] /api/briefs/clients failed — falling back to filterOptions.client_keys:', e);
+        setBriefClientsError(true);
+      })
+      .finally(() => setBriefClientsLoading(false));
+  }, []); // mount-only — CLIENT-STORY-003
 
   const runNow = async () => {
     setRunning(true);
@@ -1502,13 +1960,56 @@ export default function IntelDashboard() {
             )}
           </TabPanel>
 
-          {/* History */}
+          {/* History — CLIENT-STORY-002: Resolved outbreaks + Client Story */}
           <TabPanel px={0}>
+            {/* Existing: resolved outbreak events */}
             {resolved.length === 0 ? (
-              <Flex py={12} align="center" justify="center">
-                <Text color="gray.500">No resolved events yet</Text>
+              <Flex py={6} align="center" justify="center">
+                <Text color="gray.500" fontSize="sm">No resolved outbreak events</Text>
               </Flex>
             ) : resolved.map((e, i) => <OutbreakCard key={i} evt={e} />)}
+
+            {/* CLIENT-STORY-002: Client Story section */}
+            <Divider my={6} borderColor="gray.700" />
+            <Box mb={4}>
+              <HStack mb={3} spacing={3} align="center">
+                <Text fontSize="sm" fontWeight="bold" color="gray.200">📋 Client Story</Text>
+                <Text fontSize="2xs" color="gray.500">90-day closed brief history · structured outcomes · no prose</Text>
+              </HStack>
+              <Select
+                size="sm"
+                w={{ base: "full", md: "280px" }}
+                bg="gray.800"
+                border="1px solid"
+                borderColor="gray.600"
+                color="gray.200"
+                fontSize="xs"
+                placeholder={briefClientsLoading ? 'Loading clients…' : briefClients.length === 0 ? 'No clients with closed briefs' : 'Select a client to view story…'}
+                value={storyClient}
+                onChange={(e) => setStoryClient(e.target.value)}
+                isDisabled={briefClientsLoading}
+              >
+                {briefClients.map((c) => (
+                  <option key={c.client_key} value={c.client_key} style={{ background: '#1a202c' }}>
+                    {c.client_display_name || c.client_key}
+                  </option>
+                ))}
+              </Select>
+              {briefClientsError && (
+                <Text fontSize="2xs" color="orange.400" mt={1}>
+                  ⚠ Client list unavailable — select a client key manually if known
+                </Text>
+              )}
+            </Box>
+            {storyClient ? (
+              <ClientStoryPanel clientKey={storyClient} />
+            ) : (
+              <Flex py={8} align="center" justify="center" direction="column" gap={2}>
+                <Text fontSize="2xl">📋</Text>
+                <Text color="gray.400" fontSize="sm">Select a client above to view their story</Text>
+                <Text fontSize="2xs" color="gray.600">Data from Final Closed Briefs · 90-day window · workspace-scoped</Text>
+              </Flex>
+            )}
           </TabPanel>
 
 
