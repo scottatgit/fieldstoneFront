@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { label: 'OPS',          href: '/platform/ops'            },
   { label: 'RUNTIME',      href: '/platform/ops/runtime'    },
   { label: 'BETA',         href: '/platform/beta'           },
+  { label: 'DOCS',         href: '/platform/docs'           },
 ];
 
 const COMING_SOON = [{ label: 'AI PROPOSALS', href: '/platform/proposals' }];

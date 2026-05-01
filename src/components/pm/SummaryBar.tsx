@@ -13,7 +13,6 @@ const BASE_TABS = [
   { label: 'TODAY', href: '/pm'          },
   { label: 'INTEL', href: '/pm/intel'    },
   { label: 'TEAM',  href: '/pm/team'     },
-  { label: 'DOCS',  href: '/pm/docs'     },
   { label: 'SIGNAL', href: '/pm/setup'   },
 ];
 
