@@ -1229,6 +1229,10 @@ interface ClientStoryData {
     missing_context_flags: string[];
     ai_generated: boolean;
     closed_at: string;
+    // FCB-PHI-001E: scrubbed prose fields (never expose raw ai_close_note)
+    ai_close_note_scrubbed: string | null;
+    phi_flags: string[] | null;
+    phi_scrubbed_at: string | null;
   }[];
 }
 
@@ -1279,6 +1283,24 @@ function fmtTrust(v: number | null): string {
   return (v * 100).toFixed(0) + '%';
 }
 
+// FCB-PHI-001E: prose display state helper
+// SYNC WARNING: phi pattern logic must stay in sync with _scrub_phi() in api.py
+// and scripts/backfill_phi_scrub.py. See FCB-PHI-SHARED-001 for unification ticket.
+// NEVER reference raw ai_close_note — intentionally absent from ClientStoryData type.
+type ProseState = 'suppress' | 'clean' | 'redacted';
+
+function proseDisplayState(t: {
+  ai_close_note_scrubbed: string | null;
+  phi_flags: string[] | null;
+  phi_scrubbed_at: string | null;
+}): ProseState {
+  if (!t.phi_scrubbed_at)                          return 'suppress'; // not yet processed
+  if (!t.ai_close_note_scrubbed)                   return 'suppress'; // no scrubbed prose stored
+  if ((t.phi_flags ?? []).includes('NO_PROSE'))    return 'suppress'; // source note was null
+  if ((t.phi_flags ?? []).length === 0)            return 'clean';
+  return 'redacted';
+}
+
 function ClientStoryPanel({ clientKey }: { clientKey: string }) {
   const [story, setStory]     = React.useState<ClientStoryData | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -1296,6 +1318,29 @@ function ClientStoryPanel({ clientKey }: { clientKey: string }) {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [clientKey]);
+
+  // FCB-PHI-001E: track expanded prose per timeline item
+  // clean items pre-expanded; redacted items collapsed until user opens
+  const [expandedBriefs, setExpandedBriefs] = React.useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (!story) return;
+    const cleanIds = new Set(
+      story.timeline
+        .filter(t => proseDisplayState(t) === 'clean')
+        .map(t => t.brief_id)
+    );
+    setExpandedBriefs(cleanIds);
+  }, [story?.generated_at]);
+
+  function toggleProseExpand(briefId: string) {
+    setExpandedBriefs(prev => {
+      const next = new Set(prev);
+      if (next.has(briefId)) next.delete(briefId);
+      else next.add(briefId);
+      return next;
+    });
+  }
 
   if (loading) return (
     <Flex py={8} align="center" justify="center" gap={3}>
@@ -1558,38 +1603,80 @@ function ClientStoryPanel({ clientKey }: { clientKey: string }) {
       {/* ── Timeline ─────────────────────────────────────────────────────── */}
       {timeline.length > 0 && (
         <Box p={3} bg="gray.800" borderRadius="md" border="1px solid" borderColor="gray.700">
-          <Text fontSize="2xs" color="gray.500" mb={3} fontFamily="mono">RECENT TIMELINE (structured · no prose)</Text>
+          <Text fontSize="2xs" color="gray.500" mb={3} fontFamily="mono">RECENT TIMELINE</Text>
           <VStack align="stretch" spacing={2}>
-            {timeline.map((t) => (
-              <Flex key={t.brief_id} justify="space-between" align="center"
-                p={2} bg="gray.850" borderRadius="sm" flexWrap="wrap" gap={2}
-                border="1px solid" borderColor="gray.700">
-                <HStack spacing={2} flexWrap="wrap">
-                  <Text fontSize="xs" color="blue.400" fontFamily="mono">#{t.ticket_key}</Text>
-                  {t.outcome_type && (
-                    <Badge colorScheme={outcomeScheme(t.outcome_type)} fontSize="2xs">{t.outcome_type}</Badge>
+            {timeline.map((t) => {
+              const ps = proseDisplayState(t);
+              const isExpanded = expandedBriefs.has(t.brief_id);
+              return (
+                <Box key={t.brief_id}
+                  bg="gray.850" borderRadius="sm"
+                  border="1px solid"
+                  borderColor={ps === 'redacted' ? 'orange.800' : 'gray.700'}>
+                  {/* ── Structured row — existing fields unchanged ── */}
+                  <Flex justify="space-between" align="center"
+                    p={2} flexWrap="wrap" gap={2}>
+                    <HStack spacing={2} flexWrap="wrap">
+                      <Text fontSize="xs" color="blue.400" fontFamily="mono">#{t.ticket_key}</Text>
+                      {t.outcome_type && (
+                        <Badge colorScheme={outcomeScheme(t.outcome_type)} fontSize="2xs">{t.outcome_type}</Badge>
+                      )}
+                      {t.issue_category && (
+                        <Text fontSize="2xs" color="gray.400">{t.issue_category}</Text>
+                      )}
+                      {t.impact_level && (
+                        <Badge colorScheme={impactScheme(t.impact_level)} fontSize="2xs" variant="subtle">{t.impact_level}</Badge>
+                      )}
+                      {t.ai_generated && (
+                        <Badge colorScheme="purple" fontSize="2xs" variant="outline">AI</Badge>
+                      )}
+                    </HStack>
+                    <HStack spacing={3}>
+                      {t.trust_at_close != null && (
+                        <Text fontSize="2xs" color="gray.400">trust {fmtTrust(t.trust_at_close)}</Text>
+                      )}
+                      {t.confidence && (
+                        <Badge colorScheme={confSchemeStory(t.confidence)} fontSize="2xs" variant="subtle">{t.confidence}</Badge>
+                      )}
+                      <Text fontSize="2xs" color="gray.600">{timeAgo(t.closed_at)}</Text>
+                      {/* Prose toggle — only rendered when prose is available */}
+                      {ps !== 'suppress' && (
+                        <Text
+                          fontSize="2xs"
+                          color={ps === 'redacted' ? 'orange.400' : 'gray.500'}
+                          cursor="pointer"
+                          userSelect="none"
+                          onClick={() => toggleProseExpand(t.brief_id)}
+                          title={ps === 'redacted' ? 'Close note (some content redacted)' : 'Close note'}
+                        >
+                          {isExpanded ? '▴ note' : '▾ note'}{ps === 'redacted' ? ' ⚠' : ''}
+                        </Text>
+                      )}
+                    </HStack>
+                  </Flex>
+                  {/* ── Scrubbed prose — PHI-safe, source: ai_close_note_scrubbed only ── */}
+                  {ps !== 'suppress' && isExpanded && (
+                    <Box
+                      px={3} pb={2} pt={1}
+                      borderTop="1px solid"
+                      borderColor={ps === 'redacted' ? 'orange.800' : 'gray.700'}>
+                      {ps === 'redacted' && (
+                        <HStack spacing={1} mb={1}>
+                          <Badge colorScheme="orange" fontSize="2xs" variant="subtle">⚠ Some content auto-redacted</Badge>
+                        </HStack>
+                      )}
+                      <Text
+                        fontSize="xs"
+                        color={ps === 'redacted' ? 'orange.200' : 'gray.300'}
+                        fontStyle="italic"
+                        lineHeight="1.5">
+                        {t.ai_close_note_scrubbed}
+                      </Text>
+                    </Box>
                   )}
-                  {t.issue_category && (
-                    <Text fontSize="2xs" color="gray.400">{t.issue_category}</Text>
-                  )}
-                  {t.impact_level && (
-                    <Badge colorScheme={impactScheme(t.impact_level)} fontSize="2xs" variant="subtle">{t.impact_level}</Badge>
-                  )}
-                  {t.ai_generated && (
-                    <Badge colorScheme="purple" fontSize="2xs" variant="outline">AI</Badge>
-                  )}
-                </HStack>
-                <HStack spacing={3}>
-                  {t.trust_at_close != null && (
-                    <Text fontSize="2xs" color="gray.400">trust {fmtTrust(t.trust_at_close)}</Text>
-                  )}
-                  {t.confidence && (
-                    <Badge colorScheme={confSchemeStory(t.confidence)} fontSize="2xs" variant="subtle">{t.confidence}</Badge>
-                  )}
-                  <Text fontSize="2xs" color="gray.600">{timeAgo(t.closed_at)}</Text>
-                </HStack>
-              </Flex>
-            ))}
+                </Box>
+              );
+            })}
           </VStack>
         </Box>
       )}
