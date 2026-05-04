@@ -1703,6 +1703,7 @@ interface WorkingBriefSummary {
   situation:           string | null;
   expectation:         string | null;
   constraints:         string | null;
+  intel_link_count?:   number;          // WBL-007b: from list endpoint LEFT JOIN
 }
 
 // ─── WBL-005b: badge helpers ─────────────────────────────────────────────────
@@ -1751,6 +1752,11 @@ function WorkingBriefCard({
           {wb.notes_since_refresh > 0 && (
             <Badge colorScheme="orange" fontSize="0.65em" variant="outline">
               {wb.notes_since_refresh} note{wb.notes_since_refresh !== 1 ? 's' : ''} since refresh
+            </Badge>
+          )}
+          {(wb.intel_link_count ?? 0) > 0 && (
+            <Badge colorScheme="purple" fontSize="0.65em" borderRadius="full">
+              🔗 {wb.intel_link_count} intel {wb.intel_link_count === 1 ? 'link' : 'links'}
             </Badge>
           )}
         </HStack>
