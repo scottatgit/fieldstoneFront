@@ -1683,6 +1683,28 @@ function ClientStoryPanel({ clientKey }: { clientKey: string }) {
     </VStack>
   );
 }
+// ─── WBL-005b: WorkingBriefSummary interface ────────────────────────────────
+interface WorkingBriefSummary {
+  brief_id:            string;
+  ticket_key:          string;
+  workspace_id:        string;
+  status:              string;
+  ticket_status:       string;
+  client_key:          string | null;
+  client_display_name: string | null;
+  ticket_title:        string | null;
+  refresh_status:      string;
+  refresh_trigger:     string | null;
+  confidence:          string | null;
+  notes_since_refresh: number;
+  last_refreshed_at:   string | null;
+  last_updated:        string;
+  created_at:          string;
+  situation:           string | null;
+  expectation:         string | null;
+  constraints:         string | null;
+}
+
 // ─── WBL-005b: badge helpers ─────────────────────────────────────────────────
 function wbRefreshScheme(s: string | null): string {
   if (s === 'current') return 'green';
