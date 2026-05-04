@@ -638,6 +638,11 @@ if ((endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && me
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 
+  // WBL-005b: working briefs list — empty in demo (no live tickets)
+  if (endpoint.includes('/api/working-briefs') && !endpoint.includes('/refresh')) {
+    return { briefs: [], total: 0, limit: 50, offset: 0 };
+  }
+
   // ── Fallback ──────────────────────────────────────────────────────────────
   console.warn('[demoApi] Unmatched endpoint:', endpoint);
   return {};

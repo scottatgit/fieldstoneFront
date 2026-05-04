@@ -1683,6 +1683,126 @@ function ClientStoryPanel({ clientKey }: { clientKey: string }) {
     </VStack>
   );
 }
+// ─── WBL-005b: badge helpers ─────────────────────────────────────────────────
+function wbRefreshScheme(s: string | null): string {
+  if (s === 'current') return 'green';
+  if (s === 'stale')   return 'orange';
+  if (s === 'pending') return 'blue';
+  if (s === 'failed')  return 'red';
+  return 'gray';
+}
+function wbConfScheme(s: string | null): string {
+  if (s === 'high')     return 'green';
+  if (s === 'standard') return 'blue';
+  if (s === 'low')      return 'yellow';
+  return 'gray';
+}
+
+// ─── WBL-005b: WorkingBriefCard ──────────────────────────────────────────────
+function WorkingBriefCard({
+  wb,
+  onRefresh,
+  isRefreshing,
+}: {
+  wb: WorkingBriefSummary;
+  onRefresh: (key: string) => void;
+  isRefreshing: boolean;
+}) {
+  const { isOpen, onToggle } = useDisclosure();
+  return (
+    <Box
+      border="1px solid" borderColor="blue.800"
+      borderRadius="md" p={4} mb={3} bg="gray.850"
+    >
+      {/* Header row */}
+      <Flex justify="space-between" align="center" flexWrap="wrap" gap={2}>
+        <HStack spacing={3} flexWrap="wrap">
+          <Badge colorScheme="blue" fontSize="0.65em" variant="subtle">Open Working Brief</Badge>
+          <Badge colorScheme={wbRefreshScheme(wb.refresh_status)} fontSize="0.65em">
+            {wb.refresh_status ?? 'unknown'}
+          </Badge>
+          {wb.confidence && (
+            <Badge colorScheme={wbConfScheme(wb.confidence)} fontSize="0.65em" variant="outline">
+              {wb.confidence}
+            </Badge>
+          )}
+          {wb.notes_since_refresh > 0 && (
+            <Badge colorScheme="orange" fontSize="0.65em" variant="outline">
+              {wb.notes_since_refresh} note{wb.notes_since_refresh !== 1 ? 's' : ''} since refresh
+            </Badge>
+          )}
+        </HStack>
+        <HStack spacing={2}>
+          <Text fontSize="xs" color="gray.500">
+            {timeAgo(wb.last_refreshed_at ?? wb.last_updated)}
+          </Text>
+          <Button
+            size="xs" variant="outline" colorScheme="blue"
+            isLoading={isRefreshing}
+            isDisabled={isRefreshing}
+            onClick={() => onRefresh(wb.ticket_key)}
+          >
+            ↻ Refresh
+          </Button>
+          <Button size="xs" variant="ghost" colorScheme="gray" onClick={onToggle}>
+            {isOpen ? '▲ Less' : '▼ Details'}
+          </Button>
+        </HStack>
+      </Flex>
+
+      {/* Ticket identity row */}
+      <HStack mt={2} spacing={3} flexWrap="wrap">
+        <Text fontSize="xs" fontFamily="mono" color="blue.300">{wb.ticket_key}</Text>
+        {wb.client_display_name && (
+          <Text fontSize="xs" color="gray.400">{wb.client_display_name}</Text>
+        )}
+        {wb.ticket_title && (
+          <Text fontSize="xs" color="gray.300" noOfLines={1}>{wb.ticket_title}</Text>
+        )}
+      </HStack>
+
+      {/* Expandable details */}
+      <Collapse in={isOpen}>
+        <Divider my={3} borderColor="gray.700" />
+        <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+          {wb.situation && (
+            <Box>
+              <Text fontSize="2xs" fontWeight="semibold" color="blue.400" mb={1}
+                textTransform="uppercase" letterSpacing="wide">Situation</Text>
+              <Text fontSize="xs" color="gray.200">{wb.situation}</Text>
+            </Box>
+          )}
+          {wb.expectation && (
+            <Box>
+              <Text fontSize="2xs" fontWeight="semibold" color="purple.400" mb={1}
+                textTransform="uppercase" letterSpacing="wide">Expectation</Text>
+              <Text fontSize="xs" color="gray.200">{wb.expectation}</Text>
+            </Box>
+          )}
+          {wb.constraints && (
+            <Box>
+              <Text fontSize="2xs" fontWeight="semibold" color="orange.400" mb={1}
+                textTransform="uppercase" letterSpacing="wide">Constraints</Text>
+              <Text fontSize="xs" color="gray.200">{wb.constraints}</Text>
+            </Box>
+          )}
+        </SimpleGrid>
+        <HStack mt={3} spacing={4}>
+          <Box as="a" href="/pm/brief"
+            fontSize="2xs" fontFamily="mono" color="blue.400"
+            _hover={{ color: 'blue.300' }}>
+            → Open Brief Viewer
+          </Box>
+          <Text fontSize="2xs" color="gray.600">
+            Updated {timeAgo(wb.last_updated)}
+          </Text>
+        </HStack>
+      </Collapse>
+    </Box>
+  );
+}
+// ─── End WorkingBriefCard ─────────────────────────────────────────────────────
+
 // ─── End ClientStoryPanel ─────────────────────────────────────────────────────
 
 export default function IntelDashboard() {
@@ -1705,6 +1825,11 @@ export default function IntelDashboard() {
   const [briefClients, setBriefClients]               = React.useState<BriefClient[]>([]);  // CLIENT-STORY-003
   const [briefClientsLoading, setBriefClientsLoading] = React.useState<boolean>(false);      // CLIENT-STORY-003
   const [briefClientsError, setBriefClientsError]     = React.useState<boolean>(false);      // CLIENT-STORY-003
+  // WBL-005b: open working briefs state
+  const [openWBs,      setOpenWBs]      = useState<WorkingBriefSummary[]>([]);
+  const [wbLoading,    setWbLoading]    = useState(false);
+  const [wbError,      setWbError]      = useState(false);
+  const [wbRefreshing, setWbRefreshing] = useState<Record<string, boolean>>({});
 
   const fetchIntel = useCallback(async () => {
     setIntelLoading(true);
@@ -1778,6 +1903,39 @@ export default function IntelDashboard() {
       })
       .finally(() => setBriefClientsLoading(false));
   }, []); // mount-only — CLIENT-STORY-003
+
+  // WBL-005b: fetch open working briefs on mount
+  useEffect(() => {
+    setWbLoading(true);
+    setWbError(false);
+    pmFetch('/api/working-briefs', API)
+      .then((d: unknown) => {
+        setOpenWBs((d as any)?.briefs ?? []);
+      })
+      .catch((e: unknown) => {
+        console.error('[WBL] /api/working-briefs failed:', e);
+        setWbError(true);
+      })
+      .finally(() => setWbLoading(false));
+  }, []); // mount-only — WBL-005b
+
+  // WBL-005b: manual WB refresh — POST then re-fetch list
+  const handleWBRefresh = async (ticketKey: string) => {
+    setWbRefreshing(prev => ({ ...prev, [ticketKey]: true }));
+    try {
+      await pmFetch(
+        `/api/tickets/${encodeURIComponent(ticketKey)}/working-brief/refresh`,
+        API,
+        { method: 'POST' }
+      );
+      const res = await pmFetch('/api/working-briefs', API);
+      setOpenWBs((res as any)?.briefs ?? []);
+    } catch (e) {
+      console.error('[WBL] refresh failed for', ticketKey, e);
+    } finally {
+      setWbRefreshing(prev => ({ ...prev, [ticketKey]: false }));
+    }
+  };
 
   const runNow = async () => {
     setRunning(true);
@@ -2055,6 +2213,37 @@ export default function IntelDashboard() {
                 <Text color="gray.500" fontSize="sm">No resolved outbreak events</Text>
               </Flex>
             ) : resolved.map((e, i) => <OutbreakCard key={i} evt={e} />)}
+
+            {/* WBL-005b: Open Working Briefs section */}
+            <Box mb={6}>
+              <HStack mb={3} spacing={3} align="center">
+                <Text fontSize="sm" fontWeight="bold" color="gray.200">🗂️ Open Working Briefs</Text>
+                <Text fontSize="2xs" color="gray.500">active operational memory · structured only · no archived notes</Text>
+              </HStack>
+              {wbLoading ? (
+                <Flex py={6} align="center" justify="center">
+                  <Spinner color="blue.400" size="sm" />
+                </Flex>
+              ) : wbError ? (
+                <Flex py={4} align="center" justify="center">
+                  <Text fontSize="xs" color="orange.400">⚠ Could not load working briefs</Text>
+                </Flex>
+              ) : openWBs.length === 0 ? (
+                <Flex py={4} align="center" justify="center" direction="column" gap={1}>
+                  <Text fontSize="xs" color="gray.500">No open working briefs</Text>
+                  <Text fontSize="2xs" color="gray.600">Working briefs are created when tickets are opened · refresh to update</Text>
+                </Flex>
+              ) : (
+                openWBs.map((wb) => (
+                  <WorkingBriefCard
+                    key={wb.brief_id}
+                    wb={wb}
+                    onRefresh={handleWBRefresh}
+                    isRefreshing={!!wbRefreshing[wb.ticket_key]}
+                  />
+                ))
+              )}
+            </Box>
 
             {/* CLIENT-STORY-002: Client Story section */}
             <Divider my={6} borderColor="gray.700" />
