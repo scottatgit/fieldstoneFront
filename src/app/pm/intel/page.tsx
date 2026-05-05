@@ -1721,6 +1721,15 @@ function wbConfScheme(s: string | null): string {
   return 'gray';
 }
 
+// WBL-008: ticket status badge colour
+function wbTicketStatusScheme(s: string | null): string {
+  if (s === 'open')        return 'blue';
+  if (s === 'in_progress') return 'cyan';
+  if (s === 'pending')     return 'yellow';
+  if (s === 'closed')      return 'green';
+  return 'gray';
+}
+
 // ─── WBL-005b: WorkingBriefCard ──────────────────────────────────────────────
 function WorkingBriefCard({
   wb,
@@ -1825,6 +1834,38 @@ function WorkingBriefCard({
             Updated {timeAgo(wb.last_updated)}
           </Text>
         </HStack>
+        {/* WBL-008: structured metadata row */}
+        <Divider my={2} borderColor="gray.700" />
+        <SimpleGrid columns={{ base: 2, md: 4 }} gap={3} mt={1}>
+          <Box>
+            <Text fontSize="2xs" color="gray.500" textTransform="uppercase"
+              letterSpacing="wide" mb={1}>Ticket Status</Text>
+            <Badge colorScheme={wbTicketStatusScheme(wb.ticket_status)} fontSize="0.6em">
+              {wb.ticket_status ?? 'unknown'}
+            </Badge>
+          </Box>
+          <Box>
+            <Text fontSize="2xs" color="gray.500" textTransform="uppercase"
+              letterSpacing="wide" mb={1}>Last Refreshed</Text>
+            <Text fontSize="xs" color="gray.300">
+              {wb.last_refreshed_at ? timeAgo(wb.last_refreshed_at) : 'Never'}
+            </Text>
+          </Box>
+          {wb.refresh_trigger && (
+            <Box>
+              <Text fontSize="2xs" color="gray.500" textTransform="uppercase"
+                letterSpacing="wide" mb={1}>Trigger</Text>
+              <Text fontSize="xs" color="gray.400" fontFamily="mono">
+                {wb.refresh_trigger}
+              </Text>
+            </Box>
+          )}
+          <Box>
+            <Text fontSize="2xs" color="gray.500" textTransform="uppercase"
+              letterSpacing="wide" mb={1}>Brief Created</Text>
+            <Text fontSize="xs" color="gray.400">{timeAgo(wb.created_at)}</Text>
+          </Box>
+        </SimpleGrid>
       </Collapse>
     </Box>
   );
