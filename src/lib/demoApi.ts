@@ -638,6 +638,22 @@ if ((endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && me
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 
+  // WBL-008B: single working brief detail — safe structured mock (no raw notes/prose)
+  if (endpoint.match(/\/api\/tickets\/[^/]+\/working-brief$/) && method !== 'POST') {
+    return {
+      context_summary:       'Client reported intermittent issue. Workstation confirmed accessible. Visit scheduled.',
+      resolution_direction:  'On-site verification of affected hardware. Confirm service status before arrival.',
+      follow_up_items:       ['Confirm UPS battery status', 'Verify remote access credentials'],
+      risk_flags:            ['Clinical workflow may be impacted if issue persists'],
+      missing_context_flags: [],
+      absorbed_note_count:   2,
+      source_note_ids:       [],
+      intel_link_count:      1,
+      intel_snapshot:        [{ entry_id: 'demo-1', confidence: 'high', source: 'client' }],
+      refresh_error:         null,
+    };
+  }
+
   // WBL-005b: working briefs list — empty in demo (no live tickets)
   if (endpoint.includes('/api/working-briefs') && !endpoint.includes('/refresh')) {
     return { briefs: [], total: 0, limit: 50, offset: 0 };

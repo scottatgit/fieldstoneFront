@@ -9,7 +9,7 @@ import {
   ModalHeader, ModalBody, ModalCloseButton,
   SimpleGrid, Collapse, useDisclosure,
 } from '@chakra-ui/react';
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import React from 'react';
 import { pmFetch } from '@/lib/demoApi';
 import { useUser } from '@/lib/useUser';
@@ -1683,6 +1683,31 @@ function ClientStoryPanel({ clientKey }: { clientKey: string }) {
     </VStack>
   );
 }
+// ─── WBL-008B: types ─────────────────────────────────────────────────────────
+// Flexible field type — backend may return pre-parsed array OR JSON string
+type JsonArrayish<T = string> = T[] | string | null | undefined;
+
+interface IntelSnapshotEntry {
+  entry_id:    string;
+  confidence?: string | null;
+  source?:     string | null;
+  // INTENTIONALLY OMITTED: pattern, resolution, observation — never rendered
+}
+
+interface WBDetail {
+  context_summary:       string | null | undefined;
+  resolution_direction:  string | null | undefined;
+  follow_up_items:       JsonArrayish;
+  risk_flags:            JsonArrayish;
+  missing_context_flags: JsonArrayish;
+  absorbed_note_count:   number | null | undefined;
+  source_note_ids:       JsonArrayish;
+  intel_link_count:      number | null | undefined;
+  intel_snapshot:        JsonArrayish<IntelSnapshotEntry>;
+  refresh_error:         string | null | undefined;
+}
+// ─── End WBL-008B types ───────────────────────────────────────────────────────
+
 // ─── WBL-005b: WorkingBriefSummary interface ────────────────────────────────
 interface WorkingBriefSummary {
   brief_id:            string;
@@ -1730,6 +1755,19 @@ function wbTicketStatusScheme(s: string | null): string {
   return 'gray';
 }
 
+// WBL-008B: parse JsonArrayish — never throws; handles pre-parsed arrays and JSON strings
+function safeJsonArray<T = string>(v: JsonArrayish<T>): T[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  return [];
+}
+
 // ─── WBL-005b: WorkingBriefCard ──────────────────────────────────────────────
 function WorkingBriefCard({
   wb,
@@ -1741,6 +1779,23 @@ function WorkingBriefCard({
   isRefreshing: boolean;
 }) {
   const { isOpen, onToggle } = useDisclosure();
+
+  // WBL-008B: lazy detail fetch — fires once on first expand, cached for card lifetime
+  const hasFetched                                   = useRef(false);
+  const [detail,     setDetail]     = useState<WBDetail | null>(null);
+  const [detailLoad, setDetailLoad] = useState(false);
+  const [detailErr,  setDetailErr]  = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || hasFetched.current) return;
+    hasFetched.current = true;
+    setDetailLoad(true);
+    pmFetch(`/api/tickets/${encodeURIComponent(wb.ticket_key)}/working-brief`, API)
+      .then((d: unknown) => setDetail(d as WBDetail))
+      .catch(() => setDetailErr('Detail unavailable'))
+      .finally(() => setDetailLoad(false));
+  }, [isOpen, wb.ticket_key]);
+
   return (
     <Box
       border="1px solid" borderColor="blue.800"
@@ -1836,6 +1891,95 @@ function WorkingBriefCard({
         </HStack>
         {/* WBL-008: structured metadata row */}
         <Divider my={2} borderColor="gray.700" />
+        {/* WBL-008B: lazy-loaded detail section ───────────────────────────── */}
+        {detailLoad && (
+          <HStack mt={3} spacing={2}>
+            <Spinner size="xs" color="blue.400" />
+            <Text fontSize="xs" color="gray.500">Loading brief detail…</Text>
+          </HStack>
+        )}
+        {detailErr && !detailLoad && (
+          <Text fontSize="xs" color="gray.600" mt={2}>Brief detail unavailable</Text>
+        )}
+        {detail && !detailLoad && (
+          <Box mt={3}>
+            {detail.refresh_error && (
+              <Text fontSize="xs" color="red.300" mb={2}>⚠ {detail.refresh_error}</Text>
+            )}
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4} mb={3}>
+              {detail.context_summary && (
+                <Box>
+                  <Text fontSize="2xs" color="cyan.400" textTransform="uppercase"
+                    letterSpacing="wide" fontWeight="semibold" mb={1}>Context Summary</Text>
+                  <Text fontSize="xs" color="gray.200">{detail.context_summary}</Text>
+                </Box>
+              )}
+              {detail.resolution_direction && (
+                <Box>
+                  <Text fontSize="2xs" color="green.400" textTransform="uppercase"
+                    letterSpacing="wide" fontWeight="semibold" mb={1}>Resolution Direction</Text>
+                  <Text fontSize="xs" color="gray.200">{detail.resolution_direction}</Text>
+                </Box>
+              )}
+            </SimpleGrid>
+            {safeJsonArray(detail.follow_up_items).length > 0 && (
+              <Box mb={3}>
+                <Text fontSize="2xs" color="purple.400" textTransform="uppercase"
+                  letterSpacing="wide" fontWeight="semibold" mb={1}>Follow-up Items</Text>
+                <VStack align="start" spacing={0.5}>
+                  {safeJsonArray(detail.follow_up_items).map((item, i) => (
+                    <Text key={i} fontSize="xs" color="gray.200">• {item}</Text>
+                  ))}
+                </VStack>
+              </Box>
+            )}
+            {safeJsonArray(detail.risk_flags).length > 0 && (
+              <Box mb={3}>
+                <Text fontSize="2xs" color="red.400" textTransform="uppercase"
+                  letterSpacing="wide" fontWeight="semibold" mb={1}>Risk Flags</Text>
+                <HStack flexWrap="wrap" spacing={2}>
+                  {safeJsonArray(detail.risk_flags).map((f, i) => (
+                    <Badge key={i} colorScheme="red" fontSize="0.6em" variant="subtle">{f}</Badge>
+                  ))}
+                </HStack>
+              </Box>
+            )}
+            {safeJsonArray(detail.missing_context_flags).length > 0 && (
+              <Box mb={3}>
+                <Text fontSize="2xs" color="yellow.400" textTransform="uppercase"
+                  letterSpacing="wide" fontWeight="semibold" mb={1}>Missing Context</Text>
+                <HStack flexWrap="wrap" spacing={2}>
+                  {safeJsonArray(detail.missing_context_flags).map((f, i) => (
+                    <Badge key={i} colorScheme="yellow" fontSize="0.6em" variant="outline">{f}</Badge>
+                  ))}
+                </HStack>
+              </Box>
+            )}
+            <HStack spacing={4} flexWrap="wrap" mt={1}>
+              {(detail.absorbed_note_count ?? 0) > 0 && (
+                <Text fontSize="2xs" color="gray.500">
+                  📝 {detail.absorbed_note_count} note{detail.absorbed_note_count !== 1 ? 's' : ''} absorbed
+                </Text>
+              )}
+              {(() => {
+                const snap = safeJsonArray<IntelSnapshotEntry>(detail.intel_snapshot);
+                if (!snap.length) return null;
+                // Group by source first, fall back to confidence
+                const counts: Record<string, number> = {};
+                snap.forEach(e => {
+                  const k = (e.source ?? e.confidence) ? `${e.source ?? e.confidence}` : 'linked';
+                  counts[k] = (counts[k] ?? 0) + 1;
+                });
+                return Object.entries(counts).map(([label, n]) => (
+                  <Text key={label} fontSize="2xs" color="gray.500">
+                    🔗 {n} {label}
+                  </Text>
+                ));
+              })()}
+            </HStack>
+          </Box>
+        )}
+        {/* End WBL-008B detail section ───────────────────────────────────── */}
         <SimpleGrid columns={{ base: 2, md: 4 }} gap={3} mt={1}>
           <Box>
             <Text fontSize="2xs" color="gray.500" textTransform="uppercase"
