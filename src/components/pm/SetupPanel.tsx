@@ -597,6 +597,32 @@ export function SetupPanel() {
           duration: 4000,
         });
       }
+      // IMAP config — tenant-scoped endpoint, accessible to tenant_admin
+      const imapHost = settings['IMAP_HOST'] || '';
+      const imapUser = settings['IMAP_USER'] || '';
+      const imapPass = settings['IMAP_PASS'] || '';
+      if (imapHost && imapUser) {
+        const imapBody: Record<string, string | number> = {
+          host: imapHost,
+          user: imapUser,
+          port: 993,
+        };
+        if (imapPass && !imapPass.includes('\u2022')) {
+          imapBody['password'] = imapPass;
+        }
+        const imapRes  = await fetch(`${PM_API}/api/setup/imap/save`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(imapBody),
+        });
+        const imapData = await imapRes.json();
+        toast({
+          title: imapRes.ok ? '\u2705 IMAP settings saved' : '\u274c IMAP save failed',
+          description: imapData.message || imapData.detail || '',
+          status: imapRes.ok ? 'success' : 'error',
+          duration: 4000,
+        });
+      }
       loadSettings();
       loadSetupStatus();
     } catch (e) {
@@ -607,7 +633,18 @@ export function SetupPanel() {
   const handleTestEmail = async () => {
     setEmailTest({ status: 'loading', message: '' });
     try {
-      const res = await fetch(`${PM_API}/api/settings/test/email`, { method: 'POST' });
+      const imapPass = settings['IMAP_PASS'] || '';
+      const testPayload: Record<string, string | number> = {
+        host: settings['IMAP_HOST'] || '',
+        user: settings['IMAP_USER'] || '',
+        port: 993,
+      };
+      if (imapPass && !imapPass.includes('\u2022')) testPayload['password'] = imapPass;
+      const res = await fetch(`${PM_API}/api/setup/imap/test`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testPayload),
+      });
       const data = await res.json();
       setEmailTest({ status: data.status, message: data.message });
       if (data.status === 'ok') loadSetupStatus();
@@ -617,7 +654,9 @@ export function SetupPanel() {
   const handleTestAI = async () => {
     setAiTest({ status: 'loading', message: '' });
     try {
-      const res = await fetch(`${PM_API}/api/settings/test/ai`, { method: 'POST' });
+      const res = await fetch(`${PM_API}/api/setup/ai/test`, {
+        method: 'POST', credentials: 'include',
+      });
       const data = await res.json();
       setAiTest({ status: data.status, message: data.message });
       if (data.status === 'ok') loadSetupStatus();
