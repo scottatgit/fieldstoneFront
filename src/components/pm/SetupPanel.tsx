@@ -543,9 +543,26 @@ export function SetupPanel() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${PM_API}/api/settings`);
+      const res = await fetch(`${PM_API}/api/setup/status`, { credentials: 'include' });
       const data = await res.json();
-      setSettings(data.settings || {});
+      const ai   = (data.ai_config   || {}) as Record<string, string>;
+      const imap = (data.imap_config || {}) as Record<string, string>;
+      setSettings({
+        // AI fields — mapped from tenant ai_config
+        'OPENAI_API_KEY':  ai.api_key      || '',
+        'OPENAI_API_BASE': ai.api_base_url || (ai.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : ''),
+        'MODEL_PROVIDER':  ai.provider     || 'openai',
+        'AI_FAST_MODEL':   ai.fast_model   || '',
+        'AI_STRONG_MODEL': ai.strong_model || '',
+        // IMAP fields — mapped from tenant imap_config
+        'IMAP_HOST': imap.host     || '',
+        'IMAP_USER': imap.user     || '',
+        'IMAP_PASS': imap.password || '',
+        'SMTP_HOST': imap.smtp_host || '',
+        'SMTP_PORT': String(imap.smtp_port || imap.port || '587'),
+        'SMTP_USER': imap.smtp_user || imap.user || '',
+        'SMTP_PASS': imap.smtp_pass || '',
+      });
     } catch {
       toast({ title: 'Failed to load settings', status: 'error', duration: 3000 });
     } finally { setLoading(false); }
@@ -558,19 +575,30 @@ export function SetupPanel() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${PM_API}/api/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings }),
-      });
-      const data = await res.json();
-      toast({
-        title: data.status === 'ok' ? '✅ Settings saved' : '❌ Save failed',
-        description: data.message,
-        status: data.status === 'ok' ? 'success' : 'error',
-        duration: 4000,
-      });
-      if (data.status === 'ok') { loadSettings(); loadSetupStatus(); }
+      // AI config — tenant-scoped endpoint, accessible to tenant_admin
+      const rawKey  = settings['OPENAI_API_KEY'] || '';
+      const apiBase = settings['OPENAI_API_BASE'] || '';
+      const aiProvider = apiBase.includes('openrouter') ? 'openrouter' : 'openai';
+      if (rawKey && !rawKey.includes('\u2022')) {
+        const aiBody: Record<string, string> = { provider: aiProvider, api_key: rawKey };
+        if (apiBase)                      aiBody['api_base_url']  = apiBase;
+        if (settings['AI_FAST_MODEL'])    aiBody['fast_model']    = settings['AI_FAST_MODEL'];
+        if (settings['AI_STRONG_MODEL'])  aiBody['strong_model']  = settings['AI_STRONG_MODEL'];
+        const aiRes  = await fetch(`${PM_API}/api/setup/ai/save`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(aiBody),
+        });
+        const aiData = await aiRes.json();
+        toast({
+          title: aiRes.ok ? '\u2705 AI settings saved' : '\u274c AI save failed',
+          description: aiData.message || aiData.detail || '',
+          status: aiRes.ok ? 'success' : 'error',
+          duration: 4000,
+        });
+      }
+      loadSettings();
+      loadSetupStatus();
     } catch (e) {
       toast({ title: 'Save failed', description: String(e), status: 'error', duration: 4000 });
     } finally { setSaving(false); }

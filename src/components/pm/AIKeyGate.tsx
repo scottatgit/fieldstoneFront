@@ -16,11 +16,10 @@ export default function AIKeyGate({ onConnected }: { onConnected: () => void }) 
     if (!key) return;
     setLoading(true); setError('');
     try {
-      const field = provider === 'openai' ? 'openai_api_key' : 'openrouter_api_key';
-      const r = await fetch(PM_API + '/api/settings', {
+      const r = await fetch(PM_API + '/api/setup/ai/save', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: { [field]: key } }),
+        body: JSON.stringify({ provider, api_key: key }),
       });
       if (!r.ok) throw new Error(await r.text());
       onConnected();
