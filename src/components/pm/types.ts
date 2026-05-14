@@ -87,7 +87,6 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-
 export interface TicketContext {
   asset_hostname:            string | null;
   situation?:                string | null;
@@ -108,7 +107,6 @@ export interface TicketContext {
   ingestion_version:         number;
   last_ingested_at:          string | null;
 }
-
 export interface TicketSignals {
   urgency_score:    number;
   readiness_score:  number;
@@ -124,4 +122,81 @@ export interface TicketContextResponse {
   signals:          TicketSignals | null;
   situation?:       string | null;
   situation_source?: string | null;
+}
+
+// ── Today-as-Briefs types (Phase 1) ──────────────────────────────────────────
+
+export interface WorkingBriefSummary {
+  brief_id: string;
+  ticket_key: string;
+  workspace_id: string;
+  status: string;
+  ticket_status: string;
+  client_key: string | null;
+  client_display_name: string | null;
+  ticket_title: string | null;
+  refresh_status: string | null;
+  refresh_trigger: string | null;
+  confidence: number | null;
+  notes_since_refresh: number;
+  last_refreshed_at: string | null;
+  last_updated: string | null;
+  created_at: string | null;
+  situation: string | null;
+  expectation: string | null;
+  constraints: string | null;
+  intel_link_count: number;
+}
+
+export type JsonArrayish<T> = T[] | string | null | undefined;
+
+export interface WorkingBriefDetail extends WorkingBriefSummary {
+  context_summary: string | null;
+  resolution_direction: string | null;
+  follow_up_items: JsonArrayish<string>;
+  risk_flags: JsonArrayish<string>;
+  missing_context_flags: JsonArrayish<string>;
+  intel_snapshot: string | null;
+  refresh_error: string | null;
+}
+
+export interface ClientBriefGroup {
+  client_key: string;
+  client_display_name: string;
+  open_brief_count: number;
+  stale_count: number;
+  last_updated: string | null;
+}
+
+export interface ClientStoryTimeline {
+  ticket_key: string;
+  primary_issue: string | null;
+  outcome_type: string | null;
+  closed_at: string | null;
+  confidence: number | null;
+}
+
+export interface ClientStory {
+  client_key: string;
+  client_display_name: string;
+  brief_count: number;
+  window_days: number;
+  summary: string | null;
+  outcome_distribution: Record<string, number>;
+  trust_trend: string | null;
+  timeline: ClientStoryTimeline[];
+}
+
+export interface ClosedBriefSummary {
+  brief_id: string;
+  ticket_key: string;
+  primary_issue: string | null;
+  outcome_type: string | null;
+  closed_at: string | null;
+  confidence: number | null;
+  issue_category: string | null;
+  impact_level: string | null;
+  trust_at_open: string | null;
+  trust_at_close: string | null;
+  client_display_name: string | null;
 }

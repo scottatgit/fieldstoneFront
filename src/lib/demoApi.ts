@@ -634,6 +634,27 @@ I can see the context for this ticket.
     return { id: 'u-new', tenant_id: 'demo', name: 'New Member', role: 'technician', created_at: new Date().toISOString() };
   }
 // /api/ingest/run is retired (410 Gone) — only /api/ingest/email and /api/ingest-email are valid
+  // ── Phase 1 Today-as-Briefs: client story ────────────────────────────────
+  if (endpoint.match(/\/api\/clients\/[^/]+\/story/)) {
+    const keyMatch = endpoint.match(/\/api\/clients\/([^/]+)\/story/);
+    const clientKey = keyMatch ? decodeURIComponent(keyMatch[1]) : 'demo-client';
+    return {
+      client_key: clientKey,
+      client_display_name: clientKey,
+      brief_count: 0,
+      window_days: 90,
+      summary: null,
+      outcome_distribution: {},
+      trust_trend: null,
+      timeline: [],
+    };
+  }
+
+  // ── Phase 1 Today-as-Briefs: closed briefs for client ────────────────────
+  if (endpoint.match(/\/api\/clients\/[^/]+\/briefs/)) {
+    return { briefs: [], total: 0, limit: 50 };
+  }
+
 if ((endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && method === 'POST') {
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
