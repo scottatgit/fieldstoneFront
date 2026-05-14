@@ -82,6 +82,7 @@ export function BriefDetailPanel({ ticketKey, onOpenBriefingRoom, onViewEvidence
   const [detail, setDetail] = useState<WorkingBriefDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!ticketKey) return;
@@ -89,6 +90,7 @@ export function BriefDetailPanel({ ticketKey, onOpenBriefingRoom, onViewEvidence
     setLoading(true);
     setError(null);
     setDetail(null);
+    setNotFound(false);
     pmFetch(`/api/tickets/${ticketKey}/working-brief`, pmApi)
       .then((data: unknown) => {
         if (cancelled) return;
@@ -96,7 +98,12 @@ export function BriefDetailPanel({ ticketKey, onOpenBriefingRoom, onViewEvidence
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : 'Failed to load brief detail');
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('404') || msg.toLowerCase().includes('not found')) {
+          setNotFound(true);
+        } else {
+          setError(msg || 'Failed to load brief detail');
+        }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -113,6 +120,17 @@ export function BriefDetailPanel({ ticketKey, onOpenBriefingRoom, onViewEvidence
     <Box px={3} py={2} m={3} bg='red.900' border='1px solid' borderColor='red.700' borderRadius='md'>
       <Text fontSize='2xs' fontFamily='mono' color='red.300'>⚠ {error}</Text>
     </Box>
+  );
+
+  if (notFound) return (
+    <Flex flex={1} align='center' justify='center' p={6}>
+      <VStack spacing={2}>
+        <Text fontSize='xs' color='gray.600' fontFamily='mono'>No working brief yet</Text>
+        <Text fontSize='2xs' color='gray.700' textAlign='center'>
+          Signal has not generated a working brief for this ticket.
+        </Text>
+      </VStack>
+    </Flex>
   );
 
   if (!detail) return null;

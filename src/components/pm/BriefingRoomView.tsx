@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { pmFetch } from '@/lib/demoApi';
 import {
   WorkingBriefDetail, ClientStory, ClosedBriefSummary, JsonArrayish,
+  ClientStorySummary, ClientStoryIssuePatterns, ClientStoryRiskIndicators,
+  ClientStoryTimeline,
 } from './types';
 import { safeJsonArray, safeStr, safeJsonArrayStr } from './BriefDetailPanel';
 
@@ -179,36 +181,109 @@ export function BriefingRoomView({
               {!storyLoading && !storyError && (
                 <VStack align='stretch' spacing={4}>
                   {/* Client story summary */}
-                  <Box>
-                    <SectionLabel>Client History</SectionLabel>
-                    {story?.summary
-                      ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{safeStr(story.summary)}</Text>
-                      : <Text fontSize='2xs' color='gray.700' fontFamily='mono'>No history summary available</Text>
-                    }
-                  </Box>
-
-                  {story && (
+                  {/* ── Client overview stats ── */}
+                  {story && story.summary && (
                     <>
-                      <Divider borderColor='gray.800' />
                       <Box>
-                        <SectionLabel>Prior Closed Briefs</SectionLabel>
-                        <HStack spacing={3}>
+                        <SectionLabel>Client Overview</SectionLabel>
+                        <HStack spacing={2} flexWrap='wrap'>
                           <Badge colorScheme='gray' fontSize='2xs' variant='subtle'>
-                            {story.brief_count} total
+                            {story.summary.total_briefs} brief{story.summary.total_briefs !== 1 ? 's' : ''}
                           </Badge>
-                          {story.trust_trend && (
+                          {story.summary.open_risk_count > 0 && (
+                            <Badge colorScheme='red' fontSize='2xs' variant='subtle'>
+                              {story.summary.open_risk_count} at-risk
+                            </Badge>
+                          )}
+                          {story.summary.trust?.trend && story.summary.trust.trend !== 'unknown' && (
                             <Badge
                               colorScheme={
-                                story.trust_trend === 'improving' ? 'green' :
-                                story.trust_trend === 'declining' ? 'red' : 'gray'
+                                story.summary.trust.trend === 'improving' ? 'green' :
+                                story.summary.trust.trend === 'declining' ? 'red' : 'gray'
                               }
                               fontSize='2xs' variant='subtle'
                             >
-                              trust: {story.trust_trend}
+                              trust: {story.summary.trust.trend}
                             </Badge>
+                          )}
+                          {story.data_quality === 'thin' && (
+                            <Badge colorScheme='orange' fontSize='2xs' variant='subtle'>limited history</Badge>
+                          )}
+                          {story.data_quality === 'empty' && (
+                            <Badge colorScheme='gray' fontSize='2xs' variant='subtle'>no history yet</Badge>
                           )}
                         </HStack>
                       </Box>
+
+                      {/* Outcome distribution */}
+                      {story.summary.total_briefs > 0 && (
+                        <>
+                          <Divider borderColor='gray.800' />
+                          <Box>
+                            <SectionLabel>Outcomes ({story.window_days}d window)</SectionLabel>
+                            <HStack spacing={1.5} flexWrap='wrap'>
+                              {story.summary.outcome_distribution.resolved > 0 && (
+                                <Badge colorScheme='green' fontSize='2xs' variant='subtle'>
+                                  {story.summary.outcome_distribution.resolved} resolved
+                                </Badge>
+                              )}
+                              {story.summary.outcome_distribution.mitigated > 0 && (
+                                <Badge colorScheme='blue' fontSize='2xs' variant='subtle'>
+                                  {story.summary.outcome_distribution.mitigated} mitigated
+                                </Badge>
+                              )}
+                              {story.summary.outcome_distribution.at_risk > 0 && (
+                                <Badge colorScheme='orange' fontSize='2xs' variant='subtle'>
+                                  {story.summary.outcome_distribution.at_risk} at-risk
+                                </Badge>
+                              )}
+                              {story.summary.outcome_distribution.escalated > 0 && (
+                                <Badge colorScheme='red' fontSize='2xs' variant='subtle'>
+                                  {story.summary.outcome_distribution.escalated} escalated
+                                </Badge>
+                              )}
+                            </HStack>
+                          </Box>
+                        </>
+                      )}
+
+                      {/* Recurring patterns */}
+                      {(story.issue_patterns?.recurring_categories ?? []).length > 0 && (
+                        <>
+                          <Divider borderColor='gray.800' />
+                          <Box>
+                            <SectionLabel>Recurring Patterns</SectionLabel>
+                            <HStack spacing={1.5} flexWrap='wrap'>
+                              {(story.issue_patterns.recurring_categories ?? []).slice(0, 4).map((cat, i) => (
+                                <Badge key={i} colorScheme='purple' fontSize='2xs' variant='subtle'>
+                                  {safeStr(cat)}
+                                </Badge>
+                              ))}
+                            </HStack>
+                          </Box>
+                        </>
+                      )}
+
+                      {/* Risk flag summary */}
+                      {(story.risk_indicators?.risk_flag_summary ?? []).length > 0 && (
+                        <>
+                          <Divider borderColor='gray.800' />
+                          <Box>
+                            <SectionLabel>Known Risk Flags</SectionLabel>
+                            <VStack align='stretch' spacing={1}>
+                              {(story.risk_indicators.risk_flag_summary ?? []).slice(0, 3).map((flag, i) => (
+                                <HStack key={i} spacing={2} align='flex-start'>
+                                  <Box w={1.5} h={1.5} borderRadius='full'
+                                    bg='red.400' mt={1.5} flexShrink={0} />
+                                  <Text fontSize='2xs' color='gray.400' lineHeight='1.4'>
+                                    {safeStr(flag)}
+                                  </Text>
+                                </HStack>
+                              ))}
+                            </VStack>
+                          </Box>
+                        </>
+                      )}
                     </>
                   )}
 

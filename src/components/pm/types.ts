@@ -169,21 +169,73 @@ export interface ClientBriefGroup {
 }
 
 export interface ClientStoryTimeline {
+  brief_id: string | null;
   ticket_key: string;
-  primary_issue: string | null;
   outcome_type: string | null;
+  issue_category: string | null;
+  impact_level: string | null;
+  trust_at_close: number | null;
+  confidence: string | null;
+  missing_context_flags: JsonArrayish<string>;
+  ai_generated: boolean;
   closed_at: string | null;
-  confidence: number | null;
+  ai_close_note_scrubbed: string | null;
+}
+
+export interface ClientStorySummaryTrust {
+  avg_at_open: number | null;
+  avg_at_close: number | null;
+  delta: number | null;
+  trend: 'improving' | 'declining' | 'stable' | 'unknown' | null;
+  latest: number | null;
+  min_in_window: number | null;
+}
+
+export interface ClientStorySummary {
+  total_briefs: number;
+  outcome_distribution: { resolved: number; mitigated: number; at_risk: number; escalated: number };
+  open_risk_count: number;
+  trust: ClientStorySummaryTrust;
+  expectation_drift: { met: number; unmet: number; shifted: number; unknown: number };
+  confidence_distribution: { high: number; standard: number; low: number; incomplete: number };
+  low_confidence_count: number;
+}
+
+export interface ClientStoryIssuePatterns {
+  category_counts: Array<{ category: string; count: number }>;
+  recurring_categories: string[];
+  impact_distribution: { high: number; medium: number; low: number };
+  emotion_distribution: Record<string, number>;
+  asset_type_counts: Array<{ type: string; count: number }>;
+  asset_hostname_counts: Array<{ hostname: string; count: number }>;
+}
+
+export interface ClientStoryRiskIndicators {
+  unresolved_briefs: Array<{
+    brief_id: string;
+    ticket_key: string;
+    outcome_type: string;
+    issue_category: string | null;
+    impact_level: string | null;
+    closed_at: string | null;
+  }>;
+  missing_context_pattern_counts: Record<string, number>;
+  high_emotion_count: number;
+  risk_flag_summary: string[];
 }
 
 export interface ClientStory {
   client_key: string;
-  client_display_name: string;
-  brief_count: number;
+  client_display_name: string | null;
+  generated_at: string;
   window_days: number;
-  summary: string | null;
-  outcome_distribution: Record<string, number>;
-  trust_trend: string | null;
+  window_from: string;
+  window_to: string;
+  data_quality: 'empty' | 'thin' | 'usable';
+  has_pre_fcb_history: boolean;
+  summary: ClientStorySummary;
+  issue_patterns: ClientStoryIssuePatterns;
+  risk_indicators: ClientStoryRiskIndicators;
   timeline: ClientStoryTimeline[];
 }
 

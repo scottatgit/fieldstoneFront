@@ -638,14 +638,40 @@ I can see the context for this ticket.
   if (endpoint.match(/\/api\/clients\/[^/]+\/story/)) {
     const keyMatch = endpoint.match(/\/api\/clients\/([^/]+)\/story/);
     const clientKey = keyMatch ? decodeURIComponent(keyMatch[1]) : 'demo-client';
+    const now = new Date().toISOString().slice(0, 19);
+    const windowFrom = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 19);
     return {
       client_key: clientKey,
       client_display_name: clientKey,
-      brief_count: 0,
+      generated_at: now,
       window_days: 90,
-      summary: null,
-      outcome_distribution: {},
-      trust_trend: null,
+      window_from: windowFrom,
+      window_to: now,
+      data_quality: 'empty',
+      has_pre_fcb_history: false,
+      summary: {
+        total_briefs: 0,
+        outcome_distribution: { resolved: 0, mitigated: 0, at_risk: 0, escalated: 0 },
+        open_risk_count: 0,
+        trust: { avg_at_open: null, avg_at_close: null, delta: null, trend: 'unknown', latest: null, min_in_window: null },
+        expectation_drift: { met: 0, unmet: 0, shifted: 0, unknown: 0 },
+        confidence_distribution: { high: 0, standard: 0, low: 0, incomplete: 0 },
+        low_confidence_count: 0,
+      },
+      issue_patterns: {
+        category_counts: [],
+        recurring_categories: [],
+        impact_distribution: { high: 0, medium: 0, low: 0 },
+        emotion_distribution: {},
+        asset_type_counts: [],
+        asset_hostname_counts: [],
+      },
+      risk_indicators: {
+        unresolved_briefs: [],
+        missing_context_pattern_counts: {},
+        high_emotion_count: 0,
+        risk_flag_summary: [],
+      },
       timeline: [],
     };
   }
