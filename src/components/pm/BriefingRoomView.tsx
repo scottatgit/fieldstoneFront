@@ -7,7 +7,7 @@ import { pmFetch } from '@/lib/demoApi';
 import {
   WorkingBriefDetail, ClientStory, ClosedBriefSummary, JsonArrayish,
 } from './types';
-import { safeJsonArray } from './BriefDetailPanel';
+import { safeJsonArray, safeStr, safeJsonArrayStr } from './BriefDetailPanel';
 
 interface Props {
   ticketKey: string;
@@ -105,8 +105,8 @@ export function BriefingRoomView({
     return () => { cancelled = true; };
   }, [clientKey, pmApi]);
 
-  const missingFlags = safeJsonArray<string>(brief?.missing_context_flags as JsonArrayish<string>);
-  const riskFlags = safeJsonArray<string>(brief?.risk_flags as JsonArrayish<string>);
+  const missingFlags = safeJsonArrayStr(brief?.missing_context_flags as JsonArrayish<unknown>);
+  const riskFlags = safeJsonArrayStr(brief?.risk_flags as JsonArrayish<unknown>);
   const confLabel = brief?.confidence != null
     ? brief.confidence >= 0.8 ? 'high' : brief.confidence >= 0.5 ? 'medium' : 'low'
     : null;
@@ -182,7 +182,7 @@ export function BriefingRoomView({
                   <Box>
                     <SectionLabel>Client History</SectionLabel>
                     {story?.summary
-                      ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{story.summary}</Text>
+                      ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{safeStr(story.summary)}</Text>
                       : <Text fontSize='2xs' color='gray.700' fontFamily='mono'>No history summary available</Text>
                     }
                   </Box>
@@ -223,17 +223,17 @@ export function BriefingRoomView({
                               bg='gray.800' borderRadius='md' border='1px solid'
                               borderColor='gray.700'>
                               <Text fontSize='2xs' color='gray.300' noOfLines={1}>
-                                {b.primary_issue || b.ticket_key}
+                                {safeStr(b.primary_issue) || b.ticket_key}
                               </Text>
                               <HStack spacing={1.5} mt={0.5}>
                                 {b.outcome_type && (
                                   <Badge colorScheme='gray' fontSize='2xs' variant='subtle'>
-                                    {b.outcome_type}
+                                    {safeStr(b.outcome_type)}
                                   </Badge>
                                 )}
                                 {b.issue_category && (
                                   <Text fontSize='2xs' fontFamily='mono' color='gray.600'>
-                                    {b.issue_category}
+                                    {safeStr(b.issue_category)}
                                   </Text>
                                 )}
                               </HStack>
@@ -264,7 +264,7 @@ export function BriefingRoomView({
                     <Box>
                       <SectionLabel>Situation</SectionLabel>
                       {brief.situation
-                        ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{brief.situation}</Text>
+                        ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{safeStr(brief.situation)}</Text>
                         : <Text fontSize='2xs' color='gray.700' fontFamily='mono'>—</Text>
                       }
                     </Box>
@@ -274,7 +274,7 @@ export function BriefingRoomView({
                     <Box>
                       <SectionLabel>Expectation</SectionLabel>
                       {brief.expectation
-                        ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{brief.expectation}</Text>
+                        ? <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{safeStr(brief.expectation)}</Text>
                         : <Text fontSize='2xs' color='gray.700' fontFamily='mono'>—</Text>
                       }
                     </Box>
@@ -285,7 +285,7 @@ export function BriefingRoomView({
                         <Box>
                           <SectionLabel>Resolution Direction</SectionLabel>
                           <Text fontSize='xs' color='gray.300' lineHeight='1.5'>
-                            {brief.resolution_direction}
+                            {safeStr(brief.resolution_direction)}
                           </Text>
                         </Box>
                       </>

@@ -23,6 +23,29 @@ export function safeJsonArray<T>(val: JsonArrayish<T>): T[] {
   return [];
 }
 
+// safeStr: coerce any API value to a renderable string.
+// Prevents React #31 ('Objects are not valid as a React child').
+export function safeStr(val: unknown): string {
+  if (val == null) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  // Object or array: extract common text fields or JSON-preview
+  if (typeof val === 'object') {
+    const v = val as Record<string, unknown>;
+    const text = v['text'] ?? v['content'] ?? v['message'] ?? v['summary'] ?? v['value'] ?? v['label'];
+    if (text != null && typeof text === 'string') return text;
+    try { return JSON.stringify(val); } catch { return '[object]'; }
+  }
+  return String(val);
+}
+
+// safeJsonArrayStr: like safeJsonArray but always returns string[],
+// coercing any object items to strings via safeStr.
+export function safeJsonArrayStr(val: JsonArrayish<unknown>): string[] {
+  const items = safeJsonArray<unknown>(val);
+  return items.map(safeStr).filter(s => s.length > 0);
+}
+
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box>
@@ -36,8 +59,9 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 }
 
 function ProseBlock({ text }: { text: string | null | undefined }) {
-  if (!text) return <Text fontSize='2xs' color='gray.700' fontFamily='mono'>—</Text>;
-  return <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{text}</Text>;
+  const s = safeStr(text);
+  if (!s) return <Text fontSize='2xs' color='gray.700' fontFamily='mono'>—</Text>;
+  return <Text fontSize='xs' color='gray.300' lineHeight='1.5'>{s}</Text>;
 }
 
 function TagList({ items, color = 'gray' }: { items: string[]; color?: string }) {
@@ -93,9 +117,9 @@ export function BriefDetailPanel({ ticketKey, onOpenBriefingRoom, onViewEvidence
 
   if (!detail) return null;
 
-  const riskFlags = safeJsonArray<string>(detail.risk_flags);
-  const followUps = safeJsonArray<string>(detail.follow_up_items);
-  const missingFlags = safeJsonArray<string>(detail.missing_context_flags);
+  const riskFlags = safeJsonArrayStr(detail.risk_flags);
+  const followUps = safeJsonArrayStr(detail.follow_up_items);
+  const missingFlags = safeJsonArrayStr(detail.missing_context_flags);
   const confLabel = detail.confidence != null
     ? detail.confidence >= 0.8 ? 'high' : detail.confidence >= 0.5 ? 'medium' : 'low'
     : null;

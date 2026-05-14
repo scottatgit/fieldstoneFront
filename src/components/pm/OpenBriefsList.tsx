@@ -4,6 +4,7 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { pmFetch } from '@/lib/demoApi';
+import { safeStr } from './BriefDetailPanel';
 import { WorkingBriefSummary } from './types';
 
 interface Props {
@@ -114,11 +115,11 @@ export function OpenBriefsList({
                   color={isSelected ? 'blue.200' : 'gray.100'}
                   noOfLines={2}
                 >
-                  {b.ticket_title || b.ticket_key}
+                  {safeStr(b.ticket_title) || b.ticket_key}
                 </Text>
                 {b.situation && (
                   <Text fontSize='2xs' color='gray.500' noOfLines={2} lineHeight='1.4'>
-                    {b.situation}
+                    {safeStr(b.situation)}
                   </Text>
                 )}
                 <HStack spacing={1.5} flexWrap='wrap'>

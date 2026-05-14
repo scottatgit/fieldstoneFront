@@ -5,6 +5,7 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { pmFetch } from '@/lib/demoApi';
+import { safeStr } from './BriefDetailPanel';
 
 interface NoteItem {
   id: number;
@@ -44,7 +45,7 @@ function NoteCard({ note }: { note: NoteItem }) {
         </Badge>
         {note.author && (
           <Text fontSize='2xs' fontFamily='mono' color='gray.500'>
-            {note.author}
+            {safeStr(note.author)}
           </Text>
         )}
         {note.created_at && (
@@ -55,7 +56,7 @@ function NoteCard({ note }: { note: NoteItem }) {
       </HStack>
       {note.content && (
         <Text fontSize='xs' color='gray.300' lineHeight='1.5' whiteSpace='pre-wrap'>
-          {note.content}
+          {safeStr(note.content)}
         </Text>
       )}
     </Box>
