@@ -12,6 +12,13 @@ import {
   DEMO_CONTEXT,
   DEMO_SIGNALS,
 } from './demoData';
+import {
+  DEMO_OPEN_BRIEFS,
+  DEMO_BRIEF_DETAILS,
+  DEMO_CLIENT_STORIES,
+  DEMO_CLIENT_BRIEFS,
+  DEMO_TICKET_NOTES,
+} from './demoBriefingData';
 
 /**
  * Returns true when NEXT_PUBLIC_DEMO_MODE=true is set.
@@ -200,6 +207,14 @@ export async function demoFetch(endpoint: string, method = 'GET', body?: unknown
   // -- Phase 6.5: Visit datetime PATCH ---------------------------------------
   if (endpoint.includes('/visit-datetime')) {
     return { status: 'ok', message: 'Demo mode — visit datetime saved.' };
+  }
+
+  // -- Phase 6.5: Notes GET (evidence drawer) --------------------------------
+  if (endpoint.match(/\/api\/tickets\/[^\/]+\/notes/) && method !== 'POST') {
+    const noteKeyMatch = endpoint.match(/\/api\/tickets\/([^\/]+)\/notes/);
+    const noteTicketKey = noteKeyMatch ? noteKeyMatch[1] : '';
+    const notes = (DEMO_TICKET_NOTES as Record<string, object[]>)[noteTicketKey] || [];
+    return { notes, total: notes.length };
   }
 
   // -- Phase 6.5: Notes POST ------------------------------------------------
@@ -635,49 +650,35 @@ I can see the context for this ticket.
   }
 // /api/ingest/run is retired (410 Gone) — only /api/ingest/email and /api/ingest-email are valid
   // ── Phase 1 Today-as-Briefs: client story ────────────────────────────────
-  if (endpoint.match(/\/api\/clients\/[^/]+\/story/)) {
-    const keyMatch = endpoint.match(/\/api\/clients\/([^/]+)\/story/);
+  if (endpoint.match(/\/api\/clients\/[^\/]+\/story/)) {
+    const keyMatch = endpoint.match(/\/api\/clients\/([^\/]+)\/story/);
     const clientKey = keyMatch ? decodeURIComponent(keyMatch[1]) : 'demo-client';
+    const story = (DEMO_CLIENT_STORIES as Record<string, object>)[clientKey];
+    if (story) return story;
+    // Fallback for unknown client keys
     const now = new Date().toISOString().slice(0, 19);
-    const windowFrom = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 19);
     return {
-      client_key: clientKey,
-      client_display_name: clientKey,
-      generated_at: now,
-      window_days: 90,
-      window_from: windowFrom,
-      window_to: now,
-      data_quality: 'empty',
-      has_pre_fcb_history: false,
-      summary: {
-        total_briefs: 0,
-        outcome_distribution: { resolved: 0, mitigated: 0, at_risk: 0, escalated: 0 },
-        open_risk_count: 0,
-        trust: { avg_at_open: null, avg_at_close: null, delta: null, trend: 'unknown', latest: null, min_in_window: null },
+      client_key: clientKey, client_display_name: clientKey,
+      generated_at: now, window_days: 90,
+      window_from: new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 19),
+      window_to: now, data_quality: 'empty', has_pre_fcb_history: false,
+      summary: { total_briefs: 0, outcome_distribution: { resolved: 0, mitigated: 0, at_risk: 0, escalated: 0 },
+        open_risk_count: 0, trust: { avg_at_open: null, avg_at_close: null, delta: null, trend: 'unknown', latest: null, min_in_window: null },
         expectation_drift: { met: 0, unmet: 0, shifted: 0, unknown: 0 },
-        confidence_distribution: { high: 0, standard: 0, low: 0, incomplete: 0 },
-        low_confidence_count: 0,
-      },
-      issue_patterns: {
-        category_counts: [],
-        recurring_categories: [],
-        impact_distribution: { high: 0, medium: 0, low: 0 },
-        emotion_distribution: {},
-        asset_type_counts: [],
-        asset_hostname_counts: [],
-      },
-      risk_indicators: {
-        unresolved_briefs: [],
-        missing_context_pattern_counts: {},
-        high_emotion_count: 0,
-        risk_flag_summary: [],
-      },
+        confidence_distribution: { high: 0, standard: 0, low: 0, incomplete: 0 }, low_confidence_count: 0 },
+      issue_patterns: { category_counts: [], recurring_categories: [], impact_distribution: { high: 0, medium: 0, low: 0 },
+        emotion_distribution: {}, asset_type_counts: [], asset_hostname_counts: [] },
+      risk_indicators: { unresolved_briefs: [], missing_context_pattern_counts: {}, high_emotion_count: 0, risk_flag_summary: [] },
       timeline: [],
     };
   }
 
-  // ── Phase 1 Today-as-Briefs: closed briefs for client ────────────────────
-  if (endpoint.match(/\/api\/clients\/[^/]+\/briefs/)) {
+    // ── Phase 1 Today-as-Briefs: closed briefs for client ────────────────────
+  if (endpoint.match(/\/api\/clients\/[^\/]+\/briefs/)) {
+    const briefsKeyMatch = endpoint.match(/\/api\/clients\/([^\/]+)\/briefs/);
+    const briefsClientKey = briefsKeyMatch ? decodeURIComponent(briefsKeyMatch[1]) : '';
+    const clientBriefs = (DEMO_CLIENT_BRIEFS as Record<string, object>)[briefsClientKey];
+    if (clientBriefs) return clientBriefs;
     return { briefs: [], total: 0, limit: 50 };
   }
 
@@ -685,25 +686,37 @@ if ((endpoint === '/api/ingest/email' || endpoint === '/api/ingest-email') && me
     return { status: 'started', message: 'Demo mode: ingestion simulated. Check TODAY board in ~60 seconds.' };
   }
 
-  // WBL-008B: single working brief detail — safe structured mock (no raw notes/prose)
-  if (endpoint.match(/\/api\/tickets\/[^/]+\/working-brief$/) && method !== 'POST') {
+  // WBL-008B: single working brief detail — rich demo data per ticket
+  if (endpoint.match(/\/api\/tickets\/[^\/]+\/working-brief$/) && method !== 'POST') {
+    const wblKeyMatch = endpoint.match(/\/api\/tickets\/([^\/]+)\/working-brief/);
+    const wblTicketKey = wblKeyMatch ? wblKeyMatch[1] : '';
+    const wblDetail = (DEMO_BRIEF_DETAILS as Record<string, object>)[wblTicketKey];
+    if (wblDetail) return wblDetail;
+    // Fallback for unknown ticket keys
     return {
-      context_summary:       'Client reported intermittent issue. Workstation confirmed accessible. Visit scheduled.',
-      resolution_direction:  'On-site verification of affected hardware. Confirm service status before arrival.',
-      follow_up_items:       ['Confirm UPS battery status', 'Verify remote access credentials'],
-      risk_flags:            ['Clinical workflow may be impacted if issue persists'],
-      missing_context_flags: [],
-      absorbed_note_count:   2,
-      source_note_ids:       [],
-      intel_link_count:      1,
-      intel_snapshot:        [{ entry_id: 'demo-1', confidence: 'high', source: 'client' }],
-      refresh_error:         null,
+      context_summary: 'Signal has context for this ticket. Enter the Briefing Room to see the full analysis.',
+      resolution_direction: 'Review the briefing room for recommended next steps.',
+      follow_up_items: [],
+      risk_flags: [],
+      missing_context_flags: ['Additional context needed — answer the questions in the Briefing Room to refine this brief.'],
+      absorbed_note_count: 0,
+      source_note_ids: [],
+      intel_link_count: 0,
+      intel_snapshot: null,
+      refresh_error: null,
     };
   }
 
-  // WBL-005b: working briefs list — empty in demo (no live tickets)
+  // WBL-005b: working briefs list — rich demo data with client filtering
   if (endpoint.includes('/api/working-briefs') && !endpoint.includes('/refresh')) {
-    return { briefs: [], total: 0, limit: 50, offset: 0 };
+    // Parse client_key from query string if present
+    const clientKeyParam = endpoint.includes('client_key=')
+      ? decodeURIComponent((endpoint.match(/client_key=([^&]+)/) || [])[1] || '')
+      : null;
+    const filtered = clientKeyParam
+      ? DEMO_OPEN_BRIEFS.filter((b: { client_key: string }) => b.client_key === clientKeyParam)
+      : DEMO_OPEN_BRIEFS;
+    return { briefs: filtered, total: filtered.length, limit: 100, offset: 0 };
   }
 
   // ── Fallback ──────────────────────────────────────────────────────────────
