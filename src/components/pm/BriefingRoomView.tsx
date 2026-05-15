@@ -71,10 +71,26 @@ const FLAG_LABELS: Record<string, string> = {
   missing_client_context:  'What client-specific context is needed to proceed?',
 };
 
-function toReadableQuestion(flag: string): string {
+function toReadableQuestion(flag: string, situation?: string | null): string {
   // If it already looks like a sentence (contains spaces), return as-is
   if (flag.includes(' ')) return flag;
-  // Check known flag map
+  // If we have a situation, generate a context-aware question for known flags
+  if (situation) {
+    const shortIssue = situation.length > 70
+      ? situation.slice(0, 67) + '...'
+      : situation;
+    const ctxTemplates: Record<string, string> = {
+      no_context_summary:      `What has been confirmed so far about: ${shortIssue}?`,
+      no_resolution_direction: `What direction should the work take for: ${shortIssue}?`,
+      no_expectation:          `What does the client expect as the outcome for: ${shortIssue}?`,
+      no_constraints:          `Are there access, timing, vendor, or environment constraints affecting: ${shortIssue}?`,
+      no_situation:            `Can you describe the current problem in more detail: ${shortIssue}?`,
+      no_follow_up_items:      `What follow-up actions are needed after resolving: ${shortIssue}?`,
+      no_risk_flags:           `Are there risks or blockers that could affect: ${shortIssue}?`,
+    };
+    if (ctxTemplates[flag]) return ctxTemplates[flag];
+  }
+  // Fall back to static labels
   if (FLAG_LABELS[flag]) return FLAG_LABELS[flag];
   // Humanize unknown snake_case flags
   return flag.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()) + '?';
@@ -86,9 +102,10 @@ interface QuestionCardProps {
   ticketKey: string;
   pmApi: string;
   onSaved?: () => void;
+  briefSituation?: string | null;
 }
 
-function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps) {
+function QuestionCard({ q, index, ticketKey, pmApi, onSaved, briefSituation }: QuestionCardProps) {
   type SaveState = 'idle' | 'saving' | 'saved' | 'error';
   const [answer, setAnswer] = useState('');
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -111,7 +128,7 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps
       const res = await pmFetch(
         `/api/tickets/${ticketKey}/notes`,
         pmApi,
-        { method: 'POST', body: JSON.stringify({ content: noteContent, author: 'briefing_room', note_source: 'manual' }) },
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: noteContent, author: 'briefing_room', note_source: 'manual' }) },
       );
       if (res && (res as { status?: string }).status === 'error') {
         throw new Error((res as { message?: string }).message || 'Save failed');
@@ -119,6 +136,7 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps
       setSaveState('saved');
       onSaved?.();
     } catch (e: unknown) {
+      console.error('[BriefingRoom] note save failed:', e);
       setSaveState('error');
       setErrorMsg(e instanceof Error ? e.message : 'Failed to save. Try again.');
     }
@@ -141,7 +159,7 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps
             <Text fontSize='2xs' fontWeight='black' fontFamily='mono' color='yellow.400'>{index + 1}</Text>
           )}
         </Box>
-        <Text fontSize='xs' color={saveState === 'saved' ? 'gray.400' : 'gray.200'} lineHeight='1.5'>{toReadableQuestion(q)}</Text>
+        <Text fontSize='xs' color={saveState === 'saved' ? 'gray.400' : 'gray.200'} lineHeight='1.5'>{toReadableQuestion(q, briefSituation)}</Text>
       </HStack>
       {saveState !== 'saved' && (
         <VStack align='stretch' spacing={1.5} mt={1} pl={7}>
@@ -536,7 +554,7 @@ export function BriefingRoomView({
                       {missingFlags.length} open question{missingFlags.length !== 1 ? 's' : ''} · answer saves as a note
                     </Text>
                     {missingFlags.map((q, i) => (
-                      <QuestionCard key={i} q={q} index={i} ticketKey={ticketKey} pmApi={pmApi} onSaved={onNoteSaved} />
+                      <QuestionCard key={i} q={q} index={i} ticketKey={ticketKey} pmApi={pmApi} onSaved={onNoteSaved} briefSituation={brief?.situation ?? null} />
                     ))}
                   </VStack>
                 )
