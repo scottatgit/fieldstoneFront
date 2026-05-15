@@ -56,6 +56,30 @@ function PanelCard({ title, accent = 'blue', children }: {
   );
 }
 
+
+// ── Readable question label helper ───────────────────────────────────────────
+const FLAG_LABELS: Record<string, string> = {
+  no_context_summary:      'What context is missing from this brief?',
+  no_resolution_direction: 'What direction should this work move toward?',
+  no_expectation:          'What does the client expect as the outcome?',
+  no_constraints:          'Are there access, timing, vendor, or environment constraints?',
+  no_situation:            'What is the current situation and problem description?',
+  no_follow_up_items:      'What follow-up actions are needed after this work?',
+  no_risk_flags:           'Are there any known risks or blockers?',
+  no_intel_snapshot:       'Is there relevant tool or client intel that should inform this brief?',
+  low_confidence:          'What additional detail would increase confidence in this brief?',
+  missing_client_context:  'What client-specific context is needed to proceed?',
+};
+
+function toReadableQuestion(flag: string): string {
+  // If it already looks like a sentence (contains spaces), return as-is
+  if (flag.includes(' ')) return flag;
+  // Check known flag map
+  if (FLAG_LABELS[flag]) return FLAG_LABELS[flag];
+  // Humanize unknown snake_case flags
+  return flag.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()) + '?';
+}
+
 interface QuestionCardProps {
   q: string;
   index: number;
@@ -87,7 +111,7 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps
       const res = await pmFetch(
         `/api/tickets/${ticketKey}/notes`,
         pmApi,
-        { method: 'POST', body: JSON.stringify({ content: noteContent, author: 'briefing_room', note_source: 'manual', note_category: 'work_note' }) },
+        { method: 'POST', body: JSON.stringify({ content: noteContent, author: 'briefing_room', note_source: 'manual' }) },
       );
       if (res && (res as { status?: string }).status === 'error') {
         throw new Error((res as { message?: string }).message || 'Save failed');
@@ -117,7 +141,7 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps
             <Text fontSize='2xs' fontWeight='black' fontFamily='mono' color='yellow.400'>{index + 1}</Text>
           )}
         </Box>
-        <Text fontSize='xs' color={saveState === 'saved' ? 'gray.400' : 'gray.200'} lineHeight='1.5'>{q}</Text>
+        <Text fontSize='xs' color={saveState === 'saved' ? 'gray.400' : 'gray.200'} lineHeight='1.5'>{toReadableQuestion(q)}</Text>
       </HStack>
       {saveState !== 'saved' && (
         <VStack align='stretch' spacing={1.5} mt={1} pl={7}>
