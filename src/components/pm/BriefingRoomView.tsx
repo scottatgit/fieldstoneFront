@@ -1,6 +1,6 @@
 'use client';
 import {
-  Box, Flex, Text, Badge, VStack, HStack, Spinner, Button, Divider, Grid, GridItem,
+  Box, Flex, Text, Badge, VStack, HStack, Spinner, Button, Divider, Grid, GridItem, Textarea,
 } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { pmFetch } from '@/lib/demoApi';
@@ -19,6 +19,7 @@ interface Props {
   onClose: () => void;
   onViewEvidence: () => void;
   pmApi: string;
+  onNoteSaved?: () => void;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -55,28 +56,113 @@ function PanelCard({ title, accent = 'blue', children }: {
   );
 }
 
-function QuestionCard({ q, index }: { q: string; index: number }) {
+interface QuestionCardProps {
+  q: string;
+  index: number;
+  ticketKey: string;
+  pmApi: string;
+  onSaved?: () => void;
+}
+
+function QuestionCard({ q, index, ticketKey, pmApi, onSaved }: QuestionCardProps) {
+  type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+  const [answer, setAnswer] = useState('');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!answer.trim() || saveState === 'saving' || saveState === 'saved') return;
+    setSaveState('saving');
+    setErrorMsg(null);
+    const noteContent = [
+      '**Briefing Room — Question Answered**',
+      '',
+      `**Question:** ${q}`,
+      '',
+      `**Answer:** ${answer.trim()}`,
+      '',
+      '**Source:** Briefing Room',
+    ].join('\n');
+    try {
+      const res = await pmFetch(
+        `/api/tickets/${ticketKey}/notes`,
+        pmApi,
+        { method: 'POST', body: JSON.stringify({ content: noteContent, author: 'briefing_room', note_source: 'manual', note_category: 'work_note' }) },
+      );
+      if (res && (res as { status?: string }).status === 'error') {
+        throw new Error((res as { message?: string }).message || 'Save failed');
+      }
+      setSaveState('saved');
+      onSaved?.();
+    } catch (e: unknown) {
+      setSaveState('error');
+      setErrorMsg(e instanceof Error ? e.message : 'Failed to save. Try again.');
+    }
+  };
+
   return (
     <Box px={3} py={2.5} bg='gray.800' border='1px solid' borderColor='yellow.900'
       borderRadius='md' mb={2}>
-      <HStack spacing={2} align='flex-start'>
+      <HStack spacing={2} align='flex-start' mb={saveState === 'saved' ? 0 : 2}>
         <Box
           flexShrink={0} w={5} h={5} borderRadius='full'
-          bg='yellow.900' border='1px solid' borderColor='yellow.700'
+          bg={saveState === 'saved' ? 'green.900' : 'yellow.900'}
+          border='1px solid'
+          borderColor={saveState === 'saved' ? 'green.600' : 'yellow.700'}
           display='flex' alignItems='center' justifyContent='center' mt={0.5}
         >
-          <Text fontSize='2xs' fontWeight='black' fontFamily='mono' color='yellow.400'>
-            {index + 1}
-          </Text>
+          {saveState === 'saved' ? (
+            <Text fontSize='2xs' fontWeight='black' fontFamily='mono' color='green.400'>✓</Text>
+          ) : (
+            <Text fontSize='2xs' fontWeight='black' fontFamily='mono' color='yellow.400'>{index + 1}</Text>
+          )}
         </Box>
-        <Text fontSize='xs' color='gray.200' lineHeight='1.5'>{q}</Text>
+        <Text fontSize='xs' color={saveState === 'saved' ? 'gray.400' : 'gray.200'} lineHeight='1.5'>{q}</Text>
       </HStack>
+      {saveState !== 'saved' && (
+        <VStack align='stretch' spacing={1.5} mt={1} pl={7}>
+          <Textarea
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder='Answer this question...'
+            size='xs'
+            rows={2}
+            bg='gray.900'
+            border='1px solid'
+            borderColor='gray.600'
+            color='gray.100'
+            fontSize='xs'
+            resize='vertical'
+            isDisabled={saveState === 'saving'}
+            _placeholder={{ color: 'gray.600' }}
+            _focus={{ borderColor: 'yellow.600', boxShadow: 'none' }}
+          />
+          {errorMsg && (
+            <Text fontSize='2xs' color='red.400'>{errorMsg}</Text>
+          )}
+          <Button
+            size='xs'
+            colorScheme='yellow'
+            variant='ghost'
+            alignSelf='flex-end'
+            isLoading={saveState === 'saving'}
+            loadingText='Saving...'
+            isDisabled={!answer.trim() || saveState === 'saving'}
+            onClick={handleSave}
+          >
+            Save to Notes
+          </Button>
+        </VStack>
+      )}
+      {saveState === 'saved' && (
+        <Text pl={7} fontSize='2xs' color='green.400' mt={0.5}>✓ Saved to notes</Text>
+      )}
     </Box>
   );
 }
 
 export function BriefingRoomView({
-  ticketKey, clientKey, clientName, brief, onClose, onViewEvidence, pmApi,
+  ticketKey, clientKey, clientName, brief, onClose, onViewEvidence, pmApi, onNoteSaved,
 }: Props) {
   const [story, setStory] = useState<ClientStory | null>(null);
   const [closedBriefs, setClosedBriefs] = useState<ClosedBriefSummary[]>([]);
@@ -423,10 +509,10 @@ export function BriefingRoomView({
                 : (
                   <VStack align='stretch' spacing={0}>
                     <Text fontSize='2xs' fontFamily='mono' color='gray.600' mb={2}>
-                      {missingFlags.length} unanswered question{missingFlags.length !== 1 ? 's' : ''} · read-only in Phase 1
+                      {missingFlags.length} open question{missingFlags.length !== 1 ? 's' : ''} · answer saves as a note
                     </Text>
                     {missingFlags.map((q, i) => (
-                      <QuestionCard key={i} q={q} index={i} />
+                      <QuestionCard key={i} q={q} index={i} ticketKey={ticketKey} pmApi={pmApi} onSaved={onNoteSaved} />
                     ))}
                   </VStack>
                 )

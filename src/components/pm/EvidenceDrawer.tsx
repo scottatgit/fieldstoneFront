@@ -23,6 +23,7 @@ interface Props {
   onClose: () => void;
   onOpenTicket: (key: string) => void;
   pmApi: string;
+  reloadKey?: number;
 }
 
 function NoteCard({ note }: { note: NoteItem }) {
@@ -64,7 +65,7 @@ function NoteCard({ note }: { note: NoteItem }) {
 }
 
 export function EvidenceDrawer({
-  ticketKey, ticketTitle, isOpen, onClose, onOpenTicket, pmApi,
+  ticketKey, ticketTitle, isOpen, onClose, onOpenTicket, pmApi, reloadKey = 0,
 }: Props) {
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,7 +92,7 @@ export function EvidenceDrawer({
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [isOpen, ticketKey, pmApi]);
+  }, [isOpen, ticketKey, pmApi, reloadKey]);
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} placement='right' size='md'>

@@ -23,6 +23,7 @@ export function TodayBriefsView({ onOpenTicket }: Props) {
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [selectedBrief, setSelectedBrief] = useState<WorkingBriefSummary | null>(null);
   const [briefDetail, setBriefDetail] = useState<WorkingBriefDetail | null>(null);
+  const [evidenceReloadKey, setEvidenceReloadKey] = useState(0);
   const [showBriefingRoom, setShowBriefingRoom] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
 
@@ -62,6 +63,7 @@ export function TodayBriefsView({ onOpenTicket }: Props) {
           onClose={() => setShowBriefingRoom(false)}
           onViewEvidence={() => { setEvidenceOpen(true); }}
           pmApi={PM_API}
+          onNoteSaved={() => setEvidenceReloadKey((k) => k + 1)}
         />
         <EvidenceDrawer
           ticketKey={selectedBrief.ticket_key}
@@ -70,6 +72,7 @@ export function TodayBriefsView({ onOpenTicket }: Props) {
           onClose={() => setEvidenceOpen(false)}
           onOpenTicket={(key) => { setEvidenceOpen(false); setShowBriefingRoom(false); onOpenTicket(key); }}
           pmApi={PM_API}
+          reloadKey={evidenceReloadKey}
         />
       </Box>
     );
@@ -234,6 +237,7 @@ export function TodayBriefsView({ onOpenTicket }: Props) {
         onClose={() => setEvidenceOpen(false)}
         onOpenTicket={(key) => { setEvidenceOpen(false); onOpenTicket(key); }}
         pmApi={PM_API}
+        reloadKey={evidenceReloadKey}
       />
     </Flex>
   );
