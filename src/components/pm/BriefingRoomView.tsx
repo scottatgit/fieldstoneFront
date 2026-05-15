@@ -115,10 +115,13 @@ function QuestionCard({ q, index, ticketKey, pmApi, onSaved, briefSituation }: Q
     if (!answer.trim() || saveState === 'saving' || saveState === 'saved') return;
     setSaveState('saving');
     setErrorMsg(null);
+    const readableQ = toReadableQuestion(q, briefSituation);
+    const fieldName = !q.includes(' ') && q.startsWith('no_') ? q.replace(/^no_/, '') : null;
     const noteContent = [
       '**Briefing Room — Question Answered**',
       '',
-      `**Question:** ${q}`,
+      ...(fieldName ? [`**Field:** ${fieldName}`, ''] : []),
+      `**Question:** ${readableQ}`,
       '',
       `**Answer:** ${answer.trim()}`,
       '',
@@ -236,6 +239,28 @@ export function BriefingRoomView({
   }, [clientKey, pmApi]);
 
   const missingFlags = safeJsonArrayStr(brief?.missing_context_flags as JsonArrayish<unknown>);
+
+  // Suppress stale system flags for fields that already have content in the brief
+  const FLAG_TO_FIELD: Record<string, string> = {
+    no_situation:            'situation',
+    no_expectation:          'expectation',
+    no_constraints:          'constraints',
+    no_context_summary:      'context_summary',
+    no_resolution_direction: 'resolution_direction',
+    no_follow_up_items:      'follow_up_items',
+    no_risk_flags:           'risk_flags',
+  };
+  const activeMissingFlags = missingFlags.filter((q) => {
+    if (q.includes(' ')) return true; // Full-sentence questions always show
+    const field = FLAG_TO_FIELD[q];
+    if (!field) return true; // Unknown flags always show
+    const val = (brief as unknown as Record<string, unknown>)?.[field];
+    if (!val) return true; // Field is empty — show the question
+    const strVal = Array.isArray(val)
+      ? (val as unknown[]).join('').trim()
+      : String(val).trim();
+    return strVal.length === 0; // Show only if field value is truly empty
+  });
   const riskFlags = safeJsonArrayStr(brief?.risk_flags as JsonArrayish<unknown>);
   const confLabel = brief?.confidence != null
     ? brief.confidence >= 0.8 ? 'high' : brief.confidence >= 0.5 ? 'medium' : 'low'
@@ -482,6 +507,18 @@ export function BriefingRoomView({
                       }
                     </Box>
 
+                    {brief.constraints && (
+                      <>
+                        <Divider borderColor='gray.800' />
+                        <Box>
+                          <SectionLabel>Constraints</SectionLabel>
+                          <Text fontSize='xs' color='gray.300' lineHeight='1.5'>
+                            {safeStr(brief.constraints)}
+                          </Text>
+                        </Box>
+                      </>
+                    )}
+
                     {brief.resolution_direction && (
                       <>
                         <Divider borderColor='gray.800' />
@@ -537,7 +574,7 @@ export function BriefingRoomView({
           {/* Panel C: What Signal Still Needs */}
           <GridItem overflow='hidden'>
             <PanelCard title='▸ What Signal Still Needs' accent='yellow'>
-              {missingFlags.length === 0
+              {activeMissingFlags.length === 0
                 ? (
                   <Flex align='center' justify='center' h='full' minH={24}>
                     <VStack spacing={1}>
@@ -551,9 +588,9 @@ export function BriefingRoomView({
                 : (
                   <VStack align='stretch' spacing={0}>
                     <Text fontSize='2xs' fontFamily='mono' color='gray.600' mb={2}>
-                      {missingFlags.length} open question{missingFlags.length !== 1 ? 's' : ''} · answer saves as a note
+                      {activeMissingFlags.length} open question{activeMissingFlags.length !== 1 ? 's' : ''} · answer saves as a note
                     </Text>
-                    {missingFlags.map((q, i) => (
+                    {activeMissingFlags.map((q, i) => (
                       <QuestionCard key={i} q={q} index={i} ticketKey={ticketKey} pmApi={pmApi} onSaved={onNoteSaved} briefSituation={brief?.situation ?? null} />
                     ))}
                   </VStack>
